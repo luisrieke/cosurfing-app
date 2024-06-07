@@ -1,9 +1,8 @@
-# cosurfing.app ✌️
+# cosurfing.app 🏄‍♂️
 
-my social links and projects listed.
+Little booking tool for the Digital Nomad Village Tursi.
 
-This is a simple website which can be used as a lightweight and self-hosted alternative to linktree.
-Feel free to use it as a starting point for your own website.
+In the long run, I also want to build a platform to find cool Coworking Spaces in Europe. A project I build in the past was [cosurfingspace.com](https://www.cosurfingspace.com/) - this was actually part of my bachelor thesis. I want to build a new version of this project with a more modern stack and a better user experience. And of course real world data this time.
 
 &nbsp;
 
