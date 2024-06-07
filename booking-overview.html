@@ -1,0 +1,100 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <!-- HTML Meta Tags -->
+    <title>Room 1 Booking Overview</title>
+    <meta name="description" content="Room 1 reservations">
+
+    <meta name="keywords"
+        content="Reservations, Bookings, Tursi Digital Nomad Village, Coworking Spaces, Coworking Space, Coworking">
+    <meta name="robots" content="index, follow">
+    <meta name="language" content="English">
+    <meta name="author" content="Luis Rieke">
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="assets/css/main.css" />
+    <link rel="shortcut icon" href="assets/images/favicon.ico">
+
+    <!-- Facebook Meta Tags -->
+    <meta property="og:url" content="https://cosurfing.app">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Room 1 Booking Overview">
+    <meta property="og:description" content="See all current bookings for room 1.">
+    <meta property="og:image" content="/assets/images/index.png">
+
+    <!-- Twitter Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="twitter:domain" content="cosurfing.app">
+    <meta property="twitter:url" content="https://cosurfing.app">
+    <meta name="twitter:title" content="Room 1 Booking Overview">
+    <meta name="twitter:description" content="See all current bookings for room 1.">
+    <meta name="twitter:image" content="/assets/images/index.png">
+
+    <style>
+        #main {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        iframe {
+            margin: 0 auto;
+        }
+
+        .desktop-only {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            iframe {
+                display: none;
+            }
+
+            .desktop-only {
+                display: block;
+                font-size: 18px;
+                color: red;
+            }
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <button class="button" onclick="window.location.href='/' ;">← back home</button>
+
+    <section id="main">
+
+        <div class="headline">
+            <p>Room 1 calendar 🗓️</p>
+        </div>
+
+        <div class="inner">
+
+            <section id="one" class="wrapper style1">
+
+                <header class="special">
+
+                    <h3>All upcoming room bookings..</h3>
+
+                    <br>
+
+                    <iframe
+                        src="https://calendar.google.com/calendar/embed?height=600&wkst=2&ctz=Europe%2FBerlin&bgcolor=%23edf7f9&showTitle=0&mode=WEEK&showTz=0&showPrint=0&showTabs=0&src=ZGlnaXRhbG5vbWFkdmlsbGFnZUBnbWFpbC5jb20&color=%23039BE5"
+                        style="border-width:0" width="700" height="600" frameborder="0" scrolling="no"></iframe>
+                    <div class="desktop-only">
+                        This calendar can only be accessed with a Desktop screen.
+                    </div>
+
+                </header>
+            </section>
+        </div>
+    </section>
+
+</body>
+
+</html>
