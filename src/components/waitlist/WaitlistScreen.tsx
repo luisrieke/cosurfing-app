@@ -32,6 +32,7 @@ export function WaitlistScreen(props: WaitlistScreenProps) {
   const [cityName, setCityName] = useState(props.city?.name ?? props.cityName);
   const [country, setCountry] = useState(initialCountry.toUpperCase());
   const [countryQuery, setCountryQuery] = useState('');
+  const [countryFocused, setCountryFocused] = useState(false);
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [website, setWebsite] = useState(''); // honeypot
@@ -195,10 +196,16 @@ export function WaitlistScreen(props: WaitlistScreenProps) {
               <TextInput
                 value={countryQuery}
                 onChangeText={setCountryQuery}
+                onFocus={() => setCountryFocused(true)}
+                onBlur={() => setCountryFocused(false)}
                 placeholder="Start typing a country…"
                 placeholderTextColor={colors.textFaint}
                 autoCorrect={false}
-                style={[styles.countryInput, errors.country ? { borderColor: colors.danger } : null]}
+                style={[
+                  styles.countryInput,
+                  countryFocused && { borderColor: colors.textMuted },
+                  errors.country ? { borderColor: colors.danger } : null,
+                ]}
                 accessibilityLabel={strings.waitlist.country}
               />
               {countryMatches.length > 0 ? (
@@ -302,9 +309,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.borderStrong,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.surface,
     color: colors.text,
     fontSize: 16,
+    outlineWidth: 0,
   },
   countryList: {
     marginTop: spacing.xs,

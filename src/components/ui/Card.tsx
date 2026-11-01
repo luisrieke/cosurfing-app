@@ -1,6 +1,8 @@
-import { Pressable, StyleSheet, View, type ViewProps, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, type ViewProps, type ViewStyle } from 'react-native';
 
-import { colors, radius, shadow, spacing } from '@/lib/theme';
+import { colors, radius, spacing } from '@/lib/theme';
+
+import { Glass } from './Glass';
 
 interface CardProps extends ViewProps {
   onPress?: () => void;
@@ -11,8 +13,9 @@ interface CardProps extends ViewProps {
 
 export function Card({ onPress, padded = true, selected, style, children, ...rest }: CardProps) {
   const content = (
-    <View
+    <Glass
       {...rest}
+      variant="strong"
       style={[
         styles.card,
         padded && styles.padded,
@@ -21,7 +24,7 @@ export function Card({ onPress, padded = true, selected, style, children, ...res
       ]}
     >
       {children}
-    </View>
+    </Glass>
   );
   if (!onPress) return content;
   return (
@@ -37,11 +40,7 @@ export function Card({ onPress, padded = true, selected, style, children, ...res
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.bg,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...(shadow.card as object),
   },
   padded: {
     padding: spacing.lg,

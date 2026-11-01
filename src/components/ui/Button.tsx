@@ -1,7 +1,8 @@
 import { ActivityIndicator, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
-import { colors, layout, radius, spacing } from '@/lib/theme';
+import { colors, layout, radius, shadow, spacing } from '@/lib/theme';
 
+import { glassSurface } from './Glass';
 import { Icon, type IconName } from './Icon';
 import { Text } from './Text';
 
@@ -22,13 +23,16 @@ export interface ButtonProps {
   accessibilityLabel?: string;
 }
 
-const palette: Record<Variant, { bg: string; bgPressed: string; fg: string; border?: string }> = {
-  primary: { bg: colors.accent, bgPressed: colors.accentHover, fg: colors.onAccent },
-  secondary: { bg: colors.bg, bgPressed: colors.bgMuted, fg: colors.text, border: colors.borderStrong },
-  ghost: { bg: 'transparent', bgPressed: colors.bgMuted, fg: colors.text },
-  danger: { bg: colors.dangerSoft, bgPressed: '#F9D9D5', fg: colors.danger },
-  plus: { bg: colors.plus, bgPressed: '#4338CA', fg: colors.onAccent },
+const palette: Record<Variant, { bg: string; bgPressed: string; fg: string; glass?: boolean; raised?: boolean }> = {
+  primary: { bg: colors.accent, bgPressed: colors.accentPressed, fg: colors.onAccent, raised: true },
+  secondary: { bg: colors.glass, bgPressed: colors.glassStrong, fg: colors.text, glass: true },
+  ghost: { bg: 'transparent', bgPressed: colors.glass, fg: colors.text },
+  danger: { bg: colors.dangerSoft, bgPressed: colors.dangerSoftPressed, fg: colors.danger },
+  plus: { bg: colors.plus, bgPressed: colors.plusPressed, fg: colors.onAccent, raised: true },
 };
+
+const glass = glassSurface('light');
+const iconGlass = glassSurface('strong');
 
 const heights: Record<Size, number> = { sm: 36, md: layout.touchTarget, lg: 52 };
 
@@ -55,13 +59,13 @@ export function Button({
       accessibilityState={{ disabled: isDisabled, busy: loading }}
       onPress={onPress}
       disabled={isDisabled}
-      style={({ pressed }) => [
+      style={({ pressed, hovered }) => [
         styles.base,
+        p.glass ? glass : null,
+        p.raised && !isDisabled ? (shadow.accent as ViewStyle) : null,
         {
           height: heights[size],
-          backgroundColor: pressed ? p.bgPressed : p.bg,
-          borderColor: p.border ?? 'transparent',
-          borderWidth: p.border ? 1 : 0,
+          backgroundColor: pressed ? p.bgPressed : hovered && variant === 'primary' ? colors.accentHover : p.bg,
           paddingHorizontal: size === 'sm' ? spacing.md : spacing.lg,
           opacity: isDisabled ? 0.55 : 1,
           alignSelf: fullWidth ? 'stretch' : 'flex-start',
@@ -105,7 +109,7 @@ export function IconButton({
   accessibilityLabel,
   size = layout.touchTarget,
   color = colors.text,
-  background = colors.bg,
+  background,
   style,
   disabled,
 }: IconButtonProps) {
@@ -118,11 +122,12 @@ export function IconButton({
       hitSlop={6}
       style={({ pressed }) => [
         styles.iconButton,
+        background === undefined ? iconGlass : null,
         {
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: pressed ? colors.bgMuted : background,
+          backgroundColor: pressed ? colors.glassStrong : (background ?? colors.glass),
           opacity: disabled ? 0.5 : 1,
         },
         style,
@@ -135,7 +140,7 @@ export function IconButton({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -148,6 +153,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.glassBorder,
   },
 });

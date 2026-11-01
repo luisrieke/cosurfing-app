@@ -1,6 +1,8 @@
 # Cosurfing
 
-Find great places to work: coworking spaces and laptop‑friendly cafés, starting with **Berlin** and **Parga**. Every other city gets a waiting list.
+The best places to work in every big city, ranked. Every city with 500,000+ inhabitants plus curated nomad hotspots (~1,080 cities) gets a ranking of coworking spaces, laptop‑friendly cafés and libraries, with hard facts (measured Wi‑Fi speed, outlets, calls, day pass price, opening hours) and reviews from people who work there.
+
+Anyone can see the rankings, scores and hard facts. Review texts, detail ratings and the speed test history need a free account; Plus removes ads and unlocks all photos.
 
 One Expo codebase for **web (cosurfing.app), iOS and Android**. Supabase for data, auth and photos; Resend for email; Stripe (web) and RevenueCat (native) for the optional Plus subscription.
 
@@ -19,23 +21,26 @@ One Expo codebase for **web (cosurfing.app), iOS and Android**. Supabase for dat
 
 ```
 app/                     Expo Router routes
-  index.tsx              Home: city picker + search
-  [city]/index.tsx       Active city → explore (map + list); other city → waiting list
-  place/[slug]/          Public place profile, review, report
+  index.tsx              Home: all cities as cards (search, continent, sort), nomads.com style
+  [city]/index.tsx       City ranking (list first, optional map); unknown city → waiting list
+  place/[slug]/          Place profile (score, hard facts, website facts, reviews, speed test), review form, report
+  welcome.tsx            Onboarding after sign-up: name, home city, rate 3 places
   waitlist/              join, confirm, leave
-  auth/sign-in.tsx       Email OTP sign-in
-  account/               Profile, favorites, reviews, Plus status
+  auth/sign-in.tsx       Email OTP sign-in / sign-up
+  account/               Level + points, favorites, reviews, Plus status
   plus/                  Paywall + success page
   suggest.tsx            Suggest a place (signed in)
-  admin/                 Admin area (guarded by is_admin())
+  admin/                 Admin area (guarded by is_admin()): cities + crawl status, places, reviews,
+                         speed tests, suggestions, reports, waiting lists
 src/
-  components/            UI primitives, map, explore screen, waitlist form, admin shell
-  lib/                   theme, strings (all copy), supabase client, queries, auth, billing, purchases
-  hooks/                 useQuery, useBreakpoint, useUserLocation
+  components/            UI primitives, city ranking, place sections, speed test, sign-up gates, map
+  lib/                   theme, strings (all copy), supabase client, queries, auth, billing, funnel, speedtest
+  hooks/                 useQuery, usePaged, useBreakpoint, useUserLocation
+scripts/
+  import-cities.mjs      GeoNames ≥500k + nomad hotspots + Wikimedia cover photos → cities + crawl queue
 supabase/
-  migrations/            Schema, RLS, RPCs, storage buckets (applied to the project)
-  seed.sql               Example places flagged is_example = true
-  functions/             waitlist, billing, stripe-webhook, revenuecat-webhook
+  migrations/            Schema, RLS, RPCs, crawler schedule (applied to the project)
+  functions/             crawl-city, enrich-places, import-cities, waitlist, billing, stripe-webhook, revenuecat-webhook
 ```
 
 ## Local development
@@ -50,13 +55,35 @@ npm run typecheck && npm run lint
 
 Without Supabase credentials the app still renders and shows a clear "backend not configured" notice instead of pretending to work. Maps on native need a development build (`npx expo run:ios|android` or EAS); Expo Go does not include `react-native-maps` with these settings or `react-native-purchases`.
 
-Set `EXPO_PUBLIC_SHOW_EXAMPLE_PLACES=true` locally to see the seeded example places. They are flagged everywhere as example data and hidden from visitors by default; delete them in **Admin → Cities** before launch.
+The old seeded example places have been removed from the project; if any remain in another environment, **Admin → Cities** offers a one-click delete.
+
+## Data and crawler
+
+| Data | Source | License / attribution |
+| --- | --- | --- |
+| Cities, population, coordinates | [GeoNames](https://www.geonames.org) `cities500` (≥ 500,000 inhabitants) + `scripts/data/nomad-hotspots.json` | CC BY 4.0, credited in the footer |
+| City cover photos | Wikimedia Commons via Wikidata (P18) | Per-photo license + author stored in `cities.cover_attribution` / `cover_source_url`, shown on the city page |
+| Places and their tags (Wi‑Fi, outlets, hours, website…) | OpenStreetMap via [QLever](https://qlever.cs.uni-freiburg.de) SPARQL, Overpass as fallback | ODbL, "© OpenStreetMap contributors" on every page with OSM data, plus an "edit on OSM" link |
+| Day pass, advertised Mbit/s, phone booths, 24/7, laptop policy | The venue's own public website (`enrich-places`) | Each fact is stored with the sentence and URL it came from and shown with its source |
+| Reviews, detail ratings, speed tests | Users | Speed tests use Cloudflare's public speed endpoints. `submit_speed_test` checks GPS distance, accuracy and network type on the server; only tests confirmed on site count toward a place's medians |
+
+**Pipeline.** `scripts/import-cities.mjs` writes the cities and queues one crawl job per city. pg_cron then runs:
+
+- `cosurfing-crawl-city` every minute: `crawl-city` claims the next jobs by priority and upserts places. Fields an admin edited are listed in `places.locked_fields` and never overwritten.
+- `cosurfing-enrich-places` every 2 minutes: `enrich-places` reads the venue websites (honours robots.txt, SSRF-guarded, size and time limits, 90-day refresh).
+- `cosurfing-enqueue-due` daily: re-queues cities older than 30 days and prunes old jobs.
+
+Visiting a city that has not been crawled yet bumps its job to the front (`request_city_crawl`). Admins can re-crawl a city or re-read its websites in **Admin → Cities**.
+
+**Secrets.** The edge functions are deployed with `verify_jwt = false` and instead check a shared secret stored in Supabase Vault as `crawler_secret` (plus `project_url` for pg_net). Keep a local copy only in the gitignored `.env.crawler` and run the import with `set -a && . ./.env.crawler && node scripts/import-cities.mjs`.
+
+**Work score (0–10).** Reviews 55 %, Wi‑Fi 20 % (measured speed beats advertised beats "has Wi‑Fi"), outlets and calls 10 %, completeness of the info 10 %, type of place 5 %. Places with few reviews start near the middle. Ties are ranked by review count, then name, both in the city list and in the "#N place to work in …" rank on the place page.
 
 ## Supabase
 
-Project: `cosurfing` (eu-central-1). Migrations in `supabase/migrations` are already applied; the four Edge Functions are deployed.
+Project: `cosurfing` (eu-central-1). Migrations in `supabase/migrations` are already applied; all Edge Functions are deployed.
 
-To reproduce elsewhere: `supabase link --project-ref <ref>`, `supabase db push`, `supabase db execute -f supabase/seed.sql` (optional), then `supabase functions deploy <name> --no-verify-jwt` for each function (they authenticate in code: public waitlist actions are rate‑limited, admin/billing actions verify the user's session, webhooks verify provider signatures/secrets).
+To reproduce elsewhere: `supabase link --project-ref <ref>`, `supabase db push`, add `crawler_secret` and `project_url` to Vault, run the city import, then `supabase functions deploy <name> --no-verify-jwt` for each function (they authenticate in code: public waitlist actions are rate‑limited, admin/billing actions verify the user's session, webhooks verify provider signatures/secrets).
 
 ### Auth (email OTP)
 
@@ -102,10 +129,11 @@ Email flow: join → confirmation email (48 h token) → confirm → entry `veri
 
 ## Plus (€0.99 / week)
 
-Free: ads (labelled; development placeholder only until a provider is configured), full coworking profiles, café pins + facts, café photos as tiny blurred previews, café review text replaced by locked placeholders.
-Plus: no ads, all café photos and reviews, same status on every platform (entitlement lives in `public.entitlements`, keyed by user).
+Visitors: rankings, work scores, star averages and all hard facts. Review texts, detail ratings and speed-test history are locked behind a **free account**; the app pushes sign-up with a gate after rank 10, a sticky banner and one interstitial from the second place viewed. After sign-up, `/welcome` asks for a home city and three quick ratings.
+Free account: everything above unlocked, reviews, speed tests, points and levels. Ads are shown (labelled; development placeholder until a provider is configured).
+Plus: no ads and all café photos (otherwise tiny blurred previews), same status on every platform (entitlement lives in `public.entitlements`, keyed by user).
 
-Protection is server‑side: full photos live in the **private** `place-photos` bucket (storage RLS allows coworking photos for everyone, café photos for Plus/admins), blurred 24 px previews in the public `place-previews` bucket, and `get_place_reviews()` nulls café review bodies for non‑Plus callers.
+Protection is server‑side: `get_place_reviews()` returns review bodies and detail ratings only to signed-in callers, `get_place_speed_tests()` returns the history only to signed-in callers, full photos live in the **private** `place-photos` bucket (storage RLS allows coworking photos for everyone, café photos for Plus/admins) and blurred 24 px previews in the public `place-previews` bucket.
 
 ### Stripe (web)
 
@@ -140,13 +168,14 @@ MapLibre loads its worker from a separate file that Metro cannot resolve, so `sc
 - Resend domain + API key and `RESEND_REPLY_TO`; test with `EMAIL_SANDBOX_TO` first.
 - Stripe product/price/webhook; RevenueCat apps/entitlement/webhook.
 - Supabase Auth OTP template with `{{ .Token }}`, redirect URLs, custom SMTP.
-- First admin row, then real Berlin/Parga places with photos you have the rights to; delete the example places.
+- First admin row. Places come from the crawler; add photos only when you have the rights to them.
 - Google Maps Android key, EAS project id, store listings.
 
 ## Principles baked in
 
 - Only data that is known is shown; unknown facts render as "Unknown", never invented.
-- Example data is flagged and cannot be mistaken for real places.
+- Every crawled fact names its source (OpenStreetMap or the venue's website, with the quoted sentence).
+- Account gating is enforced in the database RPCs, not only in the UI.
 - Service keys, Resend and payment secrets exist only in Edge Function secrets.
 - Public forms are validated server‑side (honeypot, rate limits, token hashing).
 - Plus status is never set by the client; integrations are never shown as working when they are not configured.

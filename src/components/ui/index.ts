@@ -1,7 +1,8 @@
-export { Badge, CategoryBadge } from './Badge';
+export { Badge, CategoryBadge, categoryIcon, categoryLabel } from './Badge';
 export { Button, IconButton } from './Button';
 export { Card } from './Card';
 export { Chip } from './Chip';
+export { Glass, glassSurface, type GlassVariant } from './Glass';
 export { Icon, type IconName } from './Icon';
 export { Input } from './Input';
 export { Screen, Section, TopBar } from './Screen';

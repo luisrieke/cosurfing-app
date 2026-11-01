@@ -24,6 +24,34 @@ export function formatEuroCents(cents: number | null | undefined): string {
   return Number.isInteger(euros) ? `€${euros}` : `€${euros.toFixed(2)}`;
 }
 
+export function formatMoney(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    }).format(amount);
+  } catch {
+    return `${amount} ${currency}`;
+  }
+}
+
+/** Day pass from the admin-entered price (EUR cents) or, failing that, the venue website. */
+export function dayPassLabel(
+  cents: number | null | undefined,
+  web: { value: { amount: number; currency: string } } | null | undefined,
+): string | null {
+  if (cents !== null && cents !== undefined) return formatEuroCents(cents);
+  if (web?.value) return formatMoney(web.value.amount, web.value.currency);
+  return null;
+}
+
+export function formatMbps(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '';
+  const n = Number(value);
+  return n >= 100 ? `${Math.round(n)} Mbps` : `${n.toFixed(n < 10 ? 1 : 0)} Mbps`;
+}
+
 export function formatRating(avg: number | null | undefined): string {
   if (avg === null || avg === undefined) return '';
   return Number(avg).toFixed(1);
@@ -56,6 +84,11 @@ export function normalizeWebsite(value: string | null | undefined): string | nul
   const v = (value ?? '').trim();
   if (!v) return null;
   return /^https?:\/\//i.test(v) ? v : `https://${v}`;
+}
+
+/** The venue website, unless the crawler found it dead (it stays stored for the recheck). */
+export function liveWebsite(place: { website: string | null; web_crawl_status?: string | null }): string | null {
+  return place.web_crawl_status === 'dead' ? null : place.website;
 }
 
 export function hostFromUrl(url: string): string {

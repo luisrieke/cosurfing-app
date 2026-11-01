@@ -171,6 +171,7 @@ export default function PlusScreen() {
             </View>
           ))}
         </View>
+        <Notice tone="info" body={strings.plus.freeIncludes} />
       </Card>
 
       {!isSupabaseConfigured ? <Notice tone="warning" body={strings.common.backendNotConfigured} /> : null}

@@ -19,7 +19,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     package: 'app.cosurfing.mobile',
     adaptiveIcon: {
-      backgroundColor: '#F7F5F0',
+      backgroundColor: '#F4EFE6',
       foregroundImage: './assets/android-icon-foreground.png',
       backgroundImage: './assets/android-icon-background.png',
       monochromeImage: './assets/android-icon-monochrome.png',
@@ -47,7 +47,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         image: './assets/splash-icon.png',
         imageWidth: 180,
         resizeMode: 'contain',
-        backgroundColor: '#F7F5F0',
+        backgroundColor: '#F4EFE6',
       },
     ],
     [
@@ -60,7 +60,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-image-picker',
       {
-        photosPermission: 'Cosurfing needs access to your photos so admins can upload place photos.',
+        photosPermission: 'Cosurfing needs access to your photos to let you add photos of places.',
       },
     ],
   ],

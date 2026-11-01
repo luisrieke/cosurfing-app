@@ -2,6 +2,7 @@ import { Pressable, StyleSheet } from 'react-native';
 
 import { colors, radius, spacing } from '@/lib/theme';
 
+import { glassSurface } from './Glass';
 import { Icon, type IconName } from './Icon';
 import { Text } from './Text';
 
@@ -13,6 +14,9 @@ interface ChipProps {
   color?: string;
 }
 
+// Chips live in horizontal scroll rows that clip anything drawn outside them.
+const glass = glassSurface('strong', { flat: true });
+
 export function Chip({ label, selected, onPress, icon, color = colors.accent }: ChipProps) {
   return (
     <Pressable
@@ -23,7 +27,7 @@ export function Chip({ label, selected, onPress, icon, color = colors.accent }: 
         styles.chip,
         selected
           ? { backgroundColor: color, borderColor: color }
-          : { backgroundColor: pressed ? colors.bgMuted : colors.bg, borderColor: colors.borderStrong },
+          : [glass, pressed && { backgroundColor: colors.surface }],
       ]}
     >
       {icon ? <Icon name={icon} size={14} color={selected ? colors.onAccent : colors.textMuted} /> : null}
@@ -40,7 +44,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     height: 36,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.md + 2,
     borderRadius: radius.pill,
     borderWidth: 1,
   },

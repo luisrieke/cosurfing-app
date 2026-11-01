@@ -2,50 +2,90 @@ import { Image } from 'expo-image';
 import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { AdminShell } from '@/components/admin/AdminShell';
 import { Badge, Button, Chip, Icon, Input, Notice, Section, Skeleton, Text } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
-import { normalizeWebsite, slugify } from '@/lib/format';
+import { formatDate, normalizeWebsite, slugify } from '@/lib/format';
 import { deletePlacePhoto, pickImage, uploadPlacePhoto } from '@/lib/photoUpload';
 import {
   adminDeletePlace,
   adminGetPhotoRows,
   adminGetPlace,
   adminSavePlace,
+  adminSearchCities,
   adminUpdatePhotoOrder,
-  getAllCities,
+  getCityById,
   type PlaceInput,
+  toPlaceInput,
 } from '@/lib/queries';
 import { previewUrl, signedPhotoUrls } from '@/lib/storage';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
-import type { CallsValue, FocusValue, PlaceCategory, PlaceStatus, PowerValue, WifiValue } from '@/lib/types';
+import type {
+  CallsValue,
+  FocusValue,
+  InternetFeeValue,
+  Place,
+  PlaceCategory,
+  PlaceStatus,
+  PowerValue,
+  WifiValue,
+  YesNoUnknown,
+} from '@/lib/types';
+
+/** Fields the OpenStreetMap crawler overwrites unless they are listed in locked_fields. */
+const CRAWLED_FIELDS = [
+  'name',
+  'category',
+  'status',
+  'address',
+  'lat',
+  'lng',
+  'website',
+  'phone',
+  'opening_hours',
+  'wifi',
+  'internet_fee',
+  'outdoor_seating',
+  'wheelchair',
+] as const satisfies readonly (keyof PlaceInput)[];
 
 const emptyInput = (cityId: string): PlaceInput => ({
   city_id: cityId,
   slug: '',
   name: '',
-  category: 'cafe',
+  name_local: null,
+  category: 'coworking',
   status: 'draft',
   description: null,
   address: null,
   lat: 0,
   lng: 0,
   website: null,
+  phone: null,
   opening_hours: null,
   price_level: null,
   day_pass_price_cents: null,
   wifi: 'unknown',
+  internet_fee: 'unknown',
   power_outlets: 'unknown',
   focus: 'unknown',
   calls: 'unknown',
+  outdoor_seating: 'unknown',
+  wheelchair: 'unknown',
   laptop_rules: null,
   last_verified_at: null,
   is_example: false,
+  locked_fields: [],
 });
+
+/** Crawled fields whose value differs from what was loaded. */
+function changedCrawledFields(before: PlaceInput, after: PlaceInput): string[] {
+  return CRAWLED_FIELDS.filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]));
+}
 
 function confirm(message: string, onYes: () => void) {
   if (Platform.OS === 'web') {
@@ -74,9 +114,11 @@ export default function AdminPlaceEditor() {
 function Editor({ placeId }: { placeId: string | null }) {
   const router = useRouter();
   const { isAdmin } = useAuth();
-  const cities = useQuery('all-cities', getAllCities, isAdmin);
+  const [cityQuery, setCityQuery] = useState('');
+  const cities = useQuery(`admin-city-search:${cityQuery}`, () => adminSearchCities(cityQuery, 12), isAdmin);
   const placeQuery = useQuery(`admin-place:${placeId}`, () => adminGetPlace(placeId!), Boolean(placeId) && isAdmin);
   const [form, setForm] = useState<PlaceInput | null>(null);
+  const [original, setOriginal] = useState<PlaceInput | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [slugTouched, setSlugTouched] = useState(Boolean(placeId));
   const [busy, setBusy] = useState<string | null>(null);
@@ -93,15 +135,16 @@ function Editor({ placeId }: { placeId: string | null }) {
   // Done as a state adjustment during render rather than in an effect.
   if (!hydrated) {
     if (placeId && placeQuery.data) {
-      const { id: _id, created_at: _c, updated_at: _u, review_count: _rc, rating_avg: _ra, ...rest } = placeQuery.data;
+      const rest = toPlaceInput(placeQuery.data);
       setForm(rest);
+      setOriginal(rest);
       setLatText(String(rest.lat));
       setLngText(String(rest.lng));
       setPriceLevelText(rest.price_level ? String(rest.price_level) : '');
       setDayPassText(rest.day_pass_price_cents !== null ? (rest.day_pass_price_cents / 100).toFixed(2) : '');
       setHydrated(true);
     } else if (!placeId && cities.data && cities.data.length > 0) {
-      const first = cities.data.find((c) => c.status === 'active') ?? cities.data[0]!;
+      const first = cities.data[0]!;
       setForm(emptyInput(first.id));
       setLatText(String(first.lat));
       setLngText(String(first.lng));
@@ -141,13 +184,20 @@ function Editor({ placeId }: { placeId: string | null }) {
         opening_hours: form.opening_hours?.trim() || null,
         laptop_rules: form.laptop_rules?.trim() || null,
         last_verified_at: form.last_verified_at || null,
+        name_local: form.name_local?.trim() || null,
+        phone: form.phone?.trim() || null,
         lat,
         lng,
         price_level: priceLevel,
         day_pass_price_cents: dayPass,
       };
+      if (original) {
+        const changed = changedCrawledFields(original, input);
+        input.locked_fields = [...new Set([...(form.locked_fields ?? []), ...changed])];
+      }
       const savedId = await adminSavePlace(placeId, input);
       setForm(input);
+      setOriginal(input);
       setSaved(true);
       if (!placeId) router.replace(`/admin/places/${savedId}`);
     } catch (e) {
@@ -183,7 +233,8 @@ function Editor({ placeId }: { placeId: string | null }) {
   if (placeId && !placeQuery.data) return <Notice tone="warning" body={strings.place.notFound} />;
 
   const f = strings.admin.fields;
-  const statusTone = form.status === 'published' ? 'success' : form.status === 'draft' ? 'warning' : 'neutral';
+  const statusTone =
+    form.status === 'published' ? 'success' : form.status === 'draft' ? 'warning' : form.status === 'needs_review' ? 'danger' : 'neutral';
 
   return (
     <View style={styles.form}>
@@ -221,24 +272,27 @@ function Editor({ placeId }: { placeId: string | null }) {
         <View style={styles.field}>
           <Text variant="smallStrong">{f.category}</Text>
           <View style={styles.chips}>
-            {(['coworking', 'cafe'] as PlaceCategory[]).map((c) => (
+            {(['coworking', 'cafe', 'library'] as PlaceCategory[]).map((c) => (
               <Chip key={c} label={strings.explore[c]} color={colors[c]} selected={form.category === c} onPress={() => update('category', c)} />
             ))}
           </View>
         </View>
         <View style={styles.field}>
           <Text variant="smallStrong">{f.city}</Text>
+          <SelectedCity cityId={form.city_id} />
+          <Input value={cityQuery} onChangeText={setCityQuery} placeholder={f.citySearch} autoCapitalize="none" />
           <View style={styles.chips}>
             {(cities.data ?? []).map((c) => (
               <Chip
                 key={c.id}
-                label={`${c.name}${c.status === 'waitlist' ? ' (waitlist)' : ''}`}
+                label={`${c.name}, ${c.country_code}`}
                 selected={form.city_id === c.id}
                 onPress={() => update('city_id', c.id)}
               />
             ))}
           </View>
         </View>
+        <Input label={f.nameLocal} optional value={form.name_local ?? ''} onChangeText={(v) => update('name_local', v)} />
         <Input label={f.description} optional value={form.description ?? ''} onChangeText={(v) => update('description', v)} multiline />
       </Section>
 
@@ -253,14 +307,18 @@ function Editor({ placeId }: { placeId: string | null }) {
           </View>
         </View>
         <Input label={f.website} optional value={form.website ?? ''} onChangeText={(v) => update('website', v)} autoCapitalize="none" keyboardType="url" />
+        <Input label={f.phone} optional value={form.phone ?? ''} onChangeText={(v) => update('phone', v)} keyboardType="phone-pad" />
         <Input label={f.openingHours} optional value={form.opening_hours ?? ''} onChangeText={(v) => update('opening_hours', v)} placeholder="Mon–Fri 8:00–18:00" />
       </Section>
 
       <Section title={strings.place.facts}>
         <EnumField label={f.wifi} value={form.wifi} options={['yes', 'no', 'unknown'] as WifiValue[]} onChange={(v) => update('wifi', v)} />
+        <EnumField label={f.internetFee} value={form.internet_fee} options={['no', 'customers', 'yes', 'unknown'] as InternetFeeValue[]} onChange={(v) => update('internet_fee', v)} />
         <EnumField label={f.power} value={form.power_outlets} options={['plenty', 'some', 'none', 'unknown'] as PowerValue[]} onChange={(v) => update('power_outlets', v)} />
         <EnumField label={f.focus} value={form.focus} options={['great', 'okay', 'poor', 'unknown'] as FocusValue[]} onChange={(v) => update('focus', v)} />
         <EnumField label={f.calls} value={form.calls} options={['yes', 'limited', 'no', 'unknown'] as CallsValue[]} onChange={(v) => update('calls', v)} />
+        <EnumField label={f.outdoorSeating} value={form.outdoor_seating} options={['yes', 'no', 'unknown'] as YesNoUnknown[]} onChange={(v) => update('outdoor_seating', v)} />
+        <EnumField label={f.wheelchair} value={form.wheelchair} options={['yes', 'limited', 'no', 'unknown'] as Place['wheelchair'][]} onChange={(v) => update('wheelchair', v)} />
         <View style={styles.twoCol}>
           <View style={styles.col}>
             <Input label={f.priceLevel} optional value={priceLevelText} onChangeText={setPriceLevelText} keyboardType="number-pad" />
@@ -284,6 +342,33 @@ function Editor({ placeId }: { placeId: string | null }) {
         </Pressable>
       </Section>
 
+      {placeId ? (
+        <Section title={strings.admin.lockedTitle}>
+          <Text variant="small" tone="muted">
+            {strings.admin.lockedHint}
+          </Text>
+          {(form.locked_fields ?? []).length === 0 ? (
+            <Text variant="small" tone="faint">
+              {strings.admin.lockedNone}
+            </Text>
+          ) : (
+            <View style={styles.chips}>
+              {form.locked_fields.map((k) => (
+                <Chip
+                  key={k}
+                  label={k}
+                  icon="lock"
+                  selected
+                  onPress={() => update('locked_fields', form.locked_fields.filter((x) => x !== k))}
+                />
+              ))}
+            </View>
+          )}
+        </Section>
+      ) : null}
+
+      {placeId && placeQuery.data ? <CrawlerInfo place={placeQuery.data} /> : null}
+
       {placeId ? <Photos placeId={placeId} /> : <Notice tone="info" body="Save the place first to add photos." />}
 
       <View style={styles.actions}>
@@ -302,6 +387,49 @@ function Editor({ placeId }: { placeId: string | null }) {
         <Button title="Open public page" variant="ghost" icon="external-link" onPress={() => router.push(`/place/${form.slug}`)} />
       ) : null}
     </View>
+  );
+}
+
+function SelectedCity({ cityId }: { cityId: string }) {
+  const city = useQuery(`admin-city:${cityId}`, () => getCityById(cityId), Boolean(cityId));
+  if (!city.data) return null;
+  return (
+    <Text variant="body">
+      {city.data.name}, {city.data.country_name}
+    </Text>
+  );
+}
+
+function CrawlerInfo({ place }: { place: Place }) {
+  return (
+    <Section title={strings.admin.crawlerInfo}>
+      <Text variant="small" tone="muted">
+        {strings.admin.source(place.source)} · {strings.admin.workScore(Number(place.work_score))}
+      </Text>
+      <Text variant="small" tone="muted">
+        {strings.admin.webCrawl(place.web_crawl_status, place.web_crawled_at ? formatDate(place.web_crawled_at) : null)}
+      </Text>
+      {place.review_reason ? (
+        <Text variant="small" tone="danger">
+          {strings.admin.reviewReasons[place.review_reason] ?? place.review_reason}
+        </Text>
+      ) : null}
+      {place.flagged_website ? (
+        <Text variant="small" tone="muted">
+          {strings.admin.oldWebsite(place.flagged_website)}
+        </Text>
+      ) : null}
+      {place.osm_type && place.osm_id ? (
+        <Button
+          title={strings.admin.openOsm}
+          variant="ghost"
+          size="sm"
+          icon="external-link"
+          onPress={() => Linking.openURL(`https://www.openstreetmap.org/${place.osm_type}/${place.osm_id}`)}
+          style={{ alignSelf: 'flex-start' }}
+        />
+      ) : null}
+    </Section>
   );
 }
 

@@ -1,19 +1,22 @@
 import Head from 'expo-router/head';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { Button, Input, Notice, Screen, Text, TopBar } from '@/components/ui';
+import { Button, Icon, Input, Notice, Screen, Text, TopBar } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/env';
 import { isValidEmail } from '@/lib/format';
+import { getProfile } from '@/lib/queries';
 import { supabase } from '@/lib/supabase';
 import { strings } from '@/lib/strings';
-import { spacing } from '@/lib/theme';
+import { colors, spacing } from '@/lib/theme';
 
 export default function SignInScreen() {
   const router = useRouter();
-  const { redirect } = useLocalSearchParams<{ redirect?: string }>();
+  const params = useLocalSearchParams<{ redirect?: string; mode?: string }>();
+  const redirect = params.redirect;
+  const [mode, setMode] = useState<'signup' | 'login'>(params.mode === 'login' ? 'login' : 'signup');
   const { user, ready } = useAuth();
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -21,10 +24,13 @@ export default function SignInScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const target: Href = (redirect && redirect.startsWith('/') ? redirect : '/account') as Href;
+  const safeRedirect = redirect && redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : null;
+  const target: Href = (safeRedirect ?? '/') as Href;
 
+  // Set while verifying a code, so the post-sign-in routing below decides where to go.
+  const verifying = useRef(false);
   useEffect(() => {
-    if (ready && user) router.replace(target);
+    if (ready && user && !verifying.current) router.replace(target);
   }, [ready, user, router, target]);
 
   const sendCode = async () => {
@@ -56,14 +62,22 @@ export default function SignInScreen() {
     }
     setBusy(true);
     setError(null);
-    const { error: err } = await supabase.auth.verifyOtp({
+    verifying.current = true;
+    const { data, error: err } = await supabase.auth.verifyOtp({
       email: email.trim().toLowerCase(),
       token,
       type: 'email',
     });
     setBusy(false);
-    if (err) {
+    if (err || !data.user) {
+      verifying.current = false;
       setError(strings.auth.invalidCode);
+      return;
+    }
+    // New accounts get the short onboarding first, then continue where they came from.
+    const profile = await getProfile(data.user.id).catch(() => null);
+    if (profile && !profile.onboarded_at) {
+      router.replace({ pathname: '/welcome', params: safeRedirect ? { redirect: safeRedirect } : {} });
       return;
     }
     router.replace(target);
@@ -72,13 +86,23 @@ export default function SignInScreen() {
   return (
     <Screen>
       <Head>
-        <title>Sign in · Cosurfing</title>
+        <title>{`${mode === 'login' ? strings.nav.logIn : strings.nav.signUp} · Cosurfing`}</title>
       </Head>
-      <TopBar title={strings.common.signIn} />
+      <TopBar title={mode === 'login' ? strings.nav.logIn : strings.nav.signUp} />
       <View style={styles.intro}>
-        <Text variant="title">{strings.auth.title}</Text>
+        <Text variant="title">{mode === 'login' ? strings.auth.titleLogin : strings.auth.title}</Text>
         <Text tone="muted">{strings.auth.intro}</Text>
       </View>
+      {mode === 'signup' && step === 'email' ? (
+        <View style={styles.benefits}>
+          {strings.auth.benefits.map((b) => (
+            <View key={b} style={styles.benefit}>
+              <Icon name="check" size={16} color={colors.accent} />
+              <Text variant="small">{b}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       {!isSupabaseConfigured ? <Notice tone="warning" body={strings.common.backendNotConfigured} /> : null}
 
@@ -100,8 +124,17 @@ export default function SignInScreen() {
             error={error}
           />
           <Button title={strings.auth.sendCode} size="lg" fullWidth loading={busy} onPress={sendCode} disabled={!isSupabaseConfigured} />
+          <Button
+            title={mode === 'login' ? strings.auth.switchToSignUp : strings.auth.switchToLogin}
+            variant="ghost"
+            size="sm"
+            onPress={() => setMode(mode === 'login' ? 'signup' : 'login')}
+          />
           <Text variant="small" tone="muted">
-            {strings.auth.legal}
+            {strings.auth.legal}{' '}
+            <Text variant="small" tone="accent" onPress={() => router.push('/terms')} accessibilityRole="link">
+              {strings.auth.termsLink}
+            </Text>
           </Text>
         </View>
       ) : (
@@ -147,6 +180,17 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: spacing.lg,
+  },
+  benefits: {
+    gap: spacing.sm,
+    padding: spacing.lg,
+    borderRadius: 16,
+    backgroundColor: colors.accentSoft,
+  },
+  benefit: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   links: {
     flexDirection: 'row',

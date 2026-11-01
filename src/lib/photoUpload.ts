@@ -1,7 +1,9 @@
 /**
- * Admin photo pipeline: pick -> resize to 1600px (full, private bucket) and 24px (blurred
+ * Photo pipeline: pick -> resize to 1600px (full, private bucket) and 24px (blurred
  * preview, public bucket) -> upload both -> insert the place_photos row.
- * Storage RLS restricts uploads to admins; the tiny preview is what free users see for cafés.
+ * Admin uploads are published right away. User uploads go to {place}/{user}/… and stay
+ * 'pending' until an admin approves them; storage RLS only allows users their own folder.
+ * Re-encoding to JPEG drops EXIF data (including GPS) from user photos.
  */
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
@@ -11,18 +13,25 @@ import { requireSupabase } from './supabase';
 
 export const FULL_WIDTH = 1600;
 export const PREVIEW_WIDTH = 24;
+export const MAX_USER_PHOTOS_PER_UPLOAD = 5;
 
 export async function pickImage(): Promise<string | null> {
+  const [uri] = await pickImages(1);
+  return uri ?? null;
+}
+
+export async function pickImages(limit: number): Promise<string[]> {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) throw new Error('Photo library access was denied.');
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images'],
     quality: 1,
-    allowsMultipleSelection: false,
+    allowsMultipleSelection: limit > 1,
+    selectionLimit: limit,
     exif: false,
   });
-  if (result.canceled || !result.assets[0]) return null;
-  return result.assets[0].uri;
+  if (result.canceled) return [];
+  return result.assets.slice(0, limit).map((a) => a.uri);
 }
 
 async function resizeToJpeg(uri: string, width: number, compress: number): Promise<string> {
@@ -49,14 +58,26 @@ export interface UploadedPhoto {
   sort_order: number;
 }
 
-export async function uploadPlacePhoto(placeId: string, sourceUri: string, sortOrder: number): Promise<UploadedPhoto> {
+export interface UploadAsUser {
+  /** Uploading user; the photo is stored in their folder and waits for review. */
+  userId: string;
+  /** When the user accepted the Terms (usage rights for the photo). */
+  rightsAcceptedAt: string;
+}
+
+export async function uploadPlacePhoto(
+  placeId: string,
+  sourceUri: string,
+  sortOrder: number,
+  asUser?: UploadAsUser,
+): Promise<UploadedPhoto> {
   const sb = requireSupabase();
   const [fullUri, previewUri] = await Promise.all([
     resizeToJpeg(sourceUri, FULL_WIDTH, 0.82),
     resizeToJpeg(sourceUri, PREVIEW_WIDTH, 0.6),
   ]);
   const [fullBytes, previewBytes] = await Promise.all([readBytes(fullUri), readBytes(previewUri)]);
-  const path = `${placeId}/${randomId()}.jpg`;
+  const path = asUser ? `${placeId}/${asUser.userId}/${randomId()}.jpg` : `${placeId}/${randomId()}.jpg`;
 
   const full = await sb.storage.from(PHOTO_BUCKET).upload(path, fullBytes, { contentType: 'image/jpeg', upsert: false });
   if (full.error) throw new Error(full.error.message);
@@ -66,11 +87,13 @@ export async function uploadPlacePhoto(placeId: string, sourceUri: string, sortO
     throw new Error(preview.error.message);
   }
 
-  const { data, error } = await sb
-    .from('place_photos')
-    .insert({ place_id: placeId, full_path: path, preview_path: path, sort_order: sortOrder })
-    .select('id, full_path, preview_path, sort_order')
-    .single();
+  const row: Record<string, unknown> = { place_id: placeId, full_path: path, preview_path: path, sort_order: sortOrder };
+  if (asUser) {
+    row.uploaded_by = asUser.userId;
+    row.status = 'pending';
+    row.rights_accepted_at = asUser.rightsAcceptedAt;
+  }
+  const { data, error } = await sb.from('place_photos').insert(row).select('id, full_path, preview_path, sort_order').single();
   if (error) {
     await Promise.all([sb.storage.from(PHOTO_BUCKET).remove([path]), sb.storage.from(PREVIEW_BUCKET).remove([path])]);
     throw new Error(error.message);

@@ -1,10 +1,16 @@
 export type CityStatus = 'active' | 'waitlist';
-export type PlaceCategory = 'coworking' | 'cafe';
-export type PlaceStatus = 'draft' | 'published' | 'archived';
+export type PlaceCategory = 'coworking' | 'cafe' | 'library';
+export type PlaceStatus = 'draft' | 'published' | 'needs_review' | 'archived';
+export type PlaceReviewReason = 'website_parked' | 'website_dead' | 'reported_closed';
 export type WifiValue = 'yes' | 'no' | 'unknown';
 export type PowerValue = 'plenty' | 'some' | 'none' | 'unknown';
 export type FocusValue = 'great' | 'okay' | 'poor' | 'unknown';
 export type CallsValue = 'yes' | 'limited' | 'no' | 'unknown';
+export type InternetFeeValue = 'no' | 'yes' | 'customers' | 'unknown';
+export type YesNoUnknown = 'yes' | 'no' | 'unknown';
+export type Continent = 'AF' | 'AS' | 'EU' | 'NA' | 'SA' | 'OC' | 'AN';
+export type CrawlStatus = 'pending' | 'running' | 'done' | 'failed';
+export type WebCrawlStatus = 'pending' | 'running' | 'done' | 'failed' | 'blocked' | 'skipped' | 'parked' | 'dead';
 
 export interface City {
   id: string;
@@ -17,6 +23,60 @@ export interface City {
   zoom: number;
   status: CityStatus;
   created_at: string;
+  geonames_id: number | null;
+  population: number | null;
+  continent: Continent | null;
+  region: string | null;
+  timezone: string | null;
+  is_hotspot: boolean;
+  cover_url: string | null;
+  cover_thumb_url: string | null;
+  cover_attribution: string | null;
+  cover_source_url: string | null;
+  crawl_status: CrawlStatus;
+  crawled_at: string | null;
+  crawl_error: string | null;
+  crawl_radius_km: number;
+  place_count: number;
+  coworking_count: number;
+  cafe_count: number;
+  library_count: number;
+  review_count: number;
+  speed_test_count: number;
+  median_download_mbps: number | null;
+  top_score: number | null;
+  city_score: number | null;
+}
+
+/** One fact read from the venue's own website, with the sentence it came from. */
+export interface WebFact<T = unknown> {
+  value: T;
+  snippet: string | null;
+  url: string;
+}
+
+export interface WebFacts {
+  day_pass?: WebFact<{ amount: number; currency: string }>;
+  advertised_mbps?: WebFact<number>;
+  phone_booths?: WebFact<true>;
+  meeting_rooms?: WebFact<true>;
+  open_24_7?: WebFact<true>;
+  wifi_mentioned?: WebFact<true>;
+  laptops?: WebFact<'welcome' | 'not_allowed'>;
+  opening_hours?: WebFact<string>;
+  price_range?: WebFact<string>;
+  description?: WebFact<string>;
+  _checked?: WebFact<string>;
+}
+
+/** Each part is on a 0–10 scale; `score` is the weighted total (see compute_place_score). */
+export interface ScoreBreakdown {
+  score: number;
+  reviews: number;
+  wifi: number;
+  facts: number;
+  completeness: number;
+  category: number;
 }
 
 export interface Place {
@@ -45,16 +105,159 @@ export interface Place {
   rating_avg: number | null;
   created_at: string;
   updated_at: string;
+  source: 'osm' | 'user' | 'admin';
+  osm_type: 'node' | 'way' | 'relation' | null;
+  osm_id: number | null;
+  osm_tags: Record<string, string> | null;
+  osm_seen_at: string | null;
+  name_local: string | null;
+  phone: string | null;
+  internet_fee: InternetFeeValue;
+  outdoor_seating: YesNoUnknown;
+  wheelchair: 'yes' | 'limited' | 'no' | 'unknown';
+  web_facts: WebFacts;
+  web_crawl_status: WebCrawlStatus;
+  web_crawled_at: string | null;
+  locked_fields: string[];
+  review_reason: PlaceReviewReason | null;
+  /** Website that was removed because it was parked or dead. */
+  flagged_website: string | null;
+  website_status: 'ok' | 'parked' | 'dead' | null;
+  website_fail_count: number;
+  download_median_mbps: number | null;
+  upload_median_mbps: number | null;
+  ping_median_ms: number | null;
+  speed_test_count: number;
+  last_speed_test_at: string | null;
+  text_review_count: number;
+  work_score: number;
+  score_breakdown: ScoreBreakdown | null;
 }
 
-/** Published place as shown in lists, with its cover photo resolved for the current viewer. */
-export interface PublicPlace extends Place {
-  /** Always available: tiny blurred preview (public bucket). */
+/** Row of `list_cities`. */
+export interface CityListItem {
+  id: string;
+  slug: string;
+  name: string;
+  country_code: string;
+  country_name: string;
+  region: string | null;
+  continent: Continent | null;
+  population: number | null;
+  is_hotspot: boolean;
+  cover_url: string | null;
+  cover_thumb_url: string | null;
+  cover_attribution: string | null;
+  crawl_status: CrawlStatus;
+  place_count: number;
+  coworking_count: number;
+  cafe_count: number;
+  library_count: number;
+  review_count: number;
+  speed_test_count: number;
+  median_download_mbps: number | null;
+  top_score: number | null;
+  city_score: number | null;
+  total_count: number;
+}
+
+export type CitySort = 'score' | 'name' | 'places' | 'wifi' | 'reviews' | 'population';
+export type RankingSort = 'score' | 'rating' | 'wifi' | 'reviews' | 'name';
+
+/** Row of `get_city_ranking`. */
+export interface RankedPlace {
+  id: string;
+  slug: string;
+  name: string;
+  name_local: string | null;
+  category: PlaceCategory;
+  address: string | null;
+  lat: number;
+  lng: number;
+  website: string | null;
+  opening_hours: string | null;
+  price_level: number | null;
+  day_pass_price_cents: number | null;
+  wifi: WifiValue;
+  power_outlets: PowerValue;
+  calls: CallsValue;
+  focus: FocusValue;
+  internet_fee: InternetFeeValue;
+  outdoor_seating: YesNoUnknown;
+  web_day_pass: WebFact<{ amount: number; currency: string }> | null;
+  download_median_mbps: number | null;
+  upload_median_mbps: number | null;
+  speed_test_count: number;
+  rating_avg: number | null;
+  review_count: number;
+  text_review_count: number;
+  work_score: number;
+  score_rank: number;
   cover_preview_url: string | null;
-  /** Signed full-resolution URL, only when the viewer may see it. */
   cover_full_url: string | null;
-  /** True when a café cover exists but the viewer is on the free plan. */
-  cover_photo_locked: boolean;
+  total_count: number;
+}
+
+export interface RankingFilters {
+  category: PlaceCategory | 'all';
+  sort: RankingSort;
+  wifi: boolean;
+  power: boolean;
+  calls: boolean;
+  q: string;
+}
+
+export const defaultRankingFilters: RankingFilters = {
+  category: 'all',
+  sort: 'score',
+  wifi: false,
+  power: false,
+  calls: false,
+  q: '',
+};
+
+/** Detail averages; only readable with an account. */
+export interface PlaceRatingStats {
+  place_id: string;
+  wifi_avg: number | null;
+  power_avg: number | null;
+  quiet_avg: number | null;
+  comfort_avg: number | null;
+  value_avg: number | null;
+  calls_ok_count: number;
+  calls_answers: number;
+}
+
+export type NetworkType = 'wifi' | 'cellular' | 'unknown';
+
+export type SpeedTestVerification = 'verified' | 'too_far' | 'low_accuracy' | 'no_location' | 'cellular';
+
+export interface SpeedTest {
+  id: string;
+  download_mbps: number;
+  upload_mbps: number | null;
+  ping_ms: number | null;
+  on_site: boolean;
+  created_at: string;
+  is_own: boolean;
+  author_name: string | null;
+}
+
+export interface CityContributor {
+  rank: number;
+  display_name: string | null;
+  points: number;
+  city_reviews: number;
+}
+
+export interface PlaceToRate {
+  id: string;
+  slug: string;
+  name: string;
+  category: PlaceCategory;
+  address: string | null;
+  work_score: number;
+  review_count: number;
 }
 
 export interface PlacePhoto {
@@ -75,6 +278,16 @@ export interface PlaceReview {
   rating: number;
   body: string | null;
   author_name: string | null;
+  author_points: number | null;
+  wifi_rating: number | null;
+  power_rating: number | null;
+  quiet_rating: number | null;
+  comfort_rating: number | null;
+  value_rating: number | null;
+  calls_ok: boolean | null;
+  visited_at: string | null;
+  /** True when the review has text, also for locked reviews (text itself is then null). */
+  has_body: boolean;
   created_at: string;
   updated_at: string;
   is_locked: boolean;
@@ -82,10 +295,26 @@ export interface PlaceReview {
   status: 'visible' | 'hidden';
 }
 
+export interface ReviewInput {
+  rating: number;
+  body: string;
+  wifi_rating: number | null;
+  power_rating: number | null;
+  quiet_rating: number | null;
+  comfort_rating: number | null;
+  value_rating: number | null;
+  calls_ok: boolean | null;
+}
+
 export interface Profile {
   id: string;
   display_name: string | null;
   created_at: string;
+  points: number;
+  review_count: number;
+  speed_test_count: number;
+  home_city_id: string | null;
+  onboarded_at: string | null;
 }
 
 export interface Entitlement {
@@ -122,6 +351,7 @@ export interface PlaceReport {
   place_id: string;
   user_id: string;
   body: string;
+  kind: 'other' | 'closed';
   status: 'open' | 'resolved';
   created_at: string;
 }
@@ -138,20 +368,6 @@ export interface WaitlistEntry {
   ambassador_email_sent_at: string | null;
   created_at: string;
 }
-
-export interface PlaceFilters {
-  category: PlaceCategory | 'all';
-  wifi: boolean;
-  power: boolean;
-  calls: boolean;
-}
-
-export const defaultFilters: PlaceFilters = {
-  category: 'all',
-  wifi: false,
-  power: false,
-  calls: false,
-};
 
 export interface LatLng {
   lat: number;

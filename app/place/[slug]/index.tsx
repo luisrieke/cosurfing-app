@@ -2,86 +2,72 @@ import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { FactRow } from '@/components/FactRow';
+import { RankedPlaceRow } from '@/components/city/RankedPlaceRow';
 import { PhotoGallery } from '@/components/PhotoGallery';
+import { AddPhotos } from '@/components/place/AddPhotos';
+import {
+  DetailRatings,
+  FactTable,
+  RatingDistribution,
+  ScoreBreakdownCard,
+  SpeedTestHistory,
+  WebFactsList,
+  hardFacts,
+  webFactCount,
+} from '@/components/place/PlaceSections';
 import { PlusUpsell } from '@/components/PlusUpsell';
 import { ReviewItem, Stars } from '@/components/Reviews';
-import {
-  Badge,
-  Button,
-  CategoryBadge,
-  EmptyState,
-  ErrorState,
-  Icon,
-  IconButton,
-  Notice,
-  Section,
-  Skeleton,
-  Text,
-} from '@/components/ui';
+import { ScoreBadge } from '@/components/ScoreBadge';
+import { SignupBanner } from '@/components/SignupBanner';
+import { SignupGate } from '@/components/SignupGate';
+import { SignupInterstitial } from '@/components/SignupInterstitial';
+import { SiteFooter } from '@/components/SiteFooter';
+import { SiteHeader, SiteHeaderSpacer } from '@/components/SiteHeader';
+import { SpeedTestPanel } from '@/components/SpeedTest';
+import { Button, CategoryBadge, EmptyState, ErrorState, Icon, IconButton, Notice, Section, Skeleton, Text } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
 import { env, isSupabaseConfigured } from '@/lib/env';
-import { formatDate, formatEuroCents, formatRating, hostFromUrl } from '@/lib/format';
+import { formatDate, formatRating, hostFromUrl, liveWebsite } from '@/lib/format';
+import { canShowInterstitial, markInterstitialShown, dismissInterstitial, recordPlaceView, signUpHref } from '@/lib/funnel';
 import { openDirections } from '@/lib/geo';
-import { getPlaceBySlug, getPlacePhotos, getPlaceReviews } from '@/lib/queries';
+import {
+  getCityRanking,
+  getPlaceBySlug,
+  getPlacePhotos,
+  getPlaceRank,
+  getPlaceRatingStats,
+  getPlaceReviews,
+  getPlaceSpeedTests,
+} from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, layout, radius, spacing } from '@/lib/theme';
-import type { Place } from '@/lib/types';
+import { defaultRankingFilters } from '@/lib/types';
 
-function factValue(place: Place) {
-  const s = strings.place;
-  const wifi =
-    place.wifi === 'yes' ? { v: s.wifi_yes, t: 'good' as const } : place.wifi === 'no' ? { v: s.wifi_no, t: 'bad' as const } : null;
-  const power =
-    place.power_outlets === 'plenty'
-      ? { v: s.power_plenty, t: 'good' as const }
-      : place.power_outlets === 'some'
-        ? { v: s.power_some, t: 'okay' as const }
-        : place.power_outlets === 'none'
-          ? { v: s.power_none, t: 'bad' as const }
-          : null;
-  const focus =
-    place.focus === 'great'
-      ? { v: s.focus_great, t: 'good' as const }
-      : place.focus === 'okay'
-        ? { v: s.focus_okay, t: 'okay' as const }
-        : place.focus === 'poor'
-          ? { v: s.focus_poor, t: 'bad' as const }
-          : null;
-  const calls =
-    place.calls === 'yes'
-      ? { v: s.calls_yes, t: 'good' as const }
-      : place.calls === 'limited'
-        ? { v: s.calls_limited, t: 'okay' as const }
-        : place.calls === 'no'
-          ? { v: s.calls_no, t: 'bad' as const }
-          : null;
-  const price =
-    place.category === 'coworking' && place.day_pass_price_cents !== null
-      ? `${s.dayPass} ${formatEuroCents(place.day_pass_price_cents)}`
-      : place.price_level
-        ? s.priceLevelLabel(place.price_level)
-        : null;
-  return { wifi, power, focus, calls, price };
-}
+const INTERSTITIAL_AFTER_VIEWS = 2;
+const INTERSTITIAL_DELAY_MS = 4_000;
 
 export default function PlaceScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { width, isDesktop } = useBreakpoint();
-  const { user, isPlus, isAdmin, favoriteIds, toggleFavorite } = useAuth();
+  const { width } = useBreakpoint();
+  const { user, isPlus, isAdmin, favoriteIds, toggleFavorite, ready } = useAuth();
   const [flash, setFlash] = useState<string | null>(null);
+  const [interstitial, setInterstitial] = useState(false);
 
   const placeQuery = useQuery(`place:${slug}`, () => getPlaceBySlug(slug!), Boolean(slug) && isSupabaseConfigured);
   const place = placeQuery.data ?? null;
+  const website = place ? liveWebsite(place) : null;
   const gateKey = `${isPlus}:${isAdmin}:${user?.id ?? ''}`;
-  const photosQuery = useQuery(`photos:${place?.id}:${gateKey}`, () => getPlacePhotos(place!.id), Boolean(place));
-  const reviewsQuery = useQuery(`reviews:${place?.id}:${gateKey}`, () => getPlaceReviews(place!.id), Boolean(place));
+  const enabled = Boolean(place);
+  const photosQuery = useQuery(`photos:${place?.id}:${gateKey}`, () => getPlacePhotos(place!.id), enabled);
+  const reviewsQuery = useQuery(`reviews:${place?.id}:${gateKey}`, () => getPlaceReviews(place!.id), enabled);
+  const statsQuery = useQuery(`stats:${place?.id}:${gateKey}`, () => getPlaceRatingStats(place!.id), enabled && Boolean(user));
+  const testsQuery = useQuery(`tests:${place?.id}:${gateKey}`, () => getPlaceSpeedTests(place!.id), enabled && Boolean(user));
+  const rankQuery = useQuery(`rank:${place?.id}:${place?.work_score}`, () => getPlaceRank(place!.id), enabled);
+  const moreQuery = useQuery(`more:${place?.city_id}`, () => getCityRanking(place!.city_id, defaultRankingFilters, 6), enabled);
 
   useEffect(() => {
     if (!flash) return;
@@ -89,9 +75,29 @@ export default function PlaceScreen() {
     return () => clearTimeout(t);
   }, [flash]);
 
-  const contentWidth = Math.min(width, layout.maxContentWidth);
-  const galleryHeight = Math.min(Math.round(contentWidth * 0.66), isDesktop ? 440 : 320);
+  // Visitors without an account get one sign-up interstitial from their second place on.
+  const placeId = place?.id;
+  useEffect(() => {
+    if (!ready || user || !placeId) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    void (async () => {
+      const views = await recordPlaceView();
+      if (cancelled || views < INTERSTITIAL_AFTER_VIEWS || !(await canShowInterstitial())) return;
+      timer = setTimeout(() => {
+        if (cancelled) return;
+        markInterstitialShown();
+        setInterstitial(true);
+      }, INTERSTITIAL_DELAY_MS);
+    })();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [ready, user, placeId]);
+
   const pageUrl = `${env.siteUrl}/place/${slug}`;
+  const wide = width >= 1024;
 
   const share = async () => {
     if (!place) return;
@@ -116,14 +122,15 @@ export default function PlaceScreen() {
 
   const requireUser = (next: string) => {
     if (user) return true;
-    router.push({ pathname: '/auth/sign-in', params: { redirect: next } });
+    router.push(signUpHref(next));
     return false;
   };
 
   if (!isSupabaseConfigured) {
     return (
-      <View style={[styles.root, { paddingTop: insets.top }]}>
-        <Header onBack={() => router.replace('/')} />
+      <View style={styles.root}>
+        <SiteHeader />
+        <SiteHeaderSpacer />
         <Notice tone="warning" body={strings.common.backendNotConfigured} style={{ margin: spacing.lg }} />
       </View>
     );
@@ -131,15 +138,14 @@ export default function PlaceScreen() {
 
   if (placeQuery.loading) {
     return (
-      <View style={[styles.root, { paddingTop: insets.top }]}>
-        <Header onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))} />
-        <View style={styles.center}>
-          <Skeleton height={galleryHeight} />
-          <View style={styles.pad}>
-            <Skeleton width="60%" height={28} />
-            <Skeleton width="40%" height={16} />
-            <Skeleton width="90%" height={16} />
-          </View>
+      <View style={styles.root}>
+        <SiteHeader />
+        <SiteHeaderSpacer />
+        <View style={[styles.page, styles.skeletons]}>
+          <Skeleton width="60%" height={32} />
+          <Skeleton width="40%" height={16} />
+          <Skeleton height={120} />
+          <Skeleton height={320} />
         </View>
       </View>
     );
@@ -147,8 +153,9 @@ export default function PlaceScreen() {
 
   if (placeQuery.error) {
     return (
-      <View style={[styles.root, { paddingTop: insets.top }]}>
-        <Header onBack={() => router.replace('/')} />
+      <View style={styles.root}>
+        <SiteHeader />
+        <SiteHeaderSpacer />
         <ErrorState body={placeQuery.error.message} onAction={() => placeQuery.refetch()} />
       </View>
     );
@@ -156,209 +163,338 @@ export default function PlaceScreen() {
 
   if (!place) {
     return (
-      <View style={[styles.root, { paddingTop: insets.top }]}>
-        <Header onBack={() => router.replace('/')} />
+      <View style={styles.root}>
+        <SiteHeader />
+        <SiteHeaderSpacer />
         <EmptyState icon="map-pin" title={strings.place.notFound} actionLabel={strings.notFound.home} onAction={() => router.replace('/')} />
       </View>
     );
   }
 
-  const facts = factValue(place);
   const isFav = favoriteIds.has(place.id);
   const reviews = reviewsQuery.data ?? [];
   const ownReview = reviews.find((r) => r.is_own);
-  const anyLocked = reviews.some((r) => r.is_locked);
-  const photosLocked = (photosQuery.data ?? []).some((p) => p.locked);
+  const lockedTexts = reviews.filter((r) => r.is_locked && r.has_body).length;
+  const photos = photosQuery.data ?? [];
+  const photosLocked = photos.some((p) => p.locked);
   const canReview = place.status === 'published';
   const cityHref = `/${place.city.slug}` as const;
+  const reviewHref = `/place/${slug}/review` as const;
+  const rank = rankQuery.data ?? null;
+  const more = (moreQuery.data?.items ?? []).filter((p) => p.id !== place.id).slice(0, 5);
+  const webFacts = place.web_facts ?? {};
+  const description = place.description ?? webFacts.description?.value ?? null;
+  const contentWidth = Math.min(width, layout.maxWideWidth) - spacing.lg * 2 - (wide ? 340 + spacing.xl : 0);
+  const galleryHeight = Math.min(Math.round(contentWidth * 0.56), 420);
+
+  const goReview = () => {
+    if (requireUser(reviewHref)) router.push(reviewHref);
+  };
+
+  const scoreCard = (
+    <View style={styles.scoreCard}>
+      <View style={styles.scoreHead}>
+        <ScoreBadge score={place.work_score} size="lg" />
+        <View style={styles.scoreHeadText}>
+          <Text variant="bodyStrong">
+            {strings.place.scoreTitle} {strings.place.scoreOutOf}
+          </Text>
+          {place.review_count === 0 ? (
+            <Text variant="caption" tone="muted">
+              {strings.place.scoreProvisional}
+            </Text>
+          ) : null}
+          {rank !== null ? (
+            <Pressable onPress={() => router.push(cityHref)} accessibilityRole="link">
+              <Text variant="small" tone="accent">
+                {strings.place.rankIn(rank, place.city.name)}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+      <Button title={ownReview ? strings.place.editReview : strings.place.rateThis} icon="star" onPress={goReview} disabled={!canReview} />
+      <View style={styles.cardActions}>
+        <Button
+          title={strings.common.directions}
+          icon="navigation"
+          variant="secondary"
+          size="sm"
+          onPress={() => openDirections(place, place.name)}
+        />
+        {website ? (
+          <Button
+            title={hostFromUrl(website)}
+            icon="external-link"
+            variant="secondary"
+            size="sm"
+            onPress={() => Linking.openURL(website)}
+          />
+        ) : null}
+      </View>
+    </View>
+  );
+
+  const speedTest = <SpeedTestPanel placeId={place.id} onSaved={() => {
+    void placeQuery.refetch(true);
+    void testsQuery.refetch(true);
+  }} />;
 
   return (
     <View style={styles.root}>
       <Head>
         <title>{`${place.name} · ${place.city.name} · Cosurfing`}</title>
-        <meta name="description" content={place.description ?? `${place.name} in ${place.city.name}`} />
+        <meta
+          name="description"
+          content={description ?? `${place.name} in ${place.city.name}: Wi‑Fi, power outlets, opening hours and reviews from remote workers.`}
+        />
       </Head>
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + spacing.xxl }]} showsVerticalScrollIndicator={false}>
-        <View style={[styles.center, { width: '100%' }]}>
-          <View style={[styles.galleryWrap, isDesktop && styles.galleryDesktop]}>
-            <PhotoGallery
-              photos={photosQuery.data ?? []}
-              category={place.category}
-              width={contentWidth}
-              height={galleryHeight}
-              loading={photosQuery.loading && !photosQuery.data}
-            />
-            <View style={[styles.overlayHeader, { paddingTop: insets.top + spacing.sm }]} pointerEvents="box-none">
+      <SiteHeader />
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <SiteHeaderSpacer />
+        <View style={styles.page}>
+          <View style={styles.crumbs}>
+            <Pressable onPress={() => router.push(cityHref)} accessibilityRole="link" style={styles.crumb}>
+              <Icon name="arrow-left" size={14} color={colors.accent} />
+              <Text variant="smallStrong" tone="accent">
+                {strings.city.rankingTitle(place.city.name)}
+              </Text>
+            </Pressable>
+            <View style={styles.crumbActions}>
+              <IconButton icon="share" accessibilityLabel={strings.common.share} onPress={share} />
               <IconButton
-                icon="arrow-left"
-                accessibilityLabel={strings.common.back}
-                onPress={() => (router.canGoBack() ? router.back() : router.replace(cityHref))}
+                icon="heart"
+                accessibilityLabel={isFav ? strings.place.favorited : strings.place.favorite}
+                color={isFav ? colors.danger : colors.text}
+                onPress={() => {
+                  if (requireUser(`/place/${slug}`)) void toggleFavorite(place.id);
+                }}
               />
-              <View style={styles.overlayRight}>
-                <IconButton icon="share" accessibilityLabel={strings.common.share} onPress={share} />
-                <IconButton
-                  icon="heart"
-                  accessibilityLabel={isFav ? strings.place.favorited : strings.place.favorite}
-                  color={isFav ? colors.danger : colors.text}
-                  onPress={() => {
-                    if (requireUser(`/place/${slug}`)) void toggleFavorite(place.id);
-                  }}
-                />
-              </View>
             </View>
           </View>
 
-          <View style={styles.pad}>
-            {flash ? <Notice tone="success" body={flash} /> : null}
-            {place.is_example ? <Notice tone="warning" title={strings.common.example} body={strings.common.exampleHint} /> : null}
-            {place.status !== 'published' ? <Notice tone="warning" body={`${strings.admin.fields.status}: ${place.status}`} /> : null}
+          {flash ? <Notice tone="success" body={flash} /> : null}
+          {place.status !== 'published' ? <Notice tone="warning" body={`${strings.admin.fields.status}: ${place.status}`} /> : null}
 
-            <View style={styles.titleBlock}>
-              <View style={styles.badges}>
-                <CategoryBadge category={place.category} />
-                {place.is_example ? <Badge label={strings.common.example} tone="warning" /> : null}
-              </View>
-              <Text variant="title">{place.name}</Text>
-              <View style={styles.metaRow}>
-                {place.review_count > 0 && place.rating_avg !== null ? (
-                  <View style={styles.ratingRow}>
-                    <Stars value={Math.round(Number(place.rating_avg))} size={14} />
-                    <Text variant="smallStrong">{formatRating(place.rating_avg)}</Text>
-                    <Text variant="small" tone="muted">
-                      · {strings.place.reviewCount(place.review_count)}
+          <View style={styles.titleBlock}>
+            <CategoryBadge category={place.category} />
+            <Text variant="title">{place.name}</Text>
+            {place.name_local && place.name_local !== place.name ? (
+              <Text tone="muted">{place.name_local}</Text>
+            ) : null}
+            <View style={styles.metaRow}>
+              {place.review_count > 0 && place.rating_avg !== null ? (
+                <View style={styles.ratingRow}>
+                  <Stars value={Math.round(Number(place.rating_avg))} size={14} />
+                  <Text variant="smallStrong">{formatRating(place.rating_avg)}</Text>
+                  <Text variant="small" tone="muted">
+                    · {strings.place.reviewCount(place.review_count)}
+                  </Text>
+                </View>
+              ) : (
+                <Text variant="small" tone="muted">
+                  {strings.ranking.noReviews}
+                </Text>
+              )}
+              <Text variant="small" tone="muted">
+                · {place.address ?? `${strings.place.address}: ${strings.common.unknown}`}
+              </Text>
+            </View>
+          </View>
+
+          <View style={[styles.columns, wide && styles.columnsWide]}>
+            <View style={styles.main}>
+              {photos.length > 0 ? (
+                <View style={styles.gallery}>
+                  <PhotoGallery photos={photos} category={place.category} width={contentWidth} height={galleryHeight} loading={false} />
+                </View>
+              ) : null}
+              {photosLocked ? <PlusUpsell message={strings.plus.upsellPhotos} compact /> : null}
+              {canReview ? (
+                <AddPhotos placeId={place.id} userId={user?.id ?? null} onSignIn={() => requireUser(`/place/${slug}`)} />
+              ) : null}
+
+              {!wide ? scoreCard : null}
+
+              <Section title={strings.place.hardFacts}>
+                <FactTable lines={hardFacts(place)} onHelp={canReview ? goReview : undefined} />
+              </Section>
+
+              {webFactCount(webFacts) > 0 ? (
+                <Section title={strings.place.fromWebsite}>
+                  <WebFactsList facts={webFacts} />
+                </Section>
+              ) : null}
+
+              {description ? (
+                <Section title={strings.place.about}>
+                  <Text>{description}</Text>
+                  {!place.description && webFacts.description ? (
+                    <Text variant="caption" tone="faint">
+                      {strings.place.sourceLabel}: {hostFromUrl(webFacts.description.url)}
                     </Text>
+                  ) : null}
+                </Section>
+              ) : null}
+
+              <Section title={strings.place.scoreTitle}>
+                <ScoreBreakdownCard place={place} />
+              </Section>
+
+              <Section
+                title={strings.place.reviews}
+                right={
+                  canReview ? (
+                    <Button
+                      title={ownReview ? strings.place.editReview : strings.place.writeReview}
+                      size="sm"
+                      variant="secondary"
+                      icon="edit-3"
+                      onPress={goReview}
+                    />
+                  ) : undefined
+                }
+              >
+                {reviewsQuery.loading && !reviewsQuery.data ? (
+                  <View style={styles.skeletons}>
+                    <Skeleton height={64} />
+                    <Skeleton height={64} />
+                  </View>
+                ) : reviewsQuery.error ? (
+                  <Notice tone="danger" body={reviewsQuery.error.message} />
+                ) : reviews.length === 0 ? (
+                  <View style={styles.firstReview}>
+                    <Text variant="bodyStrong">{strings.funnel.rateTitle}</Text>
+                    <Text variant="small" tone="muted">
+                      {strings.place.noReviews}
+                    </Text>
+                    <Button title={strings.funnel.rateCta} icon="star" onPress={goReview} style={styles.selfStart} />
                   </View>
                 ) : (
-                  <Text variant="small" tone="muted">
-                    {strings.place.reviewCount(0)}
-                  </Text>
+                  <View style={styles.reviews}>
+                    <RatingDistribution reviews={reviews} avg={place.rating_avg} />
+                    {!user && lockedTexts > 0 ? (
+                      <SignupGate
+                        title={strings.funnel.lockedReviewsTitle(lockedTexts)}
+                        body={strings.funnel.lockedReviewsBody}
+                      />
+                    ) : null}
+                    <View>
+                      {reviews.map((r) => (
+                        <ReviewItem key={r.id} review={r} />
+                      ))}
+                    </View>
+                  </View>
                 )}
-                <Pressable onPress={() => router.push(cityHref)} accessibilityRole="link">
-                  <Text variant="small" tone="accent">
-                    {place.city.name}
+              </Section>
+
+              {reviews.length > 0 ? (
+                <Section title={strings.place.detailRatings}>
+                  {!user ? (
+                    <SignupGate compact title={strings.funnel.lockedDetailsTitle} body={strings.funnel.gateBody} />
+                  ) : statsQuery.data ? (
+                    <DetailRatings stats={statsQuery.data} />
+                  ) : statsQuery.loading ? (
+                    <Skeleton height={120} />
+                  ) : (
+                    <Text tone="muted">{strings.common.unknown}</Text>
+                  )}
+                </Section>
+              ) : null}
+
+              <Section title={strings.place.speedTests}>
+                {!wide ? speedTest : null}
+                {!user ? (
+                  place.speed_test_count > 0 ? (
+                    <SignupGate compact title={strings.funnel.lockedSpeedTitle} body={strings.funnel.gateBody} />
+                  ) : (
+                    <Text tone="muted">{strings.place.speedTestsEmpty}</Text>
+                  )
+                ) : testsQuery.loading && !testsQuery.data ? (
+                  <Skeleton height={80} />
+                ) : (testsQuery.data ?? []).length === 0 ? (
+                  <Text tone="muted">{strings.place.speedTestsEmpty}</Text>
+                ) : (
+                  <SpeedTestHistory tests={testsQuery.data!} />
+                )}
+              </Section>
+
+              {more.length > 0 ? (
+                <Section title={strings.place.alsoIn(place.city.name)}>
+                  <View>
+                    {more.map((p) => (
+                      <RankedPlaceRow
+                        key={p.id}
+                        place={p}
+                        rank={moreQuery.data!.items.indexOf(p) + 1}
+                        signedIn={Boolean(user)}
+                        compact
+                        onPress={() => router.push(`/place/${p.slug}`)}
+                      />
+                    ))}
+                  </View>
+                  <Button
+                    title={strings.city.rankingTitle(place.city.name)}
+                    variant="ghost"
+                    iconRight="arrow-right"
+                    onPress={() => router.push(cityHref)}
+                    style={styles.selfStart}
+                  />
+                </Section>
+              ) : null}
+
+              <View style={styles.footerLinks}>
+                {place.osm_type && place.osm_id ? (
+                  <>
+                    <Text variant="caption" tone="faint">
+                      {strings.place.osmAttribution}
+                      {place.osm_seen_at ? ` · ${strings.place.checkedOn(formatDate(place.osm_seen_at))}` : ''}
+                    </Text>
+                    <Pressable
+                      onPress={() => Linking.openURL(`https://www.openstreetmap.org/${place.osm_type}/${place.osm_id}`)}
+                      accessibilityRole="link"
+                      style={styles.inlineLink}
+                    >
+                      <Icon name="edit-2" size={13} color={colors.textMuted} />
+                      <Text variant="caption" tone="muted">
+                        {strings.place.editOnOsm}
+                      </Text>
+                    </Pressable>
+                  </>
+                ) : null}
+                <Pressable
+                  style={styles.inlineLink}
+                  onPress={() => {
+                    if (requireUser(`/place/${slug}/report`)) router.push(`/place/${slug}/report`);
+                  }}
+                  accessibilityRole="button"
+                >
+                  <Icon name="flag" size={13} color={colors.textMuted} />
+                  <Text variant="caption" tone="muted">
+                    {strings.place.reportIssue}
                   </Text>
                 </Pressable>
               </View>
-              {place.address ? (
-                <Text tone="muted">{place.address}</Text>
-              ) : (
-                <Text tone="faint">{strings.place.address}: {strings.common.unknown}</Text>
-              )}
             </View>
 
-            <View style={styles.actions}>
-              <Button title={strings.common.directions} icon="navigation" onPress={() => openDirections(place, place.name)} />
-              {place.website ? (
-                <Button
-                  title={hostFromUrl(place.website)}
-                  icon="external-link"
-                  variant="secondary"
-                  onPress={() => Linking.openURL(place.website!)}
-                />
-              ) : null}
-            </View>
-
-            <Section title={strings.place.facts}>
-              <View style={styles.factGrid}>
-                <FactRow icon="wifi" label={strings.place.wifi} value={facts.wifi?.v} tone={facts.wifi?.t ?? 'unknown'} />
-                <FactRow icon="zap" label={strings.place.power} value={facts.power?.v} tone={facts.power?.t ?? 'unknown'} />
-                <FactRow icon="headphones" label={strings.place.focus} value={facts.focus?.v} tone={facts.focus?.t ?? 'unknown'} />
-                <FactRow icon="phone" label={strings.place.callsLabel} value={facts.calls?.v} tone={facts.calls?.t ?? 'unknown'} />
-                <FactRow icon="credit-card" label={strings.place.price} value={facts.price} tone={facts.price ? 'neutral' : 'unknown'} />
-                <FactRow icon="clock" label={strings.place.openingHours} value={place.opening_hours} tone={place.opening_hours ? 'neutral' : 'unknown'} />
+            {wide ? (
+              <View style={styles.side}>
+                {scoreCard}
+                {speedTest}
               </View>
-              <View style={styles.factNotes}>
-                <View style={styles.factNote}>
-                  <Icon name="monitor" size={16} color={colors.textMuted} />
-                  <View style={styles.factNoteText}>
-                    <Text variant="caption" tone="muted">
-                      {strings.place.laptopRules}
-                    </Text>
-                    <Text variant="small" tone={place.laptop_rules ? 'default' : 'faint'}>
-                      {place.laptop_rules ?? strings.common.unknown}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.factNote}>
-                  <Icon name="check-circle" size={16} color={place.last_verified_at ? colors.success : colors.textFaint} />
-                  <View style={styles.factNoteText}>
-                    <Text variant="caption" tone="muted">
-                      {strings.place.lastVerified}
-                    </Text>
-                    <Text variant="small" tone={place.last_verified_at ? 'default' : 'faint'}>
-                      {place.last_verified_at ? formatDate(place.last_verified_at) : strings.place.neverVerified}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </Section>
-
-            {place.description ? (
-              <Section title={strings.place.about}>
-                <Text>{place.description}</Text>
-              </Section>
             ) : null}
-
-            {photosLocked ? <PlusUpsell message={strings.plus.upsellPhotos} compact /> : null}
-
-            <Section
-              title={strings.place.reviews}
-              right={
-                canReview ? (
-                  <Button
-                    title={ownReview ? strings.place.editReview : strings.place.writeReview}
-                    size="sm"
-                    variant="secondary"
-                    icon="edit-3"
-                    onPress={() => {
-                      if (requireUser(`/place/${slug}/review`)) router.push(`/place/${slug}/review`);
-                    }}
-                  />
-                ) : undefined
-              }
-            >
-              {reviewsQuery.loading && !reviewsQuery.data ? (
-                <View style={{ gap: spacing.md }}>
-                  <Skeleton height={64} />
-                  <Skeleton height={64} />
-                </View>
-              ) : reviewsQuery.error ? (
-                <Notice tone="danger" body={reviewsQuery.error.message} />
-              ) : reviews.length === 0 ? (
-                <Text tone="muted">{strings.place.noReviews}</Text>
-              ) : (
-                <View>
-                  {anyLocked ? <PlusUpsell message={strings.plus.upsellReviews} compact style={{ marginBottom: spacing.sm }} /> : null}
-                  {reviews.map((r) => (
-                    <ReviewItem key={r.id} review={r} />
-                  ))}
-                </View>
-              )}
-            </Section>
-
-            <Pressable
-              style={styles.reportLink}
-              onPress={() => {
-                if (requireUser(`/place/${slug}/report`)) router.push(`/place/${slug}/report`);
-              }}
-              accessibilityRole="button"
-            >
-              <Icon name="flag" size={16} color={colors.textMuted} />
-              <Text variant="small" tone="muted">
-                {strings.place.reportIssue}
-              </Text>
-            </Pressable>
           </View>
         </View>
+        <SiteFooter />
       </ScrollView>
-    </View>
-  );
-}
-
-function Header({ onBack }: { onBack: () => void }) {
-  return (
-    <View style={styles.simpleHeader}>
-      <IconButton icon="arrow-left" accessibilityLabel={strings.common.back} onPress={onBack} />
+      <SignupBanner />
+      <SignupInterstitial
+        visible={interstitial}
+        onClose={() => {
+          setInterstitial(false);
+          void dismissInterstitial();
+        }}
+      />
     </View>
   );
 }
@@ -366,92 +502,117 @@ function Header({ onBack }: { onBack: () => void }) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.bg,
   },
   scroll: {
-    flexGrow: 1,
     alignItems: 'center',
+    paddingBottom: 96,
   },
-  center: {
+  page: {
     width: '100%',
-    maxWidth: layout.maxContentWidth,
-    alignSelf: 'center',
-  },
-  galleryWrap: {
-    width: '100%',
-    overflow: 'hidden',
-  },
-  galleryDesktop: {
-    marginTop: spacing.lg,
-    borderRadius: radius.xl,
-  },
-  overlayHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    maxWidth: layout.maxWideWidth,
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    gap: spacing.lg,
   },
-  overlayRight: {
+  skeletons: {
+    gap: spacing.md,
+  },
+  crumbs: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  crumb: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 1,
+  },
+  crumbActions: {
     flexDirection: 'row',
     gap: spacing.sm,
-  },
-  simpleHeader: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-  },
-  pad: {
-    padding: spacing.lg,
-    gap: spacing.xl,
   },
   titleBlock: {
-    gap: spacing.sm,
-  },
-  badges: {
-    flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing.xs,
+    alignItems: 'flex-start',
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     flexWrap: 'wrap',
-    gap: spacing.sm,
+    gap: 6,
   },
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  actions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    flexWrap: 'wrap',
+  columns: {
+    gap: spacing.xl,
   },
-  factGrid: {
+  columnsWide: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  factNotes: {
-    gap: spacing.md,
-    paddingTop: spacing.sm,
-  },
-  factNote: {
-    flexDirection: 'row',
-    gap: spacing.md,
     alignItems: 'flex-start',
   },
-  factNoteText: {
+  main: {
+    flex: 1,
+    minWidth: 0,
+    gap: spacing.xl,
+  },
+  side: {
+    width: 340,
+    gap: spacing.lg,
+    ...(Platform.OS === 'web' ? { position: 'sticky' as 'relative', top: spacing.lg } : null),
+  },
+  gallery: {
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+  },
+  scoreCard: {
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  scoreHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  scoreHeadText: {
     flex: 1,
     gap: 2,
   },
-  reportLink: {
+  cardActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  reviews: {
+    gap: spacing.lg,
+  },
+  firstReview: {
+    gap: spacing.sm,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    backgroundColor: colors.accentSoft,
+  },
+  selfStart: {
+    alignSelf: 'flex-start',
+  },
+  footerLinks: {
+    gap: spacing.sm,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  inlineLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: 6,
     alignSelf: 'flex-start',
-    paddingVertical: spacing.sm,
   },
 });

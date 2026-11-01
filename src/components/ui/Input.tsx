@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { StyleSheet, TextInput, type TextInputProps, View } from 'react-native';
 
 import { colors, fontFamily, radius, spacing } from '@/lib/theme';
@@ -11,7 +12,9 @@ export interface InputProps extends TextInputProps {
   optional?: boolean;
 }
 
-export function Input({ label, hint, error, optional, style, multiline, ...rest }: InputProps) {
+export function Input({ label, hint, error, optional, style, multiline, onFocus, onBlur, ...rest }: InputProps) {
+  const [focused, setFocused] = useState(false);
+
   return (
     <View style={styles.wrap}>
       {label ? (
@@ -28,7 +31,21 @@ export function Input({ label, hint, error, optional, style, multiline, ...rest 
         placeholderTextColor={colors.textFaint}
         multiline={multiline}
         {...rest}
-        style={[styles.input, multiline && styles.multiline, error ? styles.inputError : null, style]}
+        onFocus={(e) => {
+          setFocused(true);
+          onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          setFocused(false);
+          onBlur?.(e);
+        }}
+        style={[
+          styles.input,
+          multiline && styles.multiline,
+          focused && styles.inputFocused,
+          error ? styles.inputError : null,
+          style,
+        ]}
       />
       {error ? (
         <Text variant="small" tone="danger">
@@ -57,11 +74,15 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.borderStrong,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.surface,
     color: colors.text,
     fontSize: 16,
     lineHeight: 22,
     fontFamily,
+    outlineWidth: 0,
+  },
+  inputFocused: {
+    borderColor: colors.textMuted,
   },
   multiline: {
     minHeight: 120,

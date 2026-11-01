@@ -63,6 +63,7 @@ export default function AdminReports() {
               meta={
                 <>
                   <Badge label={r.status} tone={r.status === 'open' ? 'danger' : 'success'} />
+                  {r.kind === 'closed' ? <Badge label={strings.report.kindClosed} tone="warning" /> : null}
                   <Text variant="caption" tone="faint">
                     {formatDateTime(r.created_at)}
                   </Text>

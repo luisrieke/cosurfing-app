@@ -1,214 +1,346 @@
 import Head from 'expo-router/head';
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 
+import { AdSlot } from '@/components/AdSlot';
+import { CityCard } from '@/components/CityCard';
 import { CitySearch } from '@/components/CitySearch';
-import { Card, Icon, IconButton, Notice, Screen, Skeleton, Text } from '@/components/ui';
+import { SearchField } from '@/components/SearchField';
+import { SignupBanner } from '@/components/SignupBanner';
+import { SignupGate } from '@/components/SignupGate';
+import { SiteFooter } from '@/components/SiteFooter';
+import { SiteHeader, SiteHeaderSpacer } from '@/components/SiteHeader';
+import { Button, Chip, EmptyState, ErrorState, Glass, Icon, Notice, Skeleton, Text } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
-import { useQuery } from '@/hooks/useQuery';
+import { useDebounced } from '@/hooks/useDebounced';
+import { usePaged } from '@/hooks/usePaged';
 import { useAuth } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/env';
-import { getActiveCities } from '@/lib/queries';
-import { requireSupabase } from '@/lib/supabase';
+import { findCityByNameAndCountry, listCities } from '@/lib/queries';
 import { strings } from '@/lib/strings';
-import { colors, radius, spacing } from '@/lib/theme';
-import type { City } from '@/lib/types';
+import { colors, layout, radius, spacing } from '@/lib/theme';
+import type { CityListItem, CitySearchResult, CitySort, Continent } from '@/lib/types';
 
-async function loadHome() {
-  const cities = await getActiveCities();
-  const { data } = await requireSupabase()
-    .from('places')
-    .select('city_id, category')
-    .eq('status', 'published');
-  const counts = new Map<string, { coworking: number; cafe: number }>();
-  for (const row of data ?? []) {
-    const entry = counts.get(row.city_id) ?? { coworking: 0, cafe: 0 };
-    if (row.category === 'coworking') entry.coworking += 1;
-    else entry.cafe += 1;
-    counts.set(row.city_id, entry);
-  }
-  return { cities, counts };
+const PAGE_SIZE = 40;
+const CONTINENTS: Continent[] = ['EU', 'AS', 'NA', 'SA', 'AF', 'OC'];
+const SORTS: CitySort[] = ['score', 'places', 'wifi', 'reviews', 'population', 'name'];
+
+function columnsFor(width: number): number {
+  if (width < 560) return 2;
+  if (width < 900) return 3;
+  if (width < 1120) return 4;
+  return 5;
 }
+
+/** One key per grid column (max of columnsFor) for placeholder cells that have no data. */
+const COLUMN_KEYS = ['c1', 'c2', 'c3', 'c4', 'c5'];
 
 export default function HomeScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { isDesktop } = useBreakpoint();
+  const { width, isDesktop } = useBreakpoint();
   const { user } = useAuth();
-  const { data, loading, error, refetch } = useQuery('home', loadHome, isSupabaseConfigured);
-  const cities = data?.cities ?? [];
+  const [query, setQuery] = useState('');
+  const [continent, setContinent] = useState<Continent | null>(null);
+  const [sort, setSort] = useState<CitySort>('score');
+  const q = useDebounced(query.trim(), 250);
 
-  const goToCity = (city: City) => router.push(`/${city.slug}`);
+  const cities = usePaged<CityListItem>(
+    `cities:${q}:${continent ?? ''}:${sort}`,
+    (offset, limit) => listCities({ q, continent, sort, limit, offset }),
+    PAGE_SIZE,
+    isSupabaseConfigured,
+  );
+
+  const cols = columnsFor(Math.min(width, layout.maxWideWidth));
+  const cellWidth = (Math.min(width, layout.maxWideWidth) - spacing.lg * 2 - spacing.md * (cols - 1)) / cols;
+  const skeletonHeight = Math.round(cellWidth / 0.82);
+  const rows: CityListItem[][] = [];
+  for (let i = 0; i < cities.items.length; i += cols) rows.push(cities.items.slice(i, i + cols));
+  // Rank numbers only make sense for the unfiltered "best for work" order.
+  const ranked = sort === 'score' && !q;
+
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+    if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 900) cities.loadMore();
+  };
+
+  const openSearchResult = async (r: CitySearchResult) => {
+    const existing = await findCityByNameAndCountry(r.name, r.countryCode).catch(() => null);
+    if (existing) {
+      router.push(`/${existing.slug}`);
+      return;
+    }
+    router.push({
+      pathname: '/waitlist',
+      params: { city: r.name, country: r.countryName, countryCode: r.countryCode, lat: String(r.lat), lng: String(r.lng) },
+    });
+  };
 
   return (
-    <Screen contentStyle={{ paddingTop: insets.top + spacing.lg }}>
+    <View style={styles.root}>
       <Head>
-        <title>Cosurfing · Find great places to work</title>
-        <meta name="description" content="Coworking spaces and laptop-friendly cafés in Berlin and Parga. More cities coming soon." />
-      </Head>
-      <View style={styles.brandRow}>
-        <View style={styles.brand}>
-          <View style={styles.brandDot} />
-          <Text variant="heading">{strings.app.name}</Text>
-        </View>
-        <IconButton
-          icon={user ? 'user' : 'log-in'}
-          accessibilityLabel={user ? strings.common.account : strings.common.signIn}
-          onPress={() => router.push(user ? '/account' : '/auth/sign-in')}
+        <title>Cosurfing · The best places to work in every big city</title>
+        <meta
+          name="description"
+          content="Coworking spaces, laptop-friendly cafés and libraries in 1,000+ cities, ranked by measured Wi‑Fi speed, power outlets and reviews from remote workers."
         />
-      </View>
-
-      <View style={[styles.hero, isDesktop && styles.heroDesktop]}>
-        <Text variant={isDesktop ? 'display' : 'title'}>{strings.home.title}</Text>
-        <Text tone="muted">{strings.home.subtitle}</Text>
-      </View>
-
-      {!isSupabaseConfigured ? <Notice tone="warning" body={strings.common.backendNotConfigured} /> : null}
-
-      <CitySearch
-        activeCities={cities}
-        onSelectActive={goToCity}
-        onSelectOther={(r) =>
-          router.push({
-            pathname: '/waitlist',
-            params: {
-              city: r.name,
-              country: r.countryName,
-              countryCode: r.countryCode,
-              lat: String(r.lat),
-              lng: String(r.lng),
-            },
-          })
-        }
-        onManual={(q) => router.push({ pathname: '/waitlist', params: { city: q } })}
-      />
-
-      <View style={styles.section}>
-        <Text variant="caption" tone="muted" style={styles.sectionLabel}>
-          {strings.home.activeCities.toUpperCase()}
-        </Text>
-        {loading ? (
-          <View style={styles.cityGrid}>
-            <Skeleton height={112} style={styles.cityCardSkeleton} />
-            <Skeleton height={112} style={styles.cityCardSkeleton} />
+      </Head>
+      <SiteHeader />
+      <ScrollView onScroll={onScroll} scrollEventThrottle={200} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <SiteHeaderSpacer />
+        <View style={styles.page}>
+          <View style={[styles.hero, isDesktop && styles.heroDesktop]}>
+            <Text variant={isDesktop ? 'display' : 'title'} align={isDesktop ? 'center' : 'left'} style={isDesktop ? styles.heroTitle : undefined}>
+              {strings.home.title}
+            </Text>
+            <Text tone="muted" align={isDesktop ? 'center' : 'left'} style={isDesktop ? styles.heroSubtitle : undefined}>
+              {strings.home.subtitle}
+            </Text>
+            <SearchField
+              value={query}
+              onChangeText={setQuery}
+              placeholder={strings.home.searchPlaceholder}
+              large
+              style={isDesktop ? styles.heroSearch : undefined}
+            />
           </View>
-        ) : error ? (
-          <Notice tone="danger" body={error.message}>
-            <Pressable onPress={() => refetch()} accessibilityRole="button">
-              <Text variant="smallStrong" tone="accent">
-                {strings.common.retry}
-              </Text>
-            </Pressable>
-          </Notice>
-        ) : (
-          <View style={[styles.cityGrid, isDesktop && styles.cityGridDesktop]}>
-            {cities.map((city) => {
-              const c = data?.counts.get(city.id) ?? { coworking: 0, cafe: 0 };
-              return (
-                <Card key={city.id} onPress={() => goToCity(city)} style={styles.cityCard}>
-                  <View style={styles.cityCardTop}>
-                    <View>
-                      <Text variant="title">{city.name}</Text>
-                      <Text variant="small" tone="muted">
-                        {city.country_name}
-                      </Text>
-                    </View>
-                    <View style={styles.cityArrow}>
-                      <Icon name="arrow-right" size={18} color={colors.onAccent} />
-                    </View>
-                  </View>
-                  <View style={styles.cityStats}>
-                    <View style={styles.cityStat}>
-                      <Icon name="briefcase" size={14} color={colors.coworking} />
-                      <Text variant="small" tone="muted">
-                        {c.coworking} {strings.explore.coworking.toLowerCase()}
-                      </Text>
-                    </View>
-                    <View style={styles.cityStat}>
-                      <Icon name="coffee" size={14} color={colors.cafe} />
-                      <Text variant="small" tone="muted">
-                        {c.cafe} {c.cafe === 1 ? 'café' : 'cafés'}
-                      </Text>
-                    </View>
-                  </View>
-                </Card>
-              );
-            })}
+
+          {!isSupabaseConfigured ? <Notice tone="warning" body={strings.common.backendNotConfigured} /> : null}
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+            <Chip label={strings.home.filterAll} selected={continent === null} onPress={() => setContinent(null)} color={colors.text} />
+            {CONTINENTS.map((c) => (
+              <Chip
+                key={c}
+                label={strings.home.continents[c]}
+                selected={continent === c}
+                onPress={() => setContinent(continent === c ? null : c)}
+                color={colors.text}
+              />
+            ))}
+          </ScrollView>
+
+          <View style={styles.toolbar}>
+            <Text variant="smallStrong" tone="muted">
+              {cities.loading ? strings.common.loading : strings.home.resultCount(cities.total)}
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sorts}>
+              <Icon name="bar-chart-2" size={14} color={colors.textMuted} />
+              {SORTS.map((s) => (
+                <Chip key={s} label={strings.home.sort[s]} selected={sort === s} onPress={() => setSort(s)} />
+              ))}
+            </ScrollView>
           </View>
-        )}
-        <Text variant="small" tone="muted">
-          {strings.home.searchHint}
-        </Text>
-      </View>
-    </Screen>
+
+          {cities.loading ? (
+            <View style={styles.grid}>
+              {[0, 1].map((r) => (
+                <View key={r} style={styles.row}>
+                  {COLUMN_KEYS.slice(0, cols).map((k) => (
+                    <View key={k} style={styles.cell}>
+                      <Skeleton height={skeletonHeight} style={styles.skeletonCard} />
+                    </View>
+                  ))}
+                </View>
+              ))}
+            </View>
+          ) : cities.error ? (
+            <ErrorState body={cities.error.message} onAction={() => void cities.refresh()} />
+          ) : cities.items.length === 0 ? (
+            <EmptyState icon="search" title={strings.home.noCitiesTitle} body={strings.home.noCitiesBody} />
+          ) : (
+            <View style={styles.grid}>
+              {rows.map((row, rowIndex) => (
+                <View key={row[0]!.id} style={styles.rowGroup}>
+                  <View style={styles.row}>
+                    {row.map((city, i) => (
+                      <View key={city.id} style={styles.cell}>
+                        <CityCard
+                          city={city}
+                          rank={ranked ? rowIndex * cols + i + 1 : null}
+                          onPress={() => router.push(`/${city.slug}`)}
+                        />
+                      </View>
+                    ))}
+                    {COLUMN_KEYS.slice(row.length, cols).map((k) => (
+                      <View key={k} style={styles.cell} />
+                    ))}
+                  </View>
+                  {!user && rowIndex === Math.max(1, Math.ceil(8 / cols) - 1) ? <SignupGate style={styles.inlineGate} /> : null}
+                  {rowIndex === Math.ceil(24 / cols) - 1 ? <AdSlot /> : null}
+                </View>
+              ))}
+            </View>
+          )}
+
+          {cities.loadingMore ? <ActivityIndicator color={colors.accent} style={styles.more} /> : null}
+          {!cities.loading && cities.hasMore && !cities.loadingMore ? (
+            <Button title={strings.home.loadMore} variant="secondary" onPress={cities.loadMore} style={styles.moreButton} />
+          ) : null}
+
+          <View style={[styles.how, isDesktop && styles.howDesktop]}>
+            <Text variant="heading">{strings.home.howTitle}</Text>
+            <View style={[styles.howSteps, isDesktop && styles.howStepsDesktop]}>
+              {strings.home.howSteps.map((step, i) => (
+                <Glass key={step.title} variant="strong" style={[styles.howStep, isDesktop && styles.howStepDesktop]}>
+                  <View style={styles.howNumber}>
+                    <Text variant="smallStrong" tone="inverse">
+                      {i + 1}
+                    </Text>
+                  </View>
+                  <Text variant="bodyStrong">{step.title}</Text>
+                  <Text variant="small" tone="muted">
+                    {step.body}
+                  </Text>
+                </Glass>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.request}>
+            <Text variant="heading">{strings.home.requestTitle}</Text>
+            <Text variant="small" tone="muted">
+              {strings.home.requestBody}
+            </Text>
+            <CitySearch
+              activeCities={[]}
+              onSelectActive={(c) => router.push(`/${c.slug}`)}
+              onSelectOther={(r) => void openSearchResult(r)}
+              onManual={(text) => router.push({ pathname: '/waitlist', params: { city: text } })}
+            />
+          </View>
+        </View>
+        <SiteFooter />
+      </ScrollView>
+      <SignupBanner />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  brand: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  brandDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: colors.accent,
-  },
-  hero: {
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-  },
-  heroDesktop: {
-    paddingVertical: spacing.xl,
-  },
-  section: {
-    gap: spacing.md,
-    marginTop: spacing.sm,
-  },
-  sectionLabel: {
-    letterSpacing: 1,
-  },
-  cityGrid: {
-    gap: spacing.md,
-  },
-  cityGridDesktop: {
-    flexDirection: 'row',
-  },
-  cityCard: {
+  root: {
     flex: 1,
+  },
+  scroll: {
+    alignItems: 'center',
+    paddingBottom: 96,
+  },
+  page: {
+    width: '100%',
+    maxWidth: layout.maxWideWidth,
+    paddingHorizontal: spacing.lg,
     gap: spacing.lg,
   },
-  cityCardSkeleton: {
+  hero: {
+    gap: spacing.md,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.sm,
+  },
+  heroDesktop: {
+    alignItems: 'center',
+    paddingTop: spacing.xxxl,
+    paddingBottom: spacing.lg,
+  },
+  heroTitle: {
+    maxWidth: 760,
+    fontSize: 44,
+    lineHeight: 52,
+  },
+  heroSubtitle: {
+    maxWidth: 640,
+    fontSize: 18,
+    lineHeight: 27,
+  },
+  heroSearch: {
+    width: '100%',
+    maxWidth: 560,
+    marginTop: spacing.sm,
+  },
+  chips: {
+    gap: spacing.sm,
+    paddingVertical: 2,
+  },
+  toolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    flexWrap: 'wrap',
+  },
+  sorts: {
+    gap: spacing.xs,
+    alignItems: 'center',
+  },
+  grid: {
+    gap: spacing.md,
+  },
+  rowGroup: {
+    gap: spacing.md,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  cell: {
+    flex: 1,
+    minWidth: 0,
+  },
+  skeletonCard: {
     borderRadius: radius.lg,
   },
-  cityCardTop: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+  inlineGate: {
+    marginVertical: spacing.sm,
   },
-  cityArrow: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  more: {
+    marginVertical: spacing.lg,
+  },
+  moreButton: {
+    alignSelf: 'center',
+  },
+  how: {
+    marginTop: spacing.xxl,
+    gap: spacing.md,
+  },
+  howDesktop: {
+    alignItems: 'center',
+  },
+  howSteps: {
+    gap: spacing.md,
+  },
+  howStepsDesktop: {
+    flexDirection: 'row',
+  },
+  howStep: {
+    gap: spacing.xs,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+  },
+  howStepDesktop: {
+    flex: 1,
+  },
+  howNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: spacing.xs,
   },
-  cityStats: {
-    flexDirection: 'row',
-    gap: spacing.lg,
-  },
-  cityStat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  request: {
+    marginTop: spacing.xl,
+    gap: spacing.sm,
+    maxWidth: layout.maxContentWidth,
+    width: '100%',
+    alignSelf: 'center',
+    zIndex: 5,
   },
 });

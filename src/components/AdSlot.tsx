@@ -1,4 +1,5 @@
-import { StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
@@ -15,6 +16,7 @@ const AD_PROVIDER_CONFIGURED = false;
 
 export function AdSlot() {
   const { isPlus } = useAuth();
+  const router = useRouter();
   if (isPlus) return null;
   if (!AD_PROVIDER_CONFIGURED) {
     if (!isDev) return null;
@@ -26,6 +28,11 @@ export function AdSlot() {
         <Text variant="small" tone="muted">
           {strings.plus.adPlaceholder}
         </Text>
+        <Pressable onPress={() => router.push('/plus')} accessibilityRole="link">
+          <Text variant="caption" tone="plus">
+            {strings.plus.upsellAds}
+          </Text>
+        </Pressable>
       </View>
     );
   }

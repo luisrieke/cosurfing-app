@@ -3,10 +3,11 @@ import type { ReactNode } from 'react';
 import { Platform, ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, layout, spacing } from '@/lib/theme';
+import { layout, radius, spacing } from '@/lib/theme';
 import { strings } from '@/lib/strings';
 
 import { IconButton } from './Button';
+import { glassSurface } from './Glass';
 import { Text } from './Text';
 
 interface ScreenProps {
@@ -68,6 +69,7 @@ interface TopBarProps {
 export function TopBar({ title, back = true, onBack, right, transparent, maxWidth }: TopBarProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const verticalPad = Platform.OS === 'web' ? spacing.sm : spacing.xs;
   const handleBack = () => {
     if (onBack) return onBack();
     if (router.canGoBack()) router.back();
@@ -76,8 +78,9 @@ export function TopBar({ title, back = true, onBack, right, transparent, maxWidt
   return (
     <View
       style={[
+        transparent ? null : glassSurface('strong'),
         styles.topBar,
-        { paddingTop: insets.top + (Platform.OS === 'web' ? spacing.sm : spacing.xs) },
+        { paddingTop: insets.top + verticalPad, paddingBottom: transparent ? 0 : verticalPad },
         transparent ? styles.topBarTransparent : null,
       ]}
     >
@@ -88,7 +91,7 @@ export function TopBar({ title, back = true, onBack, right, transparent, maxWidt
               icon="arrow-left"
               accessibilityLabel={strings.common.back}
               onPress={handleBack}
-              background={transparent ? colors.bg : 'transparent'}
+              background={transparent ? undefined : 'transparent'}
               style={transparent ? undefined : styles.noBorder}
             />
           ) : null}
@@ -133,7 +136,6 @@ export function Section({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.bg,
   },
   scrollContent: {
     flexGrow: 1,
@@ -148,15 +150,14 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
   },
   topBar: {
-    backgroundColor: colors.bg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderRadius: radius.lg,
     alignItems: 'center',
     zIndex: 10,
   },
   topBarTransparent: {
     backgroundColor: 'transparent',
-    borderBottomWidth: 0,
+    borderWidth: 0,
+    borderRadius: 0,
     position: 'absolute',
     top: 0,
     left: 0,

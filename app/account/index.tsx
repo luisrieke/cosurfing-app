@@ -9,7 +9,8 @@ import { Badge, Button, Card, CategoryBadge, Icon, Input, Notice, Screen, Sectio
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
 import { formatDate } from '@/lib/format';
-import { getFavoritePlaces, getMyReviews, updateDisplayName } from '@/lib/queries';
+import { levelFor } from '@/lib/levels';
+import { getCityById, getFavoritePlaces, getMyReviews, updateDisplayName } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
 
@@ -30,6 +31,9 @@ function AccountScreen() {
   const [saved, setSaved] = useState(false);
   const favorites = useQuery(`favorites:${user?.id}:${favoriteIds.size}`, () => getFavoritePlaces(user!.id), Boolean(user));
   const reviews = useQuery(`my-reviews:${user?.id}`, () => getMyReviews(user!.id), Boolean(user));
+  const homeCity = useQuery(`home-city:${profile?.home_city_id}`, () => getCityById(profile!.home_city_id!), Boolean(profile?.home_city_id));
+  const points = profile?.points ?? 0;
+  const level = levelFor(points);
 
   // Re-sync the input when the profile (re)loads, without an effect.
   const profileName = profile?.display_name ?? null;
@@ -57,6 +61,41 @@ function AccountScreen() {
         <title>Account · Cosurfing</title>
       </Head>
       <TopBar title={strings.account.title} onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))} />
+
+      <Card style={styles.plusCard}>
+        <View style={styles.plusRow}>
+          <View style={[styles.plusIcon, { backgroundColor: colors.accent }]}>
+            <Text variant="smallStrong" tone="inverse">
+              {level.index + 1}
+            </Text>
+          </View>
+          <View style={styles.plusText}>
+            <Text variant="caption" tone="muted">
+              {strings.account.level}
+            </Text>
+            <Text variant="bodyStrong">
+              {level.name} · {strings.levels.points(points)}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${level.progress * 100}%` }]} />
+        </View>
+        <Text variant="caption" tone="muted">
+          {level.nextAt !== null && level.nextName ? `${strings.levels.nextLevel(level.nextAt - points, level.nextName)} · ` : ''}
+          {strings.levels.howToEarn}
+        </Text>
+        {homeCity.data ? (
+          <Button
+            title={`${strings.account.homeCity}: ${homeCity.data.name}`}
+            icon="map-pin"
+            variant="secondary"
+            size="sm"
+            onPress={() => router.push(`/${homeCity.data!.slug}`)}
+            style={styles.selfStart}
+          />
+        ) : null}
+      </Card>
 
       <Card style={styles.plusCard}>
         <View style={styles.plusRow}>
@@ -185,6 +224,19 @@ const styles = StyleSheet.create({
   plusText: {
     flex: 1,
     gap: 2,
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.bgMuted,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.accent,
+  },
+  selfStart: {
+    alignSelf: 'flex-start',
   },
   row: {
     flexDirection: 'row',

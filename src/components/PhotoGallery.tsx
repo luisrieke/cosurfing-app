@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { type NativeScrollEvent, type NativeSyntheticEvent, ScrollView, StyleSheet, View } from 'react-native';
 
-import { Button, Icon, Text } from '@/components/ui';
+import { Button, Icon, Text, categoryIcon } from '@/components/ui';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
 import type { PlaceCategory, PlacePhoto } from '@/lib/types';
@@ -33,7 +33,7 @@ export function PhotoGallery({ photos, category, width, height, loading }: Photo
   if (photos.length === 0) {
     return (
       <View style={[styles.frame, { width, height }, styles.placeholder]}>
-        <Icon name={category === 'coworking' ? 'briefcase' : 'coffee'} size={32} color={colors.textFaint} />
+        <Icon name={categoryIcon(category)} size={32} color={colors.textFaint} />
         <Text variant="small" tone="faint">
           {strings.place.noPhotos}
         </Text>

@@ -1,8 +1,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ExploreScreen } from '@/components/explore/ExploreScreen';
+import { CityRankingScreen } from '@/components/city/CityRankingScreen';
 import { ErrorState, Notice, Skeleton, TopBar } from '@/components/ui';
 import { WaitlistScreen } from '@/components/waitlist/WaitlistScreen';
 import { useQuery } from '@/hooks/useQuery';
@@ -10,13 +11,15 @@ import { isSupabaseConfigured } from '@/lib/env';
 import { titleFromSlug } from '@/lib/format';
 import { getCityBySlug } from '@/lib/queries';
 import { strings } from '@/lib/strings';
-import { colors, spacing } from '@/lib/theme';
+import { spacing } from '@/lib/theme';
 
 export default function CityRoute() {
   const { city: slug } = useLocalSearchParams<{ city: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const cityQuery = useQuery(`city:${slug}`, () => getCityBySlug(slug!), Boolean(slug) && isSupabaseConfigured);
+  const refetch = cityQuery.refetch;
+  const refreshCity = useCallback(() => refetch(true), [refetch]);
 
   if (!isSupabaseConfigured) {
     return (
@@ -27,19 +30,20 @@ export default function CityRoute() {
     );
   }
 
-  if (cityQuery.loading) {
+  if (cityQuery.loading && !cityQuery.data) {
     return (
       <View style={[styles.root, { paddingTop: insets.top + spacing.lg }]}>
         <View style={styles.skeletons}>
-          <Skeleton width={120} height={28} />
           <Skeleton height={220} />
-          <Skeleton width="80%" height={16} />
+          <Skeleton width="60%" height={28} />
+          <Skeleton height={96} />
+          <Skeleton height={96} />
         </View>
       </View>
     );
   }
 
-  if (cityQuery.error) {
+  if (cityQuery.error && !cityQuery.data) {
     return (
       <View style={styles.root}>
         <TopBar title={titleFromSlug(slug ?? '')} onBack={() => router.replace('/')} />
@@ -50,7 +54,7 @@ export default function CityRoute() {
 
   const city = cityQuery.data ?? null;
   if (city && city.status === 'active') {
-    return <ExploreScreen city={city} />;
+    return <CityRankingScreen city={city} onRefreshCity={refreshCity} />;
   }
   // Unknown slug or a city that is still on the waiting list.
   return <WaitlistScreen city={city} cityName={city?.name ?? titleFromSlug(slug ?? '')} />;
@@ -59,7 +63,6 @@ export default function CityRoute() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.bg,
   },
   notice: {
     margin: spacing.lg,

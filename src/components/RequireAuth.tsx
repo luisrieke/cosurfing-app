@@ -5,6 +5,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Button, Icon, Notice, Screen, Text, TopBar } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/env';
+import { signUpHref } from '@/lib/funnel';
 import { strings } from '@/lib/strings';
 import { colors, spacing } from '@/lib/theme';
 
@@ -54,7 +55,7 @@ export function RequireAuth({ children, title, message, redirect }: RequireAuthP
           </Text>
           <Button
             title={strings.common.signIn}
-            onPress={() => router.push({ pathname: '/auth/sign-in', params: { redirect } })}
+            onPress={() => router.push(signUpHref(redirect))}
             style={{ marginTop: spacing.sm }}
           />
         </View>

@@ -1,5 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
+import { categoryIcon } from '@/components/ui/Badge';
 import { Icon } from '@/components/ui/Icon';
 import { colors, shadow } from '@/lib/theme';
 import type { PlaceCategory } from '@/lib/types';
@@ -13,7 +14,7 @@ export function Pin({ category, selected }: { category: PlaceCategory; selected?
     <View style={[styles.wrap, { transform: [{ scale }] }]}>
       <View style={[styles.tail, { backgroundColor: color }]} />
       <View style={[styles.body, { backgroundColor: color, borderColor: selected ? colors.text : '#fff' }]}>
-        <Icon name={category === 'coworking' ? 'briefcase' : 'coffee'} size={16} color="#fff" />
+        <Icon name={categoryIcon(category)} size={16} color="#fff" />
       </View>
     </View>
   );

@@ -21,6 +21,7 @@ export function CitySearch({ activeCities, onSelectActive, onSelectOther, onManu
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const q = query.trim();
@@ -77,13 +78,19 @@ export function CitySearch({ activeCities, onSelectActive, onSelectOther, onManu
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.inputRow}>
+      <View style={[styles.inputRow, focused && styles.inputRowFocused]}>
         <Icon name="search" size={20} color={colors.textMuted} />
         <TextInput
           value={query}
           onChangeText={changeQuery}
-          onFocus={() => setOpen(true)}
-          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          onFocus={() => {
+            setFocused(true);
+            setOpen(true);
+          }}
+          onBlur={() => {
+            setFocused(false);
+            setTimeout(() => setOpen(false), 150);
+          }}
           placeholder={strings.home.searchPlaceholder}
           placeholderTextColor={colors.textFaint}
           autoCapitalize="words"
@@ -173,7 +180,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderStrong,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.surface,
+  },
+  inputRowFocused: {
+    borderColor: colors.textMuted,
   },
   input: {
     flex: 1,
@@ -181,13 +191,14 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontFamily,
     height: '100%',
+    outlineWidth: 0,
   },
   dropdown: {
     position: 'absolute',
     top: 62,
     left: 0,
     right: 0,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.surface,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,

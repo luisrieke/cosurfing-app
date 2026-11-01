@@ -4,12 +4,13 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { RequireAuth } from '@/components/RequireAuth';
-import { Button, EmptyState, Input, Notice, Screen, Skeleton, Text, TopBar } from '@/components/ui';
+import { Button, Chip, EmptyState, Input, Notice, Screen, Skeleton, Text, TopBar } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
 import { createReport, getPlaceBySlug } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { spacing } from '@/lib/theme';
+import type { PlaceReport } from '@/lib/types';
 
 export default function ReportRoute() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -25,6 +26,7 @@ function ReportScreen({ slug }: { slug: string }) {
   const { user } = useAuth();
   const placeQuery = useQuery(`place:${slug}`, () => getPlaceBySlug(slug));
   const place = placeQuery.data ?? null;
+  const [kind, setKind] = useState<PlaceReport['kind']>('other');
   const [body, setBody] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -34,14 +36,15 @@ function ReportScreen({ slug }: { slug: string }) {
 
   const submit = async () => {
     if (!user || !place) return;
-    if (body.trim().length < 5) {
+    const text = kind === 'closed' && body.trim().length < 5 ? strings.report.closedBody : body;
+    if (text.trim().length < 5) {
       setError(strings.report.minBody);
       return;
     }
     setBusy(true);
     setError(null);
     try {
-      await createReport(user.id, place.id, body);
+      await createReport(user.id, place.id, text, kind);
       setSent(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : strings.common.somethingWentWrong);
@@ -86,10 +89,19 @@ function ReportScreen({ slug }: { slug: string }) {
         </>
       ) : (
         <>
+          <View style={styles.kinds}>
+            <Chip label={strings.report.kindOther} selected={kind === 'other'} onPress={() => setKind('other')} />
+            <Chip
+              label={strings.report.kindClosed}
+              icon="x-circle"
+              selected={kind === 'closed'}
+              onPress={() => setKind('closed')}
+            />
+          </View>
           <Input
             value={body}
             onChangeText={setBody}
-            placeholder={strings.report.placeholder}
+            placeholder={kind === 'closed' ? strings.report.closedPlaceholder : strings.report.placeholder}
             multiline
             maxLength={1000}
             error={error}
@@ -105,5 +117,10 @@ function ReportScreen({ slug }: { slug: string }) {
 const styles = StyleSheet.create({
   intro: {
     gap: spacing.xs,
+  },
+  kinds: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
 });

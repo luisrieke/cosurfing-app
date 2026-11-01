@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Icon, Text } from '@/components/ui';
 import { formatDate } from '@/lib/format';
+import { levelFor } from '@/lib/levels';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
 import type { PlaceReview } from '@/lib/types';
@@ -57,14 +58,25 @@ export function ReviewItem({ review }: { review: PlaceReview }) {
             {formatDate(review.created_at)}
           </Text>
         </View>
-        <View style={styles.lockedBody} accessibilityLabel={strings.place.lockedReviews}>
-          <View style={[styles.bar, { width: '92%' }]} />
-          <View style={[styles.bar, { width: '78%' }]} />
-          <View style={[styles.bar, { width: '55%' }]} />
-        </View>
+        {review.has_body ? (
+          <View style={styles.lockedBody} accessibilityLabel={strings.funnel.lockedReviewsBody}>
+            <View style={[styles.bar, { width: '92%' }]} />
+            <View style={[styles.bar, { width: '78%' }]} />
+            <View style={[styles.bar, { width: '55%' }]} />
+          </View>
+        ) : null}
       </View>
     );
   }
+  const parts = strings.place.detailParts;
+  const details: { label: string; value: number | null }[] = [
+    { label: parts.wifi, value: review.wifi_rating },
+    { label: parts.power, value: review.power_rating },
+    { label: parts.quiet, value: review.quiet_rating },
+    { label: parts.comfort, value: review.comfort_rating },
+    { label: parts.value, value: review.value_rating },
+  ];
+  const shown = details.filter((d) => d.value !== null);
   return (
     <View style={styles.item}>
       <View style={styles.itemHeader}>
@@ -84,11 +96,40 @@ export function ReviewItem({ review }: { review: PlaceReview }) {
           </Text>
           <Stars value={review.rating} size={14} />
         </View>
-        <Text variant="caption" tone="faint">
-          {formatDate(review.created_at)}
-        </Text>
+        <View style={styles.itemMeta}>
+          <Text variant="caption" tone="faint">
+            {formatDate(review.created_at)}
+          </Text>
+          {review.author_points !== null ? (
+            <Text variant="caption" tone="muted">
+              {levelFor(review.author_points).name}
+            </Text>
+          ) : null}
+        </View>
       </View>
-      <Text>{review.body}</Text>
+      {shown.length > 0 || review.calls_ok !== null ? (
+        <View style={styles.details}>
+          {shown.map((d) => (
+            <View key={d.label} style={styles.detail}>
+              <Text variant="caption" tone="muted">
+                {d.label}
+              </Text>
+              <Text variant="caption" style={styles.detailValue}>
+                {d.value}/5
+              </Text>
+            </View>
+          ))}
+          {review.calls_ok !== null ? (
+            <View style={styles.detail}>
+              <Icon name="video" size={12} color={review.calls_ok ? colors.success : colors.danger} />
+              <Text variant="caption" style={{ color: review.calls_ok ? colors.success : colors.danger }}>
+                {review.calls_ok ? strings.review.callsOkYes : strings.review.callsOkNo}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+      {review.body ? <Text>{review.body}</Text> : null}
       {review.status === 'hidden' ? (
         <Text variant="caption" tone="danger">
           {strings.review.hiddenNote}
@@ -117,6 +158,28 @@ const styles = StyleSheet.create({
   itemHeaderText: {
     flex: 1,
     gap: 2,
+  },
+  itemMeta: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  details: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  detail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.bgMuted,
+  },
+  detailValue: {
+    fontWeight: '600',
+    color: colors.text,
   },
   avatar: {
     width: 36,

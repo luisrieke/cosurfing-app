@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.lg,
     overflow: 'hidden',
-    backgroundColor: colors.bg,
+    backgroundColor: colors.surface,
   },
   rowWrap: {
     borderBottomWidth: 1,
