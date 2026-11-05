@@ -28,6 +28,7 @@ import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useDebounced } from '@/hooks/useDebounced';
 import { usePaged } from '@/hooks/usePaged';
 import { useQuery } from '@/hooks/useQuery';
+import { useSlowConnection } from '@/hooks/useSlowConnection';
 import { useAuth } from '@/lib/auth';
 import { formatDate, formatMbps } from '@/lib/format';
 import { canShowInterstitial, dismissInterstitial, markInterstitialShown, signUpHref } from '@/lib/funnel';
@@ -49,6 +50,8 @@ const TABS: (PlaceCategory | 'all')[] = ['all', 'coworking', 'cafe', 'library'];
 export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefreshCity: () => Promise<void> }) {
   const router = useRouter();
   const { isDesktop, width } = useBreakpoint();
+  const slow = useSlowConnection();
+  const heroCover = (slow ? city.cover_thumb_url : null) ?? city.cover_url;
   const { user } = useAuth();
   const [category, setCategory] = useState<PlaceCategory | 'all'>('all');
   const [sort, setSort] = useState<RankingSort>('score');
@@ -230,8 +233,16 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
       <ScrollView onScroll={onScroll} scrollEventThrottle={200} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <SiteHeaderSpacer />
         <View style={[styles.hero, isDesktop && styles.heroDesktop]}>
-          {city.cover_url ? (
-            <Image source={{ uri: city.cover_url }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
+          {heroCover ? (
+            <Image
+              source={{ uri: heroCover }}
+              placeholder={city.cover_thumb_url ? { uri: city.cover_thumb_url } : undefined}
+              placeholderContentFit="cover"
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              transition={200}
+              priority="high"
+            />
           ) : null}
           <Shade colors={['rgba(23,21,15,0.2)', 'rgba(23,21,15,0.35)', 'rgba(23,21,15,0.8)']} locations={[0, 0.45, 1]} />
           <View style={styles.heroInner}>

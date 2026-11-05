@@ -40,6 +40,7 @@ export function CityCard({
           style={StyleSheet.absoluteFill}
           contentFit="cover"
           transition={150}
+          loading="lazy"
           recyclingKey={city.id}
           accessibilityIgnoresInvertColors
         />

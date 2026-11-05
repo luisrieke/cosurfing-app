@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { type NativeScrollEvent, type NativeSyntheticEvent, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Icon, Text, categoryIcon } from '@/components/ui';
+import { useSlowConnection } from '@/hooks/useSlowConnection';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
 import type { PlaceCategory, PlacePhoto } from '@/lib/types';
@@ -17,10 +18,14 @@ interface PhotoGalleryProps {
 
 export function PhotoGallery({ photos, category, width, height, loading }: PhotoGalleryProps) {
   const [index, setIndex] = useState(0);
+  const [reached, setReached] = useState(0);
+  const reach = useSlowConnection() ? 0 : 1;
+  const loadUpTo = Math.max(reached, index) + reach;
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const i = Math.round(e.nativeEvent.contentOffset.x / Math.max(width, 1));
     if (i !== index) setIndex(i);
+    if (i > reached) setReached(i);
   };
 
   if (loading) {
@@ -48,14 +53,19 @@ export function PhotoGallery({ photos, category, width, height, loading }: Photo
         scrollEventThrottle={32}
         style={{ width, height }}
       >
-        {photos.map((photo) => (
-          <Image
-            key={photo.id}
-            source={{ uri: photo.full_url ?? photo.preview_url }}
-            style={{ width, height }}
-            contentFit="cover"
-            transition={200}
-          />
+        {photos.map((photo, i) => (
+          <View key={photo.id} style={{ width, height }}>
+            <Image source={{ uri: photo.preview_url }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={8} />
+            {photo.full_url && i <= loadUpTo ? (
+              <Image
+                source={{ uri: photo.full_url }}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                transition={200}
+                priority={i === index ? 'high' : 'low'}
+              />
+            ) : null}
+          </View>
         ))}
       </ScrollView>
       {photos.length > 1 ? (

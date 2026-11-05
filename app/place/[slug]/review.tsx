@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -6,10 +7,11 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { RequireAuth } from '@/components/RequireAuth';
 import { Stars } from '@/components/Reviews';
 import { ScoreBadge } from '@/components/ScoreBadge';
-import { Button, CategoryBadge, Chip, EmptyState, Input, Notice, Screen, Skeleton, Text, TopBar } from '@/components/ui';
+import { Button, CategoryBadge, Chip, EmptyState, Icon, Input, Notice, Screen, Skeleton, Text, TopBar } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
 import { FACT_KEYS, dayPassCurrency, factAppliesTo, formatFactValue, summarizeFacts } from '@/lib/facts';
+import { MAX_USER_PHOTOS_PER_UPLOAD, pickImages, uploadPlacePhoto } from '@/lib/photoUpload';
 import {
   deleteReview,
   getMyFacts,
@@ -104,8 +106,12 @@ function ReviewScreen({ slug }: { slug: string }) {
   const [form, setForm] = useState<ReviewInput>(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<{ isNew: boolean } | null>(null);
+  const [done, setDone] = useState<{ isNew: boolean; photosSent: number; photosFailed: number } | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [photosAccepted, setPhotosAccepted] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<string | null>(null);
 
   const myFactsQuery = useQuery(`my-facts:${place?.id}:${user?.id}`, () => getMyFacts(user!.id, place!.id), Boolean(place && user));
   const factsQuery = useQuery(`facts:${place?.id}`, () => getPlaceFacts(place!.id), Boolean(place));
@@ -162,18 +168,45 @@ function ReviewScreen({ slug }: { slug: string }) {
       factInput.day_pass = { amount, currency: dayPassCurrency(place.web_facts ?? {}) };
     }
     setFactError(null);
+    if (photos.length > 0 && !photosAccepted) {
+      setPhotoError(strings.review.photosNeedConsent);
+      return;
+    }
+    setPhotoError(null);
     setBusy(true);
     setError(null);
     try {
       await upsertReview(user.id, place.id, form);
       // Only replace the stored facts once we know what they were, so a failed load never wipes them.
       if (factsHydrated) await savePlaceFacts(place.id, factInput);
-      setDone({ isNew: !own });
+      const rightsAcceptedAt = new Date().toISOString();
+      let sent = 0;
+      for (const [i, uri] of photos.entries()) {
+        setProgress(strings.photos.uploading(i + 1, photos.length));
+        try {
+          await uploadPlacePhoto(place.id, uri, 1000 + i, { userId: user.id, rightsAcceptedAt });
+          sent += 1;
+        } catch {
+          // The review is already saved; report failed photos on the thanks screen instead.
+        }
+      }
+      setDone({ isNew: !own, photosSent: sent, photosFailed: photos.length - sent });
       void refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : strings.common.somethingWentWrong);
     } finally {
       setBusy(false);
+      setProgress(null);
+    }
+  };
+
+  const addPhotos = async () => {
+    setPhotoError(null);
+    try {
+      const uris = await pickImages(MAX_USER_PHOTOS_PER_UPLOAD - photos.length);
+      if (uris.length > 0) setPhotos((p) => [...p, ...uris].slice(0, MAX_USER_PHOTOS_PER_UPLOAD));
+    } catch (e) {
+      setPhotoError(e instanceof Error ? e.message : strings.common.somethingWentWrong);
     }
   };
 
@@ -226,6 +259,8 @@ function ReviewScreen({ slug }: { slug: string }) {
             </View>
           ) : null}
         </View>
+        {done.photosSent > 0 ? <Notice tone="success" body={strings.photos.thanks(done.photosSent)} /> : null}
+        {done.photosFailed > 0 ? <Notice tone="danger" body={strings.review.photosFailed(done.photosFailed)} /> : null}
 
         <View style={styles.block}>
           <Text variant="heading">{strings.review.nextTitle}</Text>
@@ -400,7 +435,78 @@ function ReviewScreen({ slug }: { slug: string }) {
         hint={`${form.body.trim().length} / 2000`}
       />
 
-      <Button title={own ? strings.review.update : strings.review.submit} size="lg" fullWidth loading={busy} onPress={submit} />
+      <View style={styles.card}>
+        <View style={styles.block}>
+          <Text variant="bodyStrong">{`${strings.review.photos} (${strings.common.optional})`}</Text>
+          <Text variant="caption" tone="muted">
+            {strings.review.photosHint}
+          </Text>
+        </View>
+        {photos.length > 0 ? (
+          <View style={styles.thumbs}>
+            {photos.map((uri) => (
+              <View key={uri} style={styles.thumb}>
+                <Image source={{ uri }} style={styles.thumbImage} contentFit="cover" />
+                <Pressable
+                  onPress={() => setPhotos((p) => p.filter((u) => u !== uri))}
+                  disabled={busy}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel={strings.review.removePhoto}
+                  style={styles.thumbRemove}
+                >
+                  <Icon name="x" size={14} color={colors.surface} />
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        {photos.length < MAX_USER_PHOTOS_PER_UPLOAD ? (
+          <Button
+            title={strings.review.addPhotos}
+            icon="camera"
+            variant="secondary"
+            size="sm"
+            onPress={addPhotos}
+            disabled={busy}
+            style={styles.selfStart}
+          />
+        ) : null}
+        {photos.length > 0 ? (
+          <>
+            <Text variant="caption" tone="muted">
+              {strings.photos.rules}
+            </Text>
+            <Pressable
+              style={styles.checkbox}
+              onPress={() => {
+                setPhotosAccepted((a) => !a);
+                setPhotoError(null);
+              }}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: photosAccepted }}
+            >
+              <Icon name={photosAccepted ? 'check-square' : 'square'} size={20} color={photosAccepted ? colors.accent : colors.textMuted} />
+              <Text variant="small" style={styles.flex}>
+                {strings.photos.consent}{' '}
+                <Text variant="smallStrong" tone="accent" onPress={() => router.push('/terms')}>
+                  {strings.photos.termsLink}
+                </Text>
+                .
+              </Text>
+            </Pressable>
+          </>
+        ) : null}
+        {photoError ? <Notice tone="danger" body={photoError} /> : null}
+      </View>
+
+      <Button
+        title={progress ?? (own ? strings.review.update : strings.review.submit)}
+        size="lg"
+        fullWidth
+        loading={busy}
+        onPress={submit}
+      />
       {own ? <Button title={strings.review.delete} variant="danger" icon="trash-2" onPress={remove} disabled={busy} /> : null}
     </Screen>
   );
@@ -486,5 +592,43 @@ const styles = StyleSheet.create({
   },
   shrink: {
     flexShrink: 1,
+  },
+  thumbs: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  thumb: {
+    width: 80,
+    height: 80,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    backgroundColor: colors.bgMuted,
+  },
+  thumbImage: {
+    width: '100%',
+    height: '100%',
+  },
+  thumbRemove: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selfStart: {
+    alignSelf: 'flex-start',
+  },
+  checkbox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  flex: {
+    flex: 1,
   },
 });

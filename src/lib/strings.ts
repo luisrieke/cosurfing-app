@@ -333,6 +333,13 @@ export const strings = {
     invalidDayPass: 'Please enter the day pass price as a number.',
     bodyLabel: 'Tips for others',
     bodyPlaceholder: 'Best seats, how long you can stay, when it gets busy…',
+    photos: 'Photos',
+    photosHint: 'Got pictures of the workspace? Desks, seating, outlets and the view help others most.',
+    addPhotos: 'Add photos',
+    removePhoto: 'Remove photo',
+    photosNeedConsent: 'Please confirm the photo rights, or remove the photos.',
+    photosFailed: (n: number) =>
+      n === 1 ? 'Your review is saved, but 1 photo could not be uploaded.' : `Your review is saved, but ${n} photos could not be uploaded.`,
     submit: 'Publish review',
     update: 'Update review',
     delete: 'Delete review',

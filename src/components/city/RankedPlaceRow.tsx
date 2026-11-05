@@ -10,6 +10,7 @@ import { colors, radius, spacing } from '@/lib/theme';
 import type { RankedPlace } from '@/lib/types';
 
 import { pinColor } from '@/components/map/pinSvg';
+import { useSlowConnection } from '@/hooks/useSlowConnection';
 
 export function RankedPlaceRow({
   place,
@@ -39,7 +40,8 @@ export function RankedPlaceRow({
   const dayPass = dayPassLabel(place.day_pass_price_cents, place.web_day_pass);
   if (dayPass) facts.push({ icon: 'tag', label: strings.ranking.dayPass(dayPass) });
 
-  const thumb = place.cover_full_url ?? place.cover_preview_url;
+  const slow = useSlowConnection();
+  const full = slow ? null : place.cover_full_url;
 
   return (
     <Pressable
@@ -53,8 +55,23 @@ export function RankedPlaceRow({
       </Text>
 
       <View style={[styles.thumb, compact && styles.thumbCompact, { backgroundColor: `${pinColor(place.category)}18` }]}>
-        {thumb ? (
-          <Image source={{ uri: thumb }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={place.cover_full_url ? 0 : 6} />
+        {place.cover_preview_url || full ? (
+          <>
+            {place.cover_preview_url ? (
+              <Image source={{ uri: place.cover_preview_url }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={6} />
+            ) : null}
+            {full ? (
+              <Image
+                source={{ uri: full }}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                transition={200}
+                loading="lazy"
+                priority="low"
+                recyclingKey={place.id}
+              />
+            ) : null}
+          </>
         ) : (
           <Icon name={categoryIcon(place.category)} size={compact ? 20 : 24} color={pinColor(place.category)} />
         )}
