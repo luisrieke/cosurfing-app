@@ -8,6 +8,7 @@ import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useAuth } from '@/lib/auth';
 import { signUpHref } from '@/lib/funnel';
 import { levelFor } from '@/lib/levels';
+import { avatarUrl } from '@/lib/storage';
 import { strings } from '@/lib/strings';
 import { colors, layout, radius, spacing } from '@/lib/theme';
 
@@ -86,7 +87,11 @@ export function SiteHeader({ back }: { back?: boolean }) {
                 </Text>
               ) : null}
               <View style={styles.avatar}>
-                <Icon name="user" size={14} color={colors.onAccent} />
+                {profile?.avatar_path ? (
+                  <Image source={{ uri: avatarUrl(profile.avatar_path) }} style={styles.avatarImage} contentFit="cover" />
+                ) : (
+                  <Icon name="user" size={14} color={colors.onAccent} />
+                )}
               </View>
             </Pressable>
           ) : (
@@ -203,6 +208,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   noBorder: {
     borderWidth: 0,

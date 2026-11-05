@@ -7,19 +7,21 @@ import { colors, radius, spacing } from '@/lib/theme';
 
 interface PlusUpsellProps {
   message: string;
+  title?: string;
   style?: ViewStyle;
   compact?: boolean;
 }
 
-export function PlusUpsell({ message, style, compact }: PlusUpsellProps) {
+export function PlusUpsell({ message, title, style, compact }: PlusUpsellProps) {
   const router = useRouter();
   return (
     <View style={[styles.wrap, compact && styles.compact, style]}>
       <View style={styles.text}>
         <Badge label={strings.plus.title} tone="plus" icon="star" />
+        {title ? <Text variant="bodyStrong">{title}</Text> : null}
         <Text variant={compact ? 'small' : 'body'}>{message}</Text>
         <Text variant="caption" tone="muted">
-          {strings.plus.price} · {strings.plus.billing}
+          {strings.plus.priceSummary} · {strings.plus.cancelAnytime}
         </Text>
       </View>
       <Button

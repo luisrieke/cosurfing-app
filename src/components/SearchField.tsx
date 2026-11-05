@@ -70,6 +70,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontFamily,
     outlineWidth: 0,
+    outlineStyle: 'solid',
   },
   inputLarge: {
     fontSize: 17,

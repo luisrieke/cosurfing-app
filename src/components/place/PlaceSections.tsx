@@ -3,10 +3,11 @@ import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { Stars } from '@/components/Reviews';
 import { Icon, type IconName, Text } from '@/components/ui';
-import { dayPassLabel, formatDate, formatMbps, formatMoney, hostFromUrl, liveWebsite } from '@/lib/format';
+import { communityFact, formatFactValue, type FactSummary } from '@/lib/facts';
+import { dayPassLabel, formatDate, formatMbps, hostFromUrl, liveWebsite } from '@/lib/format';
 import { strings } from '@/lib/strings';
 import { colors, radius, scoreColor, spacing } from '@/lib/theme';
-import type { Place, PlaceRatingStats, PlaceReview, SpeedTest, WebFacts } from '@/lib/types';
+import type { FactKey, Place, PlaceRatingStats, PlaceReview, SpeedTest, WebFacts } from '@/lib/types';
 
 type Tone = 'good' | 'okay' | 'bad' | 'neutral' | 'unknown';
 
@@ -83,10 +84,12 @@ function pick<T extends string>(value: T, map: Partial<Record<T, [string, Tone]>
   return map[value] ?? [null, 'unknown'];
 }
 
-export function hardFacts(place: Place): FactLine[] {
+/** Member answers (see VenueFactsList) take precedence over imported data. */
+export function hardFacts(place: Place, facts: FactSummary[] = []): FactLine[] {
   const s = strings.place;
   const wf = place.web_facts ?? {};
   const lines: FactLine[] = [];
+  const community = (key: FactKey) => communityFact(facts, key);
 
   if (place.download_median_mbps !== null) {
     const down = Number(place.download_median_mbps);
@@ -107,8 +110,13 @@ export function hardFacts(place: Place): FactLine[] {
     });
   }
 
-  const [wifi, wifiTone] = pick(place.wifi, { yes: [s.wifi_yes, 'good'], no: [s.wifi_no, 'bad'] });
-  lines.push({ icon: 'wifi', label: s.wifi, value: wifi ?? (wf.wifi_mentioned ? s.wifi_yes : null), tone: wifi ? wifiTone : wf.wifi_mentioned ? 'good' : 'unknown' });
+  const wifiFact = community('wifi');
+  if (wifiFact) {
+    lines.push({ icon: 'wifi', label: s.wifi, value: wifiFact.value ? s.wifi_yes : s.wifi_no, tone: wifiFact.value ? 'good' : 'bad' });
+  } else {
+    const [wifi, wifiTone] = pick(place.wifi, { yes: [s.wifi_yes, 'good'], no: [s.wifi_no, 'bad'] });
+    lines.push({ icon: 'wifi', label: s.wifi, value: wifi ?? (wf.wifi_mentioned ? s.wifi_yes : null), tone: wifi ? wifiTone : wf.wifi_mentioned ? 'good' : 'unknown' });
+  }
 
   const [fee, feeTone] = pick(place.internet_fee, {
     no: [s.internetFee_no, 'good'],
@@ -138,30 +146,31 @@ export function hardFacts(place: Place): FactLine[] {
   });
   lines.push({ icon: 'headphones', label: s.focus, value: focus, tone: focusTone });
 
-  const dayPass = dayPassLabel(place.day_pass_price_cents, wf.day_pass);
+  const dayPass = community('day_pass')?.display ?? dayPassLabel(place.day_pass_price_cents, wf.day_pass);
   if (place.category === 'coworking' || dayPass) {
     lines.push({ icon: 'tag', label: s.dayPass, value: dayPass, tone: dayPass ? 'neutral' : 'unknown' });
   }
-  if (place.category !== 'coworking' || place.price_level) {
-    lines.push({
-      icon: 'dollar-sign',
-      label: s.priceLevel,
-      value: place.price_level ? s.priceLevelLabel(place.price_level) : (wf.price_range?.value ?? null),
-      tone: place.price_level || wf.price_range ? 'neutral' : 'unknown',
-    });
+  const price =
+    community('price_range')?.display ??
+    (place.price_level ? s.priceLevelLabel(place.price_level) : (wf.price_range?.value ?? null));
+  if (place.category !== 'coworking' || price) {
+    lines.push({ icon: 'dollar-sign', label: s.priceLevel, value: price, tone: price ? 'neutral' : 'unknown' });
   }
 
-  const hours = place.opening_hours ?? wf.opening_hours?.value ?? null;
+  const hours = community('opening_hours')?.display ?? place.opening_hours ?? wf.opening_hours?.value ?? null;
   lines.push({ icon: 'clock', label: s.openingHours, value: hours, tone: hours ? 'neutral' : 'unknown' });
 
+  const laptopsFact = community('laptops');
   const laptops =
+    laptopsFact?.display ??
     place.laptop_rules ??
     (wf.laptops ? (wf.laptops.value === 'welcome' ? s.laptopsWelcome : s.laptopsNotAllowed) : null);
+  const laptopsBanned = laptopsFact ? laptopsFact.value === 'not_allowed' : wf.laptops?.value === 'not_allowed' && !place.laptop_rules;
   lines.push({
     icon: 'monitor',
     label: s.laptopRules,
     value: laptops,
-    tone: laptops ? (wf.laptops?.value === 'not_allowed' && !place.laptop_rules ? 'bad' : 'neutral') : 'unknown',
+    tone: laptops ? (laptopsBanned ? 'bad' : 'neutral') : 'unknown',
   });
 
   const [outdoor, outdoorTone] = pick(place.outdoor_seating, { yes: [strings.common.yes, 'neutral'], no: [strings.common.no, 'neutral'] });
@@ -245,91 +254,85 @@ export function FactTable({ lines: all, onHelp }: { lines: FactLine[]; onHelp?: 
 }
 
 // ---------------------------------------------------------------------------
-// Facts read from the venue website
+// Venue facts: website + member entries, combined
 // ---------------------------------------------------------------------------
 
-const WEB_KEYS = [
-  'day_pass',
-  'advertised_mbps',
-  'open_24_7',
-  'phone_booths',
-  'meeting_rooms',
-  'wifi_mentioned',
-  'laptops',
-  'opening_hours',
-  'price_range',
-] as const;
-
-function webValue(key: (typeof WEB_KEYS)[number], facts: WebFacts): string | null {
+function factCaption(f: FactSummary): string {
   const s = strings.place;
-  switch (key) {
-    case 'day_pass':
-      return facts.day_pass ? formatMoney(facts.day_pass.value.amount, facts.day_pass.value.currency) : null;
-    case 'advertised_mbps':
-      return facts.advertised_mbps ? s.advertisedMbps(facts.advertised_mbps.value) : null;
-    case 'laptops':
-      return facts.laptops ? (facts.laptops.value === 'welcome' ? s.laptopsWelcome : s.laptopsNotAllowed) : null;
-    case 'opening_hours':
-      return facts.opening_hours?.value ?? null;
-    case 'price_range':
-      return facts.price_range?.value ?? null;
-    default:
-      return facts[key] ? strings.common.yes : null;
-  }
+  const total = f.sources.length;
+  if (total === 1) return f.sources[0]!.from === 'web' ? s.factFromWebsite : s.factOneEntry;
+  return f.method === 'average' ? s.factAverage(f.agreeing) : s.factAgree(f.agreeing, total);
 }
 
-export function webFactCount(facts: WebFacts | null | undefined): number {
-  if (!facts) return 0;
-  return WEB_KEYS.filter((k) => facts[k]).length;
-}
-
-export function WebFactsList({ facts }: { facts: WebFacts }) {
-  const [open, setOpen] = useState<string | null>(null);
-  const checked = facts._checked?.value;
+export function VenueFactsList({ facts, web }: { facts: FactSummary[]; web: WebFacts }) {
+  const [open, setOpen] = useState<FactKey | null>(null);
   return (
     <View style={styles.box}>
       <Text variant="caption" tone="muted">
-        {strings.place.fromWebsiteHint}
+        {strings.place.venueFactsHint}
       </Text>
-      {WEB_KEYS.filter((k) => facts[k]).map((k) => {
-        const f = facts[k]!;
-        const expanded = open === k;
-        return (
-          <Pressable
-            key={k}
-            onPress={() => setOpen(expanded ? null : k)}
-            accessibilityRole="button"
-            accessibilityState={{ expanded }}
-            style={styles.webFact}
-          >
-            <View style={styles.webFactHead}>
-              <Icon name="check" size={14} color={colors.success} />
-              <Text variant="small" style={styles.webFactLabel}>
-                {strings.place.webFacts[k]}
-              </Text>
-              <Text variant="smallStrong">{webValue(k, facts)}</Text>
-              {f.snippet ? <Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={colors.textFaint} /> : null}
-            </View>
-            {expanded && f.snippet ? (
-              <View style={styles.snippet}>
-                <Text variant="small" tone="muted" style={styles.quote}>
-                  “{f.snippet}”
+      <View style={styles.table}>
+        {facts.map((f, i) => {
+          const expanded = open === f.key;
+          return (
+            <View key={f.key} style={[styles.venueFact, i === facts.length - 1 && styles.factRowLast]}>
+              <Pressable
+                onPress={() => setOpen(expanded ? null : f.key)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded }}
+                style={styles.venueFactHead}
+              >
+                <Text variant="small" tone="muted" style={styles.venueFactLabel}>
+                  {strings.place.factLabels[f.key]}
                 </Text>
-                <Pressable onPress={() => void Linking.openURL(f.url)} accessibilityRole="link">
-                  <Text variant="caption" tone="accent">
-                    {strings.place.sourceLabel}: {hostFromUrl(f.url)}
+                <View style={styles.factValue}>
+                  <Text variant="smallStrong" align="right">
+                    {f.display}
                   </Text>
-                </Pressable>
-              </View>
-            ) : null}
-          </Pressable>
-        );
-      })}
-      {checked ? (
-        <Text variant="caption" tone="faint">
-          {strings.place.checkedOn(formatDate(checked))}
-        </Text>
-      ) : null}
+                  <Text variant="caption" tone="faint" align="right">
+                    {factCaption(f)}
+                  </Text>
+                </View>
+                <Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={colors.textFaint} />
+              </Pressable>
+              {expanded ? (
+                <View style={styles.sources}>
+                  {f.sources.map((src) => (
+                    <View key={src.id} style={styles.source}>
+                      <View style={styles.sourceHead}>
+                        <Icon name={src.from === 'web' ? 'globe' : 'user'} size={13} color={colors.textMuted} />
+                        <Text variant="small" style={styles.sourceName}>
+                          {src.from === 'web'
+                            ? strings.place.factSourceWebsite
+                            : `${src.author ?? strings.place.factAuthorHidden}${src.isOwn ? ' (you)' : ''}`}
+                        </Text>
+                        <Text variant="smallStrong">{formatFactValue(f.key, src.value, web)}</Text>
+                      </View>
+                      {src.at ? (
+                        <Text variant="caption" tone="faint" style={styles.sourceMeta}>
+                          {formatDate(src.at)}
+                        </Text>
+                      ) : null}
+                      {src.snippet ? (
+                        <Text variant="small" tone="muted" style={[styles.sourceMeta, styles.quote]}>
+                          “{src.snippet}”
+                        </Text>
+                      ) : null}
+                      {src.url ? (
+                        <Pressable onPress={() => void Linking.openURL(src.url!)} accessibilityRole="link" style={styles.sourceMeta}>
+                          <Text variant="caption" tone="accent">
+                            {strings.place.sourceLabel}: {hostFromUrl(src.url)}
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -506,24 +509,39 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-  webFact: {
-    gap: spacing.xs,
-    paddingVertical: spacing.xs,
+  venueFact: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  webFactHead: {
+  venueFactHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  venueFactLabel: {
+    flexShrink: 0,
+  },
+  sources: {
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.bgSubtle,
+  },
+  source: {
+    gap: 2,
+  },
+  sourceHead: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
-  webFactLabel: {
+  sourceName: {
     flex: 1,
   },
-  snippet: {
-    gap: 4,
-    marginLeft: 22,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.bgSubtle,
+  sourceMeta: {
+    marginLeft: 21,
   },
   quote: {
     fontStyle: 'italic',

@@ -11,7 +11,10 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const SITE_URL = (Deno.env.get('SITE_URL') ?? 'https://cosurfing.app').replace(/\/$/, '');
 const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY') ?? '';
-const STRIPE_PRICE_ID_WEEKLY = Deno.env.get('STRIPE_PRICE_ID_WEEKLY') ?? '';
+const STRIPE_PRICES: Record<string, string> = {
+  weekly: Deno.env.get('STRIPE_PRICE_ID_WEEKLY') ?? '',
+  yearly: Deno.env.get('STRIPE_PRICE_ID_YEARLY') ?? '',
+};
 const ALLOW_DEV_ENTITLEMENTS = Deno.env.get('ALLOW_DEV_ENTITLEMENTS') === 'true';
 
 const corsHeaders = {
@@ -32,7 +35,7 @@ function admin(): SupabaseClient {
 }
 
 function stripeConfigured(): boolean {
-  return Boolean(STRIPE_SECRET_KEY && STRIPE_PRICE_ID_WEEKLY);
+  return Boolean(STRIPE_SECRET_KEY && (STRIPE_PRICES.weekly || STRIPE_PRICES.yearly));
 }
 
 function stripe(): Stripe {
@@ -97,11 +100,18 @@ Deno.serve(async (req) => {
   try {
     switch (body.action) {
       case 'status': {
-        return json({ stripe: stripeConfigured(), devAllowed: ALLOW_DEV_ENTITLEMENTS });
+        return json({
+          stripe: stripeConfigured(),
+          plans: { weekly: Boolean(STRIPE_PRICES.weekly), yearly: Boolean(STRIPE_PRICES.yearly) },
+          devAllowed: ALLOW_DEV_ENTITLEMENTS,
+        });
       }
 
       case 'checkout': {
         if (!stripeConfigured()) return json({ error: 'stripe_not_configured' }, 503);
+        const plan = body.plan === 'yearly' ? 'yearly' : 'weekly';
+        const price = STRIPE_PRICES[plan];
+        if (!price) return json({ error: 'plan_not_configured' }, 503);
         const current = await getEntitlement(sb, user.id);
         if (current?.status === 'active' && current.source !== 'dev') return json({ error: 'already_subscribed' }, 409);
         const customerId = await ensureStripeCustomer(sb, user.id, user.email ?? undefined);
@@ -109,8 +119,8 @@ Deno.serve(async (req) => {
           mode: 'subscription',
           customer: customerId,
           client_reference_id: user.id,
-          line_items: [{ price: STRIPE_PRICE_ID_WEEKLY, quantity: 1 }],
-          subscription_data: { metadata: { supabase_user_id: user.id } },
+          line_items: [{ price, quantity: 1 }],
+          subscription_data: { metadata: { supabase_user_id: user.id, plan } },
           success_url: `${SITE_URL}/plus/success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${SITE_URL}/plus`,
           allow_promotion_codes: false,

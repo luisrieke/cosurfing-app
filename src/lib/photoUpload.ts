@@ -8,12 +8,13 @@
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 
-import { PHOTO_BUCKET, PREVIEW_BUCKET } from './storage';
+import { AVATAR_BUCKET, PHOTO_BUCKET, PREVIEW_BUCKET } from './storage';
 import { requireSupabase } from './supabase';
 
 export const FULL_WIDTH = 1600;
 export const PREVIEW_WIDTH = 24;
 export const MAX_USER_PHOTOS_PER_UPLOAD = 5;
+export const AVATAR_SIZE = 512;
 
 export async function pickImage(): Promise<string | null> {
   const [uri] = await pickImages(1);
@@ -99,6 +100,27 @@ export async function uploadPlacePhoto(
     throw new Error(error.message);
   }
   return data as UploadedPhoto;
+}
+
+/** Center-crops to a square, uploads to avatars/{user}/… and returns the storage path. */
+export async function uploadAvatar(userId: string, sourceUri: string): Promise<string> {
+  const sb = requireSupabase();
+  const original = await ImageManipulator.manipulate(sourceUri).renderAsync();
+  const side = Math.min(original.width, original.height);
+  const image = await ImageManipulator.manipulate(sourceUri)
+    .crop({ originX: (original.width - side) / 2, originY: (original.height - side) / 2, width: side, height: side })
+    .resize({ width: Math.min(side, AVATAR_SIZE) })
+    .renderAsync();
+  const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.85 });
+  const bytes = await readBytes(saved.uri);
+  const path = `${userId}/${randomId()}.jpg`;
+  const { error } = await sb.storage.from(AVATAR_BUCKET).upload(path, bytes, { contentType: 'image/jpeg', upsert: false });
+  if (error) throw new Error(error.message);
+  return path;
+}
+
+export async function deleteAvatar(path: string): Promise<void> {
+  await requireSupabase().storage.from(AVATAR_BUCKET).remove([path]);
 }
 
 export async function deletePlacePhoto(photo: { id: string; full_path: string; preview_path: string }): Promise<void> {

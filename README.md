@@ -114,7 +114,7 @@ Set in Dashboard → Edge Functions → Secrets (or `supabase secrets set`). `SU
 | `RESEND_REPLY_TO` | waitlist | Monitored mailbox for replies to the ambassador email |
 | `EMAIL_SANDBOX_TO` | waitlist | **Testing safety net**: when set, every email is redirected to this address with the original recipient in the subject. Set it before any test, unset for production. |
 | `RATE_LIMIT_SALT` | waitlist | Random string; IPs are only stored as salted hashes |
-| `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID_WEEKLY`, `STRIPE_WEBHOOK_SECRET` | billing, stripe-webhook | See Stripe below |
+| `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID_WEEKLY`, `STRIPE_PRICE_ID_YEARLY`, `STRIPE_WEBHOOK_SECRET` | billing, stripe-webhook | See Stripe below |
 | `REVENUECAT_WEBHOOK_AUTH` | revenuecat-webhook | Shared secret RevenueCat sends in the `Authorization` header |
 | `ALLOW_DEV_ENTITLEMENTS` | billing | `true` only on a development project. Enables the clearly labelled "simulate Plus" toggle. Never set in production. |
 
@@ -127,24 +127,24 @@ Set in Dashboard → Edge Functions → Secrets (or `supabase secrets set`). `SU
 
 Email flow: join → confirmation email (48 h token) → confirm → entry `verified` → ambassador email **"Help bring Cosurfing to {city}?"** from **Luis from Cosurfing** with the button **Book a chat with Luis** (https://cal.com/luisrieke/user-interview). Send status is stored per entry; failed sends are visible in **Admin → Waiting lists** and can be retried. Every ambassador email contains a one‑click leave link.
 
-## Plus (€0.99 / week)
+## Plus (€0.99 / week or €29.99 / year)
 
-Visitors: rankings, work scores, star averages and all hard facts. Review texts, detail ratings and speed-test history are locked behind a **free account**; the app pushes sign-up with a gate after rank 10, a sticky banner and one interstitial from the second place viewed. After sign-up, `/welcome` asks for a home city and three quick ratings.
-Free account: everything above unlocked, reviews, speed tests, points and levels. Ads are shown (labelled; development placeholder until a provider is configured).
-Plus: no ads and all café photos (otherwise tiny blurred previews), same status on every platform (entitlement lives in `public.entitlements`, keyed by user).
+Visitors: rankings, work scores, star averages, all hard facts and all photos in full resolution. Written reviews are always shown blurred; detail ratings and speed-test history are locked behind a **free account**. The app pushes sign-up with a gate after rank 10, a sticky banner and one interstitial from the second place viewed. After sign-up, `/welcome` asks for a home city and three quick ratings, and ends with a Plus offer.
+Free account: detail ratings, speed tests, points and levels, plus **3 review unlocks per day** (UTC day; an unlocked review stays unlocked). Ads are shown (labelled; development placeholder until a provider is configured).
+Plus: unlimited reviews and no ads, same status on every platform (entitlement lives in `public.entitlements`, keyed by user).
 
-Protection is server‑side: `get_place_reviews()` returns review bodies and detail ratings only to signed-in callers, `get_place_speed_tests()` returns the history only to signed-in callers, full photos live in the **private** `place-photos` bucket (storage RLS allows coworking photos for everyone, café photos for Plus/admins) and blurred 24 px previews in the public `place-previews` bucket.
+Protection is server‑side: `get_place_reviews()` returns review bodies only for the caller's own reviews, reviews in `review_unlocks`, Plus and admins; `unlock_review()` is the only writer of `review_unlocks` and enforces the daily limit (`review_unlock_limit()`); detail ratings and `get_place_speed_tests()` need a signed-in caller. Full photos live in the **private** `place-photos` bucket (storage RLS allows approved photos of published places for everyone) with 24 px previews in the public `place-previews` bucket.
 
 ### Stripe (web)
 
-1. Create a product "Cosurfing Plus" with a recurring price of €0.99 **weekly** → `STRIPE_PRICE_ID_WEEKLY`.
+1. Create a product "Cosurfing Plus" with two recurring prices: €0.99 **weekly** → `STRIPE_PRICE_ID_WEEKLY` and €29.99 **yearly** → `STRIPE_PRICE_ID_YEARLY`. The checkout refuses a plan whose price id is missing (`plan_not_configured`).
 2. Enable the Customer Portal (Settings → Billing → Customer portal) so users can cancel.
 3. Add a webhook endpoint `https://<ref>.supabase.co/functions/v1/stripe-webhook` with events `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted` → `STRIPE_WEBHOOK_SECRET`.
 4. Set `STRIPE_SECRET_KEY` and set `EXPO_PUBLIC_WEB_PAYMENTS=stripe` in the web build env so the paywall shows the real checkout button.
 
 ### RevenueCat (iOS / Android)
 
-1. Create the app(s), a product with a weekly €0.99 subscription in App Store Connect / Play Console, an entitlement with the identifier **`plus`**, and an offering whose weekly package uses it.
+1. Create the app(s), a weekly €0.99 and a yearly €29.99 subscription in App Store Connect / Play Console (same subscription group), an entitlement with the identifier **`plus`** attached to both, and a current offering with a **Weekly** and an **Annual** package. The paywall only shows plans the offering contains.
 2. Public SDK keys → `EXPO_PUBLIC_REVENUECAT_IOS_KEY` / `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY`.
 3. Webhook: URL `https://<ref>.supabase.co/functions/v1/revenuecat-webhook`, Authorization header value = `REVENUECAT_WEBHOOK_AUTH`.
 4. The app logs in to RevenueCat with the Supabase user id, so the webhook maps purchases to accounts.

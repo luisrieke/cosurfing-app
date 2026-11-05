@@ -80,6 +80,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontFamily,
     outlineWidth: 0,
+    outlineStyle: 'solid',
   },
   inputFocused: {
     borderColor: colors.textMuted,

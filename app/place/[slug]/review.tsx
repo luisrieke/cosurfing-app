@@ -9,10 +9,20 @@ import { ScoreBadge } from '@/components/ScoreBadge';
 import { Button, CategoryBadge, Chip, EmptyState, Input, Notice, Screen, Skeleton, Text, TopBar } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
-import { deleteReview, getMyReview, getPlaceBySlug, getPlacesToRate, upsertReview } from '@/lib/queries';
+import { FACT_KEYS, dayPassCurrency, factAppliesTo, formatFactValue, summarizeFacts } from '@/lib/facts';
+import {
+  deleteReview,
+  getMyFacts,
+  getMyReview,
+  getPlaceBySlug,
+  getPlaceFacts,
+  getPlacesToRate,
+  savePlaceFacts,
+  upsertReview,
+} from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
-import type { ReviewInput } from '@/lib/types';
+import type { FactInput, FactKey, FactValue, ReviewInput, WebFacts } from '@/lib/types';
 
 type DetailKey = 'wifi_rating' | 'power_rating' | 'quiet_rating' | 'comfort_rating' | 'value_rating';
 
@@ -37,6 +47,43 @@ const EMPTY: ReviewInput = {
 
 const POINTS_PER_REVIEW = 10;
 
+/** Facts answered with chips; opening hours and the day pass price are typed. */
+function factChoices(key: FactKey, web: WebFacts): { value: FactValue; label: string }[] {
+  const yesNo = [
+    { value: true, label: strings.common.yes },
+    { value: false, label: strings.common.no },
+  ];
+  switch (key) {
+    case 'laptops':
+      return [
+        { value: 'welcome', label: strings.place.laptopsWelcome },
+        { value: 'not_allowed', label: strings.place.laptopsNotAllowed },
+      ];
+    case 'price_range':
+      return [1, 2, 3, 4].map((level) => ({ value: level, label: formatFactValue('price_range', level, web) }));
+    case 'opening_hours':
+    case 'day_pass':
+      return [];
+    default:
+      return yesNo;
+  }
+}
+
+interface FactDraft {
+  choices: FactInput;
+  hours: string;
+  dayPass: string;
+}
+
+function toDraft(input: FactInput): FactDraft {
+  const { opening_hours, day_pass, ...choices } = input;
+  return {
+    choices,
+    hours: typeof opening_hours === 'string' ? opening_hours : '',
+    dayPass: day_pass && typeof day_pass === 'object' ? String(day_pass.amount) : '',
+  };
+}
+
 export default function ReviewRoute() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   return (
@@ -60,10 +107,20 @@ function ReviewScreen({ slug }: { slug: string }) {
   const [done, setDone] = useState<{ isNew: boolean } | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
+  const myFactsQuery = useQuery(`my-facts:${place?.id}:${user?.id}`, () => getMyFacts(user!.id, place!.id), Boolean(place && user));
+  const factsQuery = useQuery(`facts:${place?.id}`, () => getPlaceFacts(place!.id), Boolean(place));
+  const [facts, setFacts] = useState<FactDraft>(() => toDraft({}));
+  const [factError, setFactError] = useState<{ key: FactKey; message: string } | null>(null);
+  const [factsHydrated, setFactsHydrated] = useState(false);
+
   // Prefill from the existing review once it has loaded (state adjustment during render, no effect).
   if (!hydrated && mineQuery.data !== undefined) {
     if (own) setForm({ ...EMPTY, ...own, body: own.body ?? '' });
     setHydrated(true);
+  }
+  if (!factsHydrated && myFactsQuery.data !== undefined) {
+    setFacts(toDraft(myFactsQuery.data));
+    setFactsHydrated(true);
   }
 
   const nextQuery = useQuery(
@@ -86,10 +143,31 @@ function ReviewScreen({ slug }: { slug: string }) {
       setError(strings.review.minBody);
       return;
     }
+    const factInput: FactInput = { ...facts.choices };
+    const hours = facts.hours.trim();
+    if (hours) {
+      if (hours.length < 3) {
+        setFactError({ key: 'opening_hours', message: strings.review.invalidOpeningHours });
+        return;
+      }
+      factInput.opening_hours = hours;
+    }
+    const dayPass = facts.dayPass.trim().replace(',', '.');
+    if (dayPass) {
+      const amount = Number(dayPass);
+      if (!Number.isFinite(amount) || amount < 0 || amount > 10_000) {
+        setFactError({ key: 'day_pass', message: strings.review.invalidDayPass });
+        return;
+      }
+      factInput.day_pass = { amount, currency: dayPassCurrency(place.web_facts ?? {}) };
+    }
+    setFactError(null);
     setBusy(true);
     setError(null);
     try {
       await upsertReview(user.id, place.id, form);
+      // Only replace the stored facts once we know what they were, so a failed load never wipes them.
+      if (factsHydrated) await savePlaceFacts(place.id, factInput);
       setDone({ isNew: !own });
       void refresh();
     } catch (e) {
@@ -192,6 +270,19 @@ function ReviewScreen({ slug }: { slug: string }) {
     );
   }
 
+  const web = place.web_facts ?? {};
+  const summaries = summarizeFacts(web, factsQuery.data ?? []);
+  const factKeys = FACT_KEYS.filter(
+    (k) => factAppliesTo(k, place.category) || summaries.some((s) => s.key === k) || myFactsQuery.data?.[k] !== undefined,
+  );
+  const setChoice = (key: FactKey, value: FactValue) =>
+    setFacts((f) => {
+      const choices = { ...f.choices };
+      if (choices[key] === value) delete choices[key];
+      else choices[key] = value;
+      return { ...f, choices };
+    });
+
   return (
     <Screen>
       <Head>
@@ -245,6 +336,57 @@ function ReviewScreen({ slug }: { slug: string }) {
             <Chip label={strings.common.no} icon="x" selected={form.calls_ok === false} onPress={() => set('calls_ok', form.calls_ok === false ? null : false)} />
           </View>
         </View>
+      </View>
+
+      <View style={styles.card}>
+        <View style={styles.block}>
+          <Text variant="bodyStrong">{strings.review.facts}</Text>
+          <Text variant="caption" tone="muted">
+            {strings.review.factsHint}
+          </Text>
+        </View>
+        {factKeys.map((key) => {
+          const current = summaries.find((s) => s.key === key);
+          const currently = current ? strings.review.factsCurrently(current.display) : undefined;
+          const label = strings.place.factLabels[key];
+          if (key === 'opening_hours' || key === 'day_pass') {
+            const isHours = key === 'opening_hours';
+            const currency = dayPassCurrency(web);
+            return (
+              <Input
+                key={key}
+                label={isHours ? label : `${label} (${currency})`}
+                value={isHours ? facts.hours : facts.dayPass}
+                onChangeText={(v) => setFacts((f) => (isHours ? { ...f, hours: v } : { ...f, dayPass: v }))}
+                placeholder={isHours ? strings.review.openingHoursPlaceholder : strings.review.dayPassPlaceholder(currency)}
+                keyboardType={isHours ? 'default' : 'decimal-pad'}
+                maxLength={isHours ? 300 : 10}
+                error={factError?.key === key ? factError.message : null}
+                hint={currently}
+              />
+            );
+          }
+          return (
+            <View key={key} style={styles.block}>
+              <Text variant="small">{label}</Text>
+              {currently ? (
+                <Text variant="caption" tone="muted">
+                  {currently}
+                </Text>
+              ) : null}
+              <View style={styles.chips}>
+                {factChoices(key, web).map((c) => (
+                  <Chip
+                    key={String(c.value)}
+                    label={c.label}
+                    selected={facts.choices[key] === c.value}
+                    onPress={() => setChoice(key, c.value)}
+                  />
+                ))}
+              </View>
+            </View>
+          );
+        })}
       </View>
 
       <Input
@@ -303,6 +445,7 @@ const styles = StyleSheet.create({
   },
   chips: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   thanks: {

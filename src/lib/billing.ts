@@ -10,8 +10,11 @@ export class BillingApiError extends Error {
   }
 }
 
+export type PlusPlan = 'weekly' | 'yearly';
+
 export interface BillingStatus {
   stripe: boolean;
+  plans: Record<PlusPlan, boolean>;
   devAllowed: boolean;
 }
 
@@ -44,8 +47,8 @@ export function getBillingStatus(): Promise<BillingStatus> {
 }
 
 /** Creates a Stripe Checkout session (web) and returns its URL. */
-export function createCheckout(): Promise<{ url: string }> {
-  return call<{ url: string }>({ action: 'checkout', platform: 'web' });
+export function createCheckout(plan: PlusPlan): Promise<{ url: string }> {
+  return call<{ url: string }>({ action: 'checkout', platform: 'web', plan });
 }
 
 /** Opens the Stripe customer portal for subscription management (web). */

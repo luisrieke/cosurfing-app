@@ -5,14 +5,21 @@
  */
 import { Platform } from 'react-native';
 
+import type { PlusPlan } from './billing';
 import { env, isNativePaymentsConfigured } from './env';
 
 export const PLUS_ENTITLEMENT_ID = 'plus';
 
-export interface WeeklyOffer {
+export interface PlanOffer {
   identifier: string;
   priceString: string;
   title: string;
+}
+
+interface OfferingLike {
+  weekly: PackageLike | null;
+  annual: PackageLike | null;
+  availablePackages: PackageLike[];
 }
 
 interface PurchasesModule {
@@ -20,12 +27,7 @@ interface PurchasesModule {
   isConfigured(): Promise<boolean>;
   logIn(appUserID: string): Promise<unknown>;
   logOut(): Promise<unknown>;
-  getOfferings(): Promise<{
-    current: {
-      weekly: PackageLike | null;
-      availablePackages: PackageLike[];
-    } | null;
-  }>;
+  getOfferings(): Promise<{ current: OfferingLike | null }>;
   purchasePackage(pkg: PackageLike): Promise<{ customerInfo: CustomerInfoLike }>;
   restorePurchases(): Promise<CustomerInfoLike>;
   getCustomerInfo(): Promise<CustomerInfoLike>;
@@ -34,6 +36,7 @@ interface PurchasesModule {
 
 interface PackageLike {
   identifier: string;
+  packageType?: string;
   product: { priceString: string; title: string };
 }
 
@@ -89,25 +92,39 @@ export async function configurePurchases(userId: string): Promise<void> {
   }
 }
 
-export async function getWeeklyOffer(): Promise<WeeklyOffer | null> {
+function packageFor(offering: OfferingLike | null, plan: PlusPlan): PackageLike | null {
+  if (!offering) return null;
+  const type = plan === 'weekly' ? 'WEEKLY' : 'ANNUAL';
+  return (
+    (plan === 'weekly' ? offering.weekly : offering.annual) ??
+    offering.availablePackages.find((p) => p.packageType === type) ??
+    null
+  );
+}
+
+/** Localized store prices for the plans the current offering contains. */
+export async function getPlanOffers(): Promise<Partial<Record<PlusPlan, PlanOffer>>> {
   const P = load();
   try {
-    const offerings = await P.getOfferings();
-    const pkg = offerings.current?.weekly ?? offerings.current?.availablePackages[0] ?? null;
-    if (!pkg) return null;
-    return { identifier: pkg.identifier, priceString: pkg.product.priceString, title: pkg.product.title };
+    const { current } = await P.getOfferings();
+    const offers: Partial<Record<PlusPlan, PlanOffer>> = {};
+    for (const plan of ['weekly', 'yearly'] as const) {
+      const pkg = packageFor(current, plan);
+      if (pkg) offers[plan] = { identifier: pkg.identifier, priceString: pkg.product.priceString, title: pkg.product.title };
+    }
+    return offers;
   } catch (e) {
     throw wrap(e);
   }
 }
 
 /** Returns true when the purchase completed and the Plus entitlement is active on the RevenueCat side. */
-export async function purchaseWeekly(): Promise<boolean> {
+export async function purchasePlan(plan: PlusPlan): Promise<boolean> {
   const P = load();
   try {
     const offerings = await P.getOfferings();
-    const pkg = offerings.current?.weekly ?? offerings.current?.availablePackages[0] ?? null;
-    if (!pkg) throw new Error('No subscription offer is configured.');
+    const pkg = packageFor(offerings.current, plan);
+    if (!pkg) throw new Error('This plan is not configured in the store yet.');
     const { customerInfo } = await P.purchasePackage(pkg);
     return Boolean(customerInfo.entitlements.active[PLUS_ENTITLEMENT_ID]);
   } catch (e) {

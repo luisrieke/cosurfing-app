@@ -7,8 +7,10 @@ import type {
   CitySort,
   Continent,
   Entitlement,
+  FactInput,
   NetworkType,
   Place,
+  PlaceFactEntry,
   PlaceStatus,
   PlaceCategory,
   PlacePhoto,
@@ -21,6 +23,7 @@ import type {
   RankedPlace,
   RankingFilters,
   ReviewInput,
+  ReviewUnlockQuota,
   SpeedTest,
   SpeedTestVerification,
   WaitlistEntry,
@@ -172,6 +175,14 @@ export async function getCityById(id: string): Promise<City | null> {
   return (data as City | null) ?? null;
 }
 
+export async function getCitiesByIds(ids: string[]): Promise<City[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await requireSupabase().from('cities').select('*').in('id', ids);
+  throwIf(error);
+  const byId = new Map(((data ?? []) as City[]).map((c) => [c.id, c]));
+  return ids.map((id) => byId.get(id)).filter((c): c is City => Boolean(c));
+}
+
 export async function getActiveCities(): Promise<City[]> {
   const { data, error } = await requireSupabase()
     .from('cities')
@@ -232,22 +243,15 @@ export async function getPlaceById(id: string): Promise<Place | null> {
 export async function getPlacePhotos(placeId: string): Promise<PlacePhoto[]> {
   const { data, error } = await requireSupabase().rpc('get_place_photos', { p_place_id: placeId });
   throwIf(error);
-  const rows = (data ?? []) as {
-    id: string;
-    sort_order: number;
-    preview_path: string;
-    full_path: string | null;
-    locked: boolean;
-  }[];
-  const signed = await signedPhotoUrls(rows.map((r) => r.full_path).filter((p): p is string => Boolean(p)));
+  const rows = (data ?? []) as { id: string; sort_order: number; preview_path: string; full_path: string }[];
+  const signed = await signedPhotoUrls(rows.map((r) => r.full_path));
   return rows.map((r) => ({
     id: r.id,
     place_id: placeId,
     sort_order: r.sort_order,
     preview_url: previewUrl(r.preview_path),
     full_path: r.full_path,
-    full_url: r.full_path ? (signed.get(r.full_path) ?? null) : null,
-    locked: r.locked,
+    full_url: signed.get(r.full_path) ?? null,
   }));
 }
 
@@ -255,6 +259,35 @@ export async function getPlaceReviews(placeId: string): Promise<PlaceReview[]> {
   const { data, error } = await requireSupabase().rpc('get_place_reviews', { p_place_id: placeId });
   throwIf(error);
   return (data ?? []) as PlaceReview[];
+}
+
+export class UnlockLimitError extends Error {
+  constructor() {
+    super('unlock_limit_reached');
+    this.name = 'UnlockLimitError';
+  }
+}
+
+/** Signed-in users only; `null` for visitors. */
+export async function getReviewUnlockQuota(): Promise<ReviewUnlockQuota | null> {
+  const { data, error } = await requireSupabase().rpc('get_review_unlock_quota');
+  throwIf(error);
+  return ((data ?? []) as ReviewUnlockQuota[])[0] ?? null;
+}
+
+/** Uses one of today's free unlocks (no-op for Plus, own and already unlocked reviews). */
+export async function unlockReview(reviewId: string): Promise<ReviewUnlockQuota> {
+  const { data, error } = await requireSupabase().rpc('unlock_review', { p_review_id: reviewId });
+  if (error?.message.includes('unlock_limit_reached')) throw new UnlockLimitError();
+  throwIf(error);
+  return ((data ?? []) as ReviewUnlockQuota[])[0]!;
+}
+
+/** Facts members added to a place; author names stay hidden from visitors without an account. */
+export async function getPlaceFacts(placeId: string): Promise<PlaceFactEntry[]> {
+  const { data, error } = await requireSupabase().rpc('get_place_facts', { p_place_id: placeId });
+  throwIf(error);
+  return (data ?? []) as PlaceFactEntry[];
 }
 
 // ---------------------------------------------------------------------------
@@ -348,9 +381,31 @@ export async function getMyReview(userId: string, placeId: string): Promise<(Rev
   return { ...(data as ReviewInput & { id: string }), body: (data.body as string | null) ?? '' };
 }
 
+export async function getMyFacts(userId: string, placeId: string): Promise<FactInput> {
+  const { data, error } = await requireSupabase()
+    .from('place_facts')
+    .select('key, value')
+    .eq('user_id', userId)
+    .eq('place_id', placeId);
+  throwIf(error);
+  return Object.fromEntries(((data ?? []) as { key: string; value: unknown }[]).map((r) => [r.key, r.value])) as FactInput;
+}
+
+/** Replaces the user's facts for a place; facts left out are removed. */
+export async function savePlaceFacts(placeId: string, facts: FactInput): Promise<void> {
+  const { error } = await requireSupabase().rpc('save_place_facts', { p_place_id: placeId, p_facts: facts });
+  throwIf(error);
+}
+
 export async function updateProfile(
   userId: string,
-  patch: { display_name?: string | null; home_city_id?: string | null; onboarded_at?: string | null },
+  patch: {
+    display_name?: string | null;
+    home_city_id?: string | null;
+    city_ids?: string[];
+    avatar_path?: string | null;
+    onboarded_at?: string | null;
+  },
 ): Promise<void> {
   const { error } = await requireSupabase().from('profiles').update(patch).eq('id', userId);
   throwIf(error);

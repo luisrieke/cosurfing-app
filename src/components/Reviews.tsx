@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Icon, Text } from '@/components/ui';
+import { Button, Icon, Text } from '@/components/ui';
 import { formatDate } from '@/lib/format';
 import { levelFor } from '@/lib/levels';
 import { strings } from '@/lib/strings';
@@ -42,7 +42,34 @@ function StarIcon({ filled, size }: { filled: boolean; size: number }) {
   );
 }
 
-export function ReviewItem({ review }: { review: PlaceReview }) {
+/** Stand-in text drawn as a blur; the real review text never reaches the client while locked. */
+function BlurredBody({ onUnlock, unlocking }: { onUnlock?: () => void; unlocking?: boolean }) {
+  return (
+    <View style={styles.blurWrap} accessible accessibilityLabel={strings.place.lockedReview}>
+      <Text style={styles.blurred} selectable={false} importantForAccessibility="no-hide-descendants" aria-hidden>
+        {strings.place.lockedReviewFiller}
+      </Text>
+      <View style={styles.blurOverlay}>
+        {onUnlock ? (
+          <Button title={strings.place.unlockReview} icon="unlock" size="sm" variant="secondary" loading={unlocking} onPress={onUnlock} />
+        ) : (
+          <View style={styles.blurLock}>
+            <Icon name="lock" size={14} color={colors.textMuted} />
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+interface ReviewItemProps {
+  review: PlaceReview;
+  /** Shown on reviews with locked text while the user still has unlocks left. */
+  onUnlock?: () => void;
+  unlocking?: boolean;
+}
+
+export function ReviewItem({ review, onUnlock, unlocking }: ReviewItemProps) {
   if (review.is_locked) {
     return (
       <View style={styles.item}>
@@ -58,13 +85,7 @@ export function ReviewItem({ review }: { review: PlaceReview }) {
             {formatDate(review.created_at)}
           </Text>
         </View>
-        {review.has_body ? (
-          <View style={styles.lockedBody} accessibilityLabel={strings.funnel.lockedReviewsBody}>
-            <View style={[styles.bar, { width: '92%' }]} />
-            <View style={[styles.bar, { width: '78%' }]} />
-            <View style={[styles.bar, { width: '55%' }]} />
-          </View>
-        ) : null}
+        {review.has_body ? <BlurredBody /> : null}
       </View>
     );
   }
@@ -129,7 +150,7 @@ export function ReviewItem({ review }: { review: PlaceReview }) {
           ) : null}
         </View>
       ) : null}
-      {review.body ? <Text>{review.body}</Text> : null}
+      {review.body_locked ? <BlurredBody onUnlock={onUnlock} unlocking={unlocking} /> : review.body ? <Text>{review.body}</Text> : null}
       {review.status === 'hidden' ? (
         <Text variant="caption" tone="danger">
           {strings.review.hiddenNote}
@@ -197,8 +218,31 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     backgroundColor: colors.bgMuted,
   },
-  lockedBody: {
-    gap: 6,
-    paddingTop: 2,
+  blurWrap: {
+    position: 'relative',
+  },
+  blurred: {
+    color: 'transparent',
+    textShadowColor: 'rgba(23,21,15,0.55)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 9,
+    userSelect: 'none',
+  },
+  blurOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  blurLock: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

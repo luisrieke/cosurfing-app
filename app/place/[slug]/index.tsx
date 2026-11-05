@@ -12,9 +12,8 @@ import {
   RatingDistribution,
   ScoreBreakdownCard,
   SpeedTestHistory,
-  WebFactsList,
+  VenueFactsList,
   hardFacts,
-  webFactCount,
 } from '@/components/place/PlaceSections';
 import { PlusUpsell } from '@/components/PlusUpsell';
 import { ReviewItem, Stars } from '@/components/Reviews';
@@ -30,17 +29,22 @@ import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
 import { env, isSupabaseConfigured } from '@/lib/env';
+import { summarizeFacts } from '@/lib/facts';
 import { formatDate, formatRating, hostFromUrl, liveWebsite } from '@/lib/format';
 import { canShowInterstitial, markInterstitialShown, dismissInterstitial, recordPlaceView, signUpHref } from '@/lib/funnel';
 import { openDirections } from '@/lib/geo';
 import {
   getCityRanking,
   getPlaceBySlug,
+  getPlaceFacts,
   getPlacePhotos,
   getPlaceRank,
   getPlaceRatingStats,
   getPlaceReviews,
   getPlaceSpeedTests,
+  getReviewUnlockQuota,
+  unlockReview,
+  UnlockLimitError,
 } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, layout, radius, spacing } from '@/lib/theme';
@@ -56,6 +60,8 @@ export default function PlaceScreen() {
   const { user, isPlus, isAdmin, favoriteIds, toggleFavorite, ready } = useAuth();
   const [flash, setFlash] = useState<string | null>(null);
   const [interstitial, setInterstitial] = useState(false);
+  const [unlocking, setUnlocking] = useState<string | null>(null);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
 
   const placeQuery = useQuery(`place:${slug}`, () => getPlaceBySlug(slug!), Boolean(slug) && isSupabaseConfigured);
   const place = placeQuery.data ?? null;
@@ -64,8 +70,10 @@ export default function PlaceScreen() {
   const enabled = Boolean(place);
   const photosQuery = useQuery(`photos:${place?.id}:${gateKey}`, () => getPlacePhotos(place!.id), enabled);
   const reviewsQuery = useQuery(`reviews:${place?.id}:${gateKey}`, () => getPlaceReviews(place!.id), enabled);
+  const factsQuery = useQuery(`facts:${place?.id}:${gateKey}`, () => getPlaceFacts(place!.id), enabled);
   const statsQuery = useQuery(`stats:${place?.id}:${gateKey}`, () => getPlaceRatingStats(place!.id), enabled && Boolean(user));
   const testsQuery = useQuery(`tests:${place?.id}:${gateKey}`, () => getPlaceSpeedTests(place!.id), enabled && Boolean(user));
+  const quotaQuery = useQuery(`unlock-quota:${gateKey}`, getReviewUnlockQuota, Boolean(user));
   const rankQuery = useQuery(`rank:${place?.id}:${place?.work_score}`, () => getPlaceRank(place!.id), enabled);
   const moreQuery = useQuery(`more:${place?.city_id}`, () => getCityRanking(place!.city_id, defaultRankingFilters, 6), enabled);
 
@@ -175,20 +183,42 @@ export default function PlaceScreen() {
   const reviews = reviewsQuery.data ?? [];
   const ownReview = reviews.find((r) => r.is_own);
   const lockedTexts = reviews.filter((r) => r.is_locked && r.has_body).length;
+  const bodyLockedCount = reviews.filter((r) => r.body_locked).length;
+  const quota = quotaQuery.data ?? null;
+  const canUnlock = Boolean(user && quota && !quota.unlimited && quota.remaining > 0);
   const photos = photosQuery.data ?? [];
-  const photosLocked = photos.some((p) => p.locked);
   const canReview = place.status === 'published';
   const cityHref = `/${place.city.slug}` as const;
   const reviewHref = `/place/${slug}/review` as const;
   const rank = rankQuery.data ?? null;
   const more = (moreQuery.data?.items ?? []).filter((p) => p.id !== place.id).slice(0, 5);
   const webFacts = place.web_facts ?? {};
+  const venueFacts = summarizeFacts(webFacts, factsQuery.data ?? []);
   const description = place.description ?? webFacts.description?.value ?? null;
   const contentWidth = Math.min(width, layout.maxWideWidth) - spacing.lg * 2 - (wide ? 340 + spacing.xl : 0);
   const galleryHeight = Math.min(Math.round(contentWidth * 0.56), 420);
 
   const goReview = () => {
     if (requireUser(reviewHref)) router.push(reviewHref);
+  };
+
+  const unlock = async (reviewId: string) => {
+    setUnlocking(reviewId);
+    setUnlockError(null);
+    try {
+      const next = await unlockReview(reviewId);
+      quotaQuery.setData(() => next);
+      await reviewsQuery.refetch(true);
+    } catch (e) {
+      if (e instanceof UnlockLimitError) {
+        setUnlockError(strings.place.unlockLimitReached);
+        void quotaQuery.refetch(true);
+      } else {
+        setUnlockError(e instanceof Error ? e.message : strings.common.somethingWentWrong);
+      }
+    } finally {
+      setUnlocking(null);
+    }
   };
 
   const scoreCard = (
@@ -309,7 +339,6 @@ export default function PlaceScreen() {
                   <PhotoGallery photos={photos} category={place.category} width={contentWidth} height={galleryHeight} loading={false} />
                 </View>
               ) : null}
-              {photosLocked ? <PlusUpsell message={strings.plus.upsellPhotos} compact /> : null}
               {canReview ? (
                 <AddPhotos placeId={place.id} userId={user?.id ?? null} onSignIn={() => requireUser(`/place/${slug}`)} />
               ) : null}
@@ -317,12 +346,23 @@ export default function PlaceScreen() {
               {!wide ? scoreCard : null}
 
               <Section title={strings.place.hardFacts}>
-                <FactTable lines={hardFacts(place)} onHelp={canReview ? goReview : undefined} />
+                <FactTable lines={hardFacts(place, venueFacts)} onHelp={canReview ? goReview : undefined} />
               </Section>
 
-              {webFactCount(webFacts) > 0 ? (
-                <Section title={strings.place.fromWebsite}>
-                  <WebFactsList facts={webFacts} />
+              {venueFacts.length > 0 || canReview ? (
+                <Section
+                  title={strings.place.venueFacts}
+                  right={
+                    canReview ? (
+                      <Button title={strings.place.editFacts} size="sm" variant="secondary" icon="edit-3" onPress={goReview} />
+                    ) : undefined
+                  }
+                >
+                  {venueFacts.length > 0 ? (
+                    <VenueFactsList facts={venueFacts} web={webFacts} />
+                  ) : (
+                    <Text tone="muted">{strings.place.noVenueFacts}</Text>
+                  )}
                 </Section>
               ) : null}
 
@@ -379,9 +419,22 @@ export default function PlaceScreen() {
                         body={strings.funnel.lockedReviewsBody}
                       />
                     ) : null}
+                    {user && quota && !quota.unlimited && bodyLockedCount > 0 ? (
+                      <PlusUpsell
+                        compact
+                        title={strings.place.unlocksLeft(quota.remaining)}
+                        message={`${strings.place.unlocksReset} ${strings.place.unlockPlusHint}`}
+                      />
+                    ) : null}
+                    {unlockError ? <Notice tone="warning" body={unlockError} /> : null}
                     <View>
                       {reviews.map((r) => (
-                        <ReviewItem key={r.id} review={r} />
+                        <ReviewItem
+                          key={r.id}
+                          review={r}
+                          onUnlock={canUnlock && r.body_locked ? () => void unlock(r.id) : undefined}
+                          unlocking={unlocking === r.id}
+                        />
                       ))}
                     </View>
                   </View>

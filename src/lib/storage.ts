@@ -3,14 +3,19 @@ import { supabase } from './supabase';
 
 export const PREVIEW_BUCKET = 'place-previews';
 export const PHOTO_BUCKET = 'place-photos';
+export const AVATAR_BUCKET = 'avatars';
 
 export function previewUrl(path: string): string {
   return `${env.supabaseUrl}/storage/v1/object/public/${PREVIEW_BUCKET}/${path}`;
 }
 
+export function avatarUrl(path: string): string {
+  return `${env.supabaseUrl}/storage/v1/object/public/${AVATAR_BUCKET}/${path}`;
+}
+
 /**
  * Signed URLs for full-resolution photos. Storage RLS only signs objects the caller may read
- * (coworking photos for everyone, café photos for Plus members and admins).
+ * (approved photos of published places, plus the caller's own uploads).
  */
 export async function signedPhotoUrls(paths: string[], expiresIn = 3600): Promise<Map<string, string>> {
   const map = new Map<string, string>();

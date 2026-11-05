@@ -313,6 +313,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 16,
     outlineWidth: 0,
+    outlineStyle: 'solid',
   },
   countryList: {
     marginTop: spacing.xs,

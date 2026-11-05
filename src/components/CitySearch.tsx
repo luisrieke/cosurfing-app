@@ -192,6 +192,7 @@ const styles = StyleSheet.create({
     fontFamily,
     height: '100%',
     outlineWidth: 0,
+    outlineStyle: 'solid',
   },
   dropdown: {
     position: 'absolute',

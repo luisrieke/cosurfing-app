@@ -69,6 +69,37 @@ export interface WebFacts {
   _checked?: WebFact<string>;
 }
 
+/** Hard facts members can add or correct (see place_facts). */
+export type FactKey =
+  | 'open_24_7'
+  | 'meeting_rooms'
+  | 'phone_booths'
+  | 'wifi'
+  | 'laptops'
+  | 'opening_hours'
+  | 'price_range'
+  | 'day_pass';
+
+export interface DayPassValue {
+  amount: number;
+  currency: string;
+}
+
+/** Booleans for yes/no facts, 1–4 for price_range, 'welcome' | 'not_allowed' for laptops. */
+export type FactValue = boolean | number | string | DayPassValue;
+
+export type FactInput = Partial<Record<FactKey, FactValue>>;
+
+/** Row of `get_place_facts`. */
+export interface PlaceFactEntry {
+  key: FactKey;
+  value: FactValue;
+  /** `null` for visitors without an account. */
+  author_name: string | null;
+  is_own: boolean;
+  updated_at: string;
+}
+
 /** Each part is on a 0–10 scale; `score` is the weighted total (see compute_place_score). */
 export interface ScoreBreakdown {
   score: number;
@@ -265,10 +296,8 @@ export interface PlacePhoto {
   place_id: string;
   sort_order: number;
   preview_url: string;
-  /** `null` when the caller is not allowed to see the full photo. */
-  full_path: string | null;
+  full_path: string;
   full_url: string | null;
-  locked: boolean;
 }
 
 export interface PlaceReview {
@@ -290,9 +319,20 @@ export interface PlaceReview {
   has_body: boolean;
   created_at: string;
   updated_at: string;
+  /** Visitor without an account: author and detail ratings are hidden too. */
   is_locked: boolean;
+  /** The review has text the caller has not unlocked yet. */
+  body_locked: boolean;
   is_own: boolean;
   status: 'visible' | 'hidden';
+}
+
+export interface ReviewUnlockQuota {
+  daily_limit: number;
+  used_today: number;
+  remaining: number;
+  /** Plus and admins read every review without using unlocks. */
+  unlimited: boolean;
 }
 
 export interface ReviewInput {
@@ -314,6 +354,8 @@ export interface Profile {
   review_count: number;
   speed_test_count: number;
   home_city_id: string | null;
+  city_ids: string[];
+  avatar_path: string | null;
   onboarded_at: string | null;
 }
 

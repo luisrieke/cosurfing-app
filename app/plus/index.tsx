@@ -2,24 +2,34 @@ import Head from 'expo-router/head';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
-import { Linking, Platform, StyleSheet, View } from 'react-native';
+import { Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { Badge, Button, Card, Icon, Notice, Screen, Text, TopBar } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
-import { BillingApiError, createCheckout, createPortal, getBillingStatus, setDevEntitlement } from '@/lib/billing';
+import {
+  BillingApiError,
+  createCheckout,
+  createPortal,
+  getBillingStatus,
+  type PlusPlan,
+  setDevEntitlement,
+} from '@/lib/billing';
 import { isDev, isSupabaseConfigured, isWebPaymentsConfigured } from '@/lib/env';
 import { formatDate } from '@/lib/format';
 import {
   configurePurchases,
   getManagementUrl,
-  getWeeklyOffer,
-  purchaseWeekly,
+  getPlanOffers,
+  type PlanOffer,
+  purchasePlan,
   purchasesConfigured,
   PurchasesUnavailableError,
   restorePurchases,
 } from '@/lib/purchases';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
+
+const PLANS: PlusPlan[] = ['yearly', 'weekly'];
 
 async function openUrl(url: string) {
   if (Platform.OS === 'web') {
@@ -36,7 +46,8 @@ export default function PlusScreen() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [devAllowed, setDevAllowed] = useState<boolean | null>(null);
-  const [nativePrice, setNativePrice] = useState<string | null>(null);
+  const [plan, setPlan] = useState<PlusPlan>('yearly');
+  const [nativeOffers, setNativeOffers] = useState<Partial<Record<PlusPlan, PlanOffer>> | null>(null);
   const [nativeUnavailable, setNativeUnavailable] = useState(false);
 
   const isWeb = Platform.OS === 'web';
@@ -51,14 +62,16 @@ export default function PlusScreen() {
       .catch(() => setDevAllowed(false));
   }, [showDevTools, user]);
 
-  // Native: configure RevenueCat and fetch the localized price.
+  // Native: configure RevenueCat and fetch the localized prices.
   useEffect(() => {
     if (isWeb || !purchasesConfigured || !user) return;
     let cancelled = false;
     configurePurchases(user.id)
-      .then(getWeeklyOffer)
-      .then((offer) => {
-        if (!cancelled && offer) setNativePrice(offer.priceString);
+      .then(getPlanOffers)
+      .then((offers) => {
+        if (cancelled) return;
+        setNativeOffers(offers);
+        if (!offers.yearly && offers.weekly) setPlan('weekly');
       })
       .catch((e) => {
         if (!cancelled && e instanceof PurchasesUnavailableError) setNativeUnavailable(true);
@@ -67,6 +80,9 @@ export default function PlusScreen() {
       cancelled = true;
     };
   }, [isWeb, user]);
+
+  const priceOf = (p: PlusPlan) =>
+    strings.plus.pricePer(nativeOffers?.[p]?.priceString ?? strings.plus.plans[p].price, strings.plus.plans[p].period);
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const goSignIn = () => router.push({ pathname: '/auth/sign-in', params: { redirect: '/plus' } });
@@ -81,6 +97,7 @@ export default function PlusScreen() {
       if (e instanceof PurchasesUnavailableError) setError(strings.plus.nativeUnavailable);
       else if (e instanceof BillingApiError && e.code === 'dev_not_allowed') setError(strings.plus.devDisabledOnServer);
       else if (e instanceof BillingApiError && e.code === 'stripe_not_configured') setError(strings.plus.paymentsNotConfigured);
+      else if (e instanceof BillingApiError && e.code === 'plan_not_configured') setError(strings.plus.planNotConfigured);
       else setError(e instanceof Error ? e.message : strings.common.somethingWentWrong);
     } finally {
       setBusy(null);
@@ -89,7 +106,7 @@ export default function PlusScreen() {
 
   const startWeb = () =>
     run('checkout', async () => {
-      const { url } = await createCheckout();
+      const { url } = await createCheckout(plan);
       await openUrl(url);
     });
 
@@ -102,7 +119,7 @@ export default function PlusScreen() {
   const startNative = () =>
     run('purchase', async () => {
       await configurePurchases(user!.id);
-      const ok = await purchaseWeekly();
+      const ok = await purchasePlan(plan);
       if (ok) {
         // The webhook writes the entitlement; give it a moment, then reload.
         await new Promise((r) => setTimeout(r, 1500));
@@ -154,14 +171,45 @@ export default function PlusScreen() {
       </View>
 
       <Card style={styles.priceCard}>
-        <View style={styles.priceRow}>
-          <Text variant="display" tone="plus">
-            {nativePrice ?? strings.plus.price}
+        {isPlus ? (
+          <Text variant="bodyStrong" tone="plus">
+            {strings.plus.priceSummary}
           </Text>
-          {!isWeb && nativePrice ? <Badge label={strings.plus.price} tone="neutral" /> : null}
-        </View>
+        ) : (
+          <View style={styles.plans} accessibilityRole="radiogroup">
+            {PLANS.filter((p) => isWeb || !nativeOffers || nativeOffers[p]).map((p) => {
+              const selected = plan === p;
+              const info = strings.plus.plans[p];
+              return (
+                <Pressable
+                  key={p}
+                  onPress={() => setPlan(p)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                  style={[styles.plan, selected && styles.planSelected]}
+                >
+                  <View style={[styles.radio, selected && styles.radioSelected]}>
+                    {selected ? <View style={styles.radioDot} /> : null}
+                  </View>
+                  <View style={styles.planText}>
+                    <View style={styles.planHead}>
+                      <Text variant="bodyStrong">{info.label}</Text>
+                      {'badge' in info ? <Badge label={info.badge} tone="plus" /> : null}
+                    </View>
+                    <Text variant="small" tone="muted">
+                      {info.billing}
+                    </Text>
+                  </View>
+                  <Text variant="heading" tone={selected ? 'plus' : 'default'}>
+                    {priceOf(p)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
         <Text variant="small" tone="muted">
-          {strings.plus.billing} {strings.plus.cancelAnytime}
+          {strings.plus.renewNote} {strings.plus.cancelAnytime}
         </Text>
         <View style={styles.features}>
           {strings.plus.features.map((f) => (
@@ -213,12 +261,12 @@ export default function PlusScreen() {
       ) : (
         <View style={styles.block}>
           {isWeb && isWebPaymentsConfigured ? (
-            <Button title={strings.plus.cta} variant="plus" size="lg" fullWidth loading={busy === 'checkout'} onPress={startWeb} />
+            <Button title={strings.plus.cta(priceOf(plan))} variant="plus" size="lg" fullWidth loading={busy === 'checkout'} onPress={startWeb} />
           ) : !isWeb && purchasesConfigured ? (
             <>
               {nativeUnavailable ? <Notice tone="warning" body={strings.plus.nativeUnavailable} /> : null}
               <Button
-                title={strings.plus.cta}
+                title={strings.plus.cta(priceOf(plan))}
                 variant="plus"
                 size="lg"
                 fullWidth
@@ -276,10 +324,50 @@ const styles = StyleSheet.create({
   priceCard: {
     gap: spacing.md,
   },
-  priceRow: {
+  plans: {
+    gap: spacing.sm,
+  },
+  plan: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  planSelected: {
+    borderWidth: 2,
+    borderColor: colors.plus,
+    backgroundColor: colors.plusSoft,
+  },
+  planText: {
+    flex: 1,
+    gap: 2,
+  },
+  planHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  radio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioSelected: {
+    borderColor: colors.plus,
+  },
+  radioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.plus,
   },
   features: {
     gap: spacing.sm,
