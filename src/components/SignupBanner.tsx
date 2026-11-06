@@ -28,7 +28,12 @@ export function SignupBanner() {
             {strings.funnel.bannerBody}
           </Text>
         </View>
-        <Button title={strings.funnel.bannerCta} size="sm" onPress={() => router.push(signUpHref(pathname))} />
+        <Button
+          title={strings.funnel.bannerCta}
+          size="sm"
+          style={styles.cta}
+          onPress={() => router.push(signUpHref(pathname))}
+        />
         <IconButton
           icon="x"
           size={32}
@@ -75,6 +80,9 @@ const styles = StyleSheet.create({
   },
   lightMuted: {
     color: 'rgba(255,255,255,0.75)',
+  },
+  cta: {
+    alignSelf: 'center',
   },
   close: {
     borderWidth: 0,
