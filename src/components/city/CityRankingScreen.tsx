@@ -432,7 +432,7 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
                     onSelect={setSelectedId}
                     userLocation={location.location}
                     showControls={isDesktop}
-                    style={styles.map}
+                    style={compact ? styles.mapCompact : styles.map}
                   />
                   {selected ? (
                     <RankedPlaceRow
@@ -597,6 +597,11 @@ const styles = StyleSheet.create({
   },
   map: {
     height: 560,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+  },
+  mapCompact: {
+    height: 340,
     borderRadius: radius.lg,
     overflow: 'hidden',
   },
