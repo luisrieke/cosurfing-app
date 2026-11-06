@@ -32,7 +32,7 @@ import { useQuery } from '@/hooks/useQuery';
 import { useSlowConnection } from '@/hooks/useSlowConnection';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useAuth } from '@/lib/auth';
-import { formatDate, formatMbps } from '@/lib/format';
+import { formatMbps } from '@/lib/format';
 import { canShowInterstitial, dismissInterstitial, markInterstitialShown, signUpHref } from '@/lib/funnel';
 import { levelFor } from '@/lib/levels';
 import { getCityContributors, getCityRanking, getPlacesToRate, requestCityCrawl } from '@/lib/queries';
@@ -158,7 +158,6 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
     },
     { label: strings.city.factReviews, value: city.review_count.toLocaleString('en-US') },
     { label: strings.city.factSpeedTests, value: city.speed_test_count.toLocaleString('en-US') },
-    { label: strings.city.factUpdated, value: city.crawled_at ? formatDate(city.crawled_at) : strings.common.unknown },
   ];
 
   const list = (

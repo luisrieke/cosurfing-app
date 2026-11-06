@@ -106,7 +106,6 @@ export const strings = {
     factWifi: 'Median Wi‑Fi',
     factReviews: 'Reviews',
     factSpeedTests: 'Speed tests',
-    factUpdated: 'Updated',
     noScoreYet: 'No reviews yet',
     tabs: { all: 'All', coworking: 'Coworking', cafe: 'Cafés', library: 'Libraries' },
     sort: {
