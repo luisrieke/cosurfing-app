@@ -30,7 +30,7 @@ function json(body: unknown, status = 200): Response {
 interface Place {
   id: string;
   name: string;
-  category: 'coworking' | 'cafe' | 'library';
+  category: 'coworking' | 'cafe' | 'library' | 'coliving';
   website: string;
 }
 

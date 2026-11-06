@@ -256,10 +256,11 @@ export async function getMapCities(): Promise<MapCity[]> {
   }
 }
 
-/** Published places inside a map area, best work score first. */
+/** Published places inside a map area, best work score first. Colivings only when asked for. */
 export async function getPlacesInBounds(
   bounds: { north: number; south: number; east: number; west: number },
   limit = 300,
+  withColivings = false,
 ): Promise<MapPlace[]> {
   let query = requireSupabase()
     .from('places')
@@ -267,6 +268,7 @@ export async function getPlacesInBounds(
     .eq('status', 'published')
     .gte('lat', bounds.south)
     .lte('lat', bounds.north);
+  if (!withColivings) query = query.neq('category', 'coliving');
   // A view that crosses the antimeridian has west > east; skip the longitude filter there.
   if (bounds.west <= bounds.east) query = query.gte('lng', bounds.west).lte('lng', bounds.east);
   const { data, error } = await query.order('work_score', { ascending: false }).limit(limit);
@@ -568,6 +570,11 @@ export const PLACE_INPUT_FIELDS = [
   'last_verified_at',
   'is_example',
   'locked_fields',
+  'season',
+  'season_note',
+  'non_guest_work',
+  'non_guest_note',
+  'min_stay',
 ] as const;
 
 /** Fields an admin can edit. Scores, counters and crawler state are maintained by the database. */

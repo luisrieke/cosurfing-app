@@ -19,10 +19,10 @@ const FACT_CATEGORIES: Record<FactKey, PlaceCategory[]> = {
   open_24_7: ['coworking', 'library'],
   day_pass: ['coworking'],
   price_range: ['cafe', 'library'],
-  wifi: ['coworking', 'cafe', 'library'],
+  wifi: ['coworking', 'cafe', 'library', 'coliving'],
   laptops: ['cafe'],
-  meeting_rooms: ['coworking', 'library'],
-  phone_booths: ['coworking', 'library'],
+  meeting_rooms: ['coworking', 'library', 'coliving'],
+  phone_booths: ['coworking', 'library', 'coliving'],
 };
 
 /** Facts the review form asks about for this kind of place. */

@@ -7,13 +7,14 @@ import { strings } from '@/lib/strings';
 import { Icon, type IconName } from './Icon';
 import { Text } from './Text';
 
-type Tone = 'neutral' | 'coworking' | 'cafe' | 'library' | 'plus' | 'success' | 'warning' | 'danger' | 'accent';
+type Tone = 'neutral' | 'coworking' | 'cafe' | 'library' | 'coliving' | 'plus' | 'success' | 'warning' | 'danger' | 'accent';
 
 const tones: Record<Tone, { bg: string; fg: string }> = {
   neutral: { bg: colors.bgMuted, fg: colors.textMuted },
   coworking: { bg: colors.coworkingSoft, fg: colors.coworking },
   cafe: { bg: colors.cafeSoft, fg: colors.cafe },
   library: { bg: colors.librarySoft, fg: colors.library },
+  coliving: { bg: colors.colivingSoft, fg: colors.coliving },
   plus: { bg: colors.plusSoft, fg: colors.plus },
   success: { bg: colors.successSoft, fg: colors.success },
   warning: { bg: colors.warningSoft, fg: colors.warning },
@@ -40,16 +41,19 @@ export function Badge({ label, tone = 'neutral', icon, style }: BadgeProps) {
   );
 }
 
+const CATEGORY_ICONS: Record<PlaceCategory, IconName> = {
+  coworking: 'briefcase',
+  cafe: 'coffee',
+  library: 'book-open',
+  coliving: 'home',
+};
+
 export function categoryIcon(category: PlaceCategory): IconName {
-  return category === 'coworking' ? 'briefcase' : category === 'library' ? 'book-open' : 'coffee';
+  return CATEGORY_ICONS[category];
 }
 
 export function categoryLabel(category: PlaceCategory): string {
-  return category === 'coworking'
-    ? strings.explore.coworking
-    : category === 'library'
-      ? strings.explore.library
-      : strings.explore.cafe;
+  return strings.explore[category];
 }
 
 export function CategoryBadge({ category, style }: { category: PlaceCategory; style?: ViewStyle }) {
