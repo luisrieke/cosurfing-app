@@ -101,20 +101,20 @@ create policy "full photos readable when allowed" on storage.objects
 create policy "users upload own full photos" on storage.objects
   for insert to authenticated with check (
     bucket_id = 'place-photos'
-    and (storage.foldername(name))[2] = (select auth.uid())::text
+    and (storage.foldername(objects.name))[2] = (select auth.uid())::text
     and exists (
       select 1 from public.places p
-       where p.id::text = (storage.foldername(name))[1] and p.status = 'published'
+       where p.id::text = (storage.foldername(objects.name))[1] and p.status = 'published'
     )
   );
 
 create policy "users upload own previews" on storage.objects
   for insert to authenticated with check (
     bucket_id = 'place-previews'
-    and (storage.foldername(name))[2] = (select auth.uid())::text
+    and (storage.foldername(objects.name))[2] = (select auth.uid())::text
     and exists (
       select 1 from public.places p
-       where p.id::text = (storage.foldername(name))[1] and p.status = 'published'
+       where p.id::text = (storage.foldername(objects.name))[1] and p.status = 'published'
     )
   );
 
