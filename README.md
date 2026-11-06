@@ -160,6 +160,8 @@ Until a provider is configured, the paywall says so and never shows a fake purch
 
 Set `EXPO_PUBLIC_PLUS_WAITLIST_URL` to a Tally form (`https://tally.so/r/<id>`) and the paywall on web, iOS and Android shows "Join the Plus waiting list" instead of a checkout, for signed-in users. The form is opened with `?email=…&user_id=…&plan=…&platform=…`; add hidden fields with exactly those names (and set the email field's pre-populate name to `email`) so every submission carries the Supabase user id. Turn on the form's self email notification (Integrations → Email notifications) to get an email per signup. Unset the variable to go back to the normal paywall.
 
+The live form is [Cosurfing Plus waiting list](https://tally.so/r/kb97qe) (Tally workspace Spacifik, edit at `https://tally.so/forms/kb97qe/edit`). It has the four hidden fields, prefills the email question from `email`, and emails the form owner on every signup. `EXPO_PUBLIC_PLUS_WAITLIST_URL=https://tally.so/r/kb97qe` is set on Netlify (all contexts); set it in EAS too before a native build.
+
 To unlock someone by hand, run in the Supabase SQL editor:
 
 ```sql
