@@ -5,6 +5,7 @@ import MapView, { Marker, type Region } from 'react-native-maps';
 import { colors } from '@/lib/theme';
 import type { LatLng } from '@/lib/types';
 
+import { ClusterBubble } from './ClusterBubble';
 import { Pin } from './Pin';
 import type { MapHandle, MapProps, MapViewport } from './types';
 
@@ -28,7 +29,7 @@ function viewportFromRegion(r: Region, width: number): MapViewport {
 }
 
 export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
-  { center, zoom, markers, selectedId, onSelect, userLocation, onMoveEnd, style },
+  { center, zoom, markers, clusters, selectedId, onSelect, onClusterPress, userLocation, onMoveEnd, style },
   ref,
 ) {
   const mapRef = useRef<MapView | null>(null);
@@ -97,6 +98,21 @@ export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
             accessibilityLabel={m.name}
           >
             <Pin category={m.category} selected={m.id === selectedId} />
+          </Marker>
+        ))}
+        {(clusters ?? []).map((c) => (
+          <Marker
+            key={c.id}
+            coordinate={{ latitude: c.lat, longitude: c.lng }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            onPress={(e) => {
+              e.stopPropagation?.();
+              onClusterPress?.(c);
+            }}
+            tracksViewChanges={false}
+            accessibilityLabel={c.label ? `${c.label}: ${c.count}` : String(c.count)}
+          >
+            <ClusterBubble cluster={c} />
           </Marker>
         ))}
       </MapView>

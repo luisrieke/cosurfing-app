@@ -1,2 +1,3 @@
+export { clusterCities } from './cluster';
 export { PlacesMap } from './Map';
-export type { MapBounds, MapHandle, MapMarker, MapProps, MapViewport } from './types';
+export type { MapBounds, MapCluster, MapHandle, MapMarker, MapProps, MapViewport } from './types';
