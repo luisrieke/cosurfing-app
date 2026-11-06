@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import { ScoreBadge } from '@/components/ScoreBadge';
 import { Shade } from '@/components/Shade';
 import { Icon, Text, glassSurface } from '@/components/ui';
+import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
 import type { CityListItem } from '@/lib/types';
@@ -26,6 +27,8 @@ export function CityCard({
   const collecting = city.place_count === 0 && (city.crawl_status === 'pending' || city.crawl_status === 'running');
   const fallback = PLACEHOLDER_COLORS[city.name.charCodeAt(0) % PLACEHOLDER_COLORS.length]!;
   const hasScore = city.review_count > 0 && city.city_score !== null;
+  // Two narrow cards per row on phones leave no room for the label next to the rank and score.
+  const { isDesktop } = useBreakpoint();
 
   return (
     <Pressable
@@ -64,9 +67,13 @@ export function CityCard({
             </View>
           ) : null}
           {city.is_hotspot ? (
-            <View style={[lightGlass, styles.pill]}>
-              <Icon name="zap" size={11} color={colors.text} />
-              <Text variant="caption">{strings.home.hotspot}</Text>
+            <View
+              accessible
+              accessibilityLabel={strings.home.hotspot}
+              style={[lightGlass, styles.pill, !isDesktop && styles.pillIcon]}
+            >
+              <Icon name="zap" size={isDesktop ? 11 : 13} color={colors.text} />
+              {isDesktop ? <Text variant="caption">{strings.home.hotspot}</Text> : null}
             </View>
           ) : null}
         </View>
@@ -157,6 +164,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     height: 24,
     borderRadius: 12,
+  },
+  pillIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    paddingHorizontal: 0,
+    justifyContent: 'center',
   },
   center: {
     alignItems: 'center',
