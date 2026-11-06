@@ -32,6 +32,7 @@ import type {
   PlaceCategory,
   PlaceStatus,
   PowerValue,
+  SeasonValue,
   WifiValue,
   YesNoUnknown,
 } from '@/lib/types';
@@ -80,6 +81,11 @@ const emptyInput = (cityId: string): PlaceInput => ({
   last_verified_at: null,
   is_example: false,
   locked_fields: [],
+  season: 'unknown',
+  season_note: null,
+  non_guest_work: 'unknown',
+  non_guest_note: null,
+  min_stay: null,
 });
 
 /** Crawled fields whose value differs from what was loaded. */
@@ -186,6 +192,9 @@ function Editor({ placeId }: { placeId: string | null }) {
         last_verified_at: form.last_verified_at || null,
         name_local: form.name_local?.trim() || null,
         phone: form.phone?.trim() || null,
+        season_note: form.season_note?.trim() || null,
+        non_guest_note: form.non_guest_note?.trim() || null,
+        min_stay: form.min_stay?.trim() || null,
         lat,
         lng,
         price_level: priceLevel,
@@ -272,7 +281,7 @@ function Editor({ placeId }: { placeId: string | null }) {
         <View style={styles.field}>
           <Text variant="smallStrong">{f.category}</Text>
           <View style={styles.chips}>
-            {(['coworking', 'cafe', 'library'] as PlaceCategory[]).map((c) => (
+            {(['coworking', 'cafe', 'library', 'coliving'] as PlaceCategory[]).map((c) => (
               <Chip key={c} label={strings.explore[c]} color={colors[c]} selected={form.category === c} onPress={() => update('category', c)} />
             ))}
           </View>
@@ -310,6 +319,16 @@ function Editor({ placeId }: { placeId: string | null }) {
         <Input label={f.phone} optional value={form.phone ?? ''} onChangeText={(v) => update('phone', v)} keyboardType="phone-pad" />
         <Input label={f.openingHours} optional value={form.opening_hours ?? ''} onChangeText={(v) => update('opening_hours', v)} placeholder="Mon–Fri 8:00–18:00" />
       </Section>
+
+      {form.category === 'coliving' ? (
+        <Section title={strings.explore.coliving}>
+          <EnumField label={f.nonGuestWork} value={form.non_guest_work} options={['yes', 'no', 'unknown'] as YesNoUnknown[]} onChange={(v) => update('non_guest_work', v)} />
+          <Input label={f.nonGuestNote} optional value={form.non_guest_note ?? ''} onChangeText={(v) => update('non_guest_note', v)} />
+          <EnumField label={f.season} value={form.season} options={['year_round', 'seasonal', 'unknown'] as SeasonValue[]} onChange={(v) => update('season', v)} />
+          <Input label={f.seasonNote} optional value={form.season_note ?? ''} onChangeText={(v) => update('season_note', v)} />
+          <Input label={f.minStay} optional value={form.min_stay ?? ''} onChangeText={(v) => update('min_stay', v)} />
+        </Section>
+      ) : null}
 
       <Section title={strings.place.facts}>
         <EnumField label={f.wifi} value={form.wifi} options={['yes', 'no', 'unknown'] as WifiValue[]} onChange={(v) => update('wifi', v)} />

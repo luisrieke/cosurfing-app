@@ -75,7 +75,12 @@ export default function PlaceScreen() {
   const testsQuery = useQuery(`tests:${place?.id}:${gateKey}`, () => getPlaceSpeedTests(place!.id), enabled && Boolean(user));
   const quotaQuery = useQuery(`unlock-quota:${gateKey}`, getReviewUnlockQuota, Boolean(user));
   const rankQuery = useQuery(`rank:${place?.id}:${place?.work_score}`, () => getPlaceRank(place!.id), enabled);
-  const moreQuery = useQuery(`more:${place?.city_id}`, () => getCityRanking(place!.city_id, defaultRankingFilters, 6), enabled);
+  const coliving = place?.category === 'coliving';
+  const moreQuery = useQuery(
+    `more:${place?.city_id}:${coliving}`,
+    () => getCityRanking(place!.city_id, { ...defaultRankingFilters, category: coliving ? 'coliving' : 'all' }, 6),
+    enabled,
+  );
 
   useEffect(() => {
     if (!flash) return;
@@ -237,7 +242,7 @@ export default function PlaceScreen() {
           {rank !== null ? (
             <Pressable onPress={() => router.push(cityHref)} accessibilityRole="link">
               <Text variant="small" tone="accent">
-                {strings.place.rankIn(rank, place.city.name)}
+                {(coliving ? strings.place.rankInColiving : strings.place.rankIn)(rank, place.city.name)}
               </Text>
             </Pressable>
           ) : null}
@@ -276,7 +281,12 @@ export default function PlaceScreen() {
         <title>{`${place.name} · ${place.city.name} · Cosurfing`}</title>
         <meta
           name="description"
-          content={description ?? `${place.name} in ${place.city.name}: Wi‑Fi, power outlets, opening hours and reviews from remote workers.`}
+          content={
+            description ??
+            (coliving
+              ? `${place.name}, a coliving in ${place.city.name}: workspace for residents, season, Wi‑Fi and reviews from remote workers.`
+              : `${place.name} in ${place.city.name}: Wi‑Fi, power outlets, opening hours and reviews from remote workers.`)
+          }
         />
       </Head>
       <SiteHeader />
@@ -331,6 +341,29 @@ export default function PlaceScreen() {
               </Text>
             </View>
           </View>
+
+          {coliving ? (
+            <View style={styles.notices}>
+              <Notice
+                tone="warning"
+                title={strings.place.colivingStayTitle}
+                body={
+                  place.non_guest_work === 'yes'
+                    ? strings.place.colivingStayBodyDayPass(place.non_guest_note)
+                    : strings.place.colivingStayBody
+                }
+              />
+              <Notice
+                tone="info"
+                title={strings.place.colivingSeasonTitle}
+                body={
+                  place.season === 'seasonal'
+                    ? strings.place.colivingSeasonal(place.season_note)
+                    : strings.place.colivingSeasonBody
+                }
+              />
+            </View>
+          ) : null}
 
           <View style={[styles.columns, wide && styles.columnsWide]}>
             <View style={styles.main}>
@@ -473,7 +506,7 @@ export default function PlaceScreen() {
               </Section>
 
               {more.length > 0 ? (
-                <Section title={strings.place.alsoIn(place.city.name)}>
+                <Section title={(coliving ? strings.place.alsoInColiving : strings.place.alsoIn)(place.city.name)}>
                   <View>
                     {more.map((p) => (
                       <RankedPlaceRow
@@ -584,6 +617,9 @@ const styles = StyleSheet.create({
   },
   crumbActions: {
     flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  notices: {
     gap: spacing.sm,
   },
   titleBlock: {

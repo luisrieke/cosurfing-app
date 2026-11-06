@@ -200,6 +200,7 @@ function SuggestScreen({ presetCitySlug, presetName }: { presetCitySlug: string 
                   <Chip label={strings.explore.coworking} icon="briefcase" color={colors.coworking} selected={category === 'coworking'} onPress={() => setCategory('coworking')} />
                   <Chip label={strings.explore.cafe} icon="coffee" color={colors.cafe} selected={category === 'cafe'} onPress={() => setCategory('cafe')} />
                   <Chip label={strings.explore.library} icon="book-open" color={colors.library} selected={category === 'library'} onPress={() => setCategory('library')} />
+                  <Chip label={strings.explore.coliving} icon="home" color={colors.coliving} selected={category === 'coliving'} onPress={() => setCategory('coliving')} />
                 </View>
               </View>
 

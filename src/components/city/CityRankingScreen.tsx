@@ -47,7 +47,7 @@ const GATE_AFTER = 10;
 const SKELETON_KEYS = ['s1', 's2', 's3', 's4', 's5', 's6'];
 const POLL_MS = 15_000;
 const SORTS: RankingSort[] = ['score', 'rating', 'wifi', 'reviews', 'name'];
-const TABS: (PlaceCategory | 'all')[] = ['all', 'coworking', 'cafe', 'library'];
+const TABS: (PlaceCategory | 'all')[] = ['all', 'coworking', 'cafe', 'library', 'coliving'];
 
 export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefreshCity: () => Promise<void> }) {
   const router = useRouter();
@@ -148,7 +148,10 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
     coworking: city.coworking_count,
     cafe: city.cafe_count,
     library: city.library_count,
+    coliving: city.coliving_count,
   };
+  const tabs = TABS.filter((t) => t !== 'coliving' || counts.coliving > 0 || category === 'coliving');
+  const coliving = category === 'coliving';
 
   const facts: { label: string; value: string; accent?: boolean }[] = [
     { label: strings.city.factPlaces, value: city.place_count.toLocaleString('en-US') },
@@ -304,7 +307,7 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
           <View style={[styles.columns, sideBySide && styles.columnsDesktop]}>
             <View style={styles.main}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-                {TABS.map((t) => (
+                {tabs.map((t) => (
                   <Chip
                     key={t}
                     label={`${strings.city.tabs[t]} ${counts[t] > 0 ? counts[t].toLocaleString('en-US') : ''}`.trim()}
@@ -346,8 +349,14 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
                 <Chip label={strings.explore.calls} icon="video" selected={calls} onPress={() => setCalls(!calls)} />
               </ScrollView>
 
+              {coliving ? (
+                <Notice tone="warning" title={strings.city.colivingNoticeTitle} body={strings.city.colivingNoticeBody} />
+              ) : null}
+
               <Text variant="caption" tone="muted">
-                {ranking.loading ? strings.common.loading : `${strings.city.resultCount(ranking.total)} · ${strings.city.rankExplainer}`}
+                {ranking.loading
+                  ? strings.common.loading
+                  : `${(coliving ? strings.city.colivingResultCount : strings.city.resultCount)(ranking.total)} · ${strings.city.rankExplainer}`}
               </Text>
 
               {collecting && ranking.items.length === 0 ? (
@@ -376,6 +385,8 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
                     buttonLabel={strings.suggestCta.addNamed(q)}
                     target={suggestTarget}
                   />
+                ) : coliving && !wifi && !power && !calls ? (
+                  <EmptyState icon="home" title={strings.city.colivingEmpty(city.name)} />
                 ) : filtered ? (
                   <EmptyState icon="filter" title={strings.city.noMatchTitle} body={strings.city.noMatchBody} />
                 ) : (

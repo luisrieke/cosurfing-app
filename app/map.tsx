@@ -8,7 +8,7 @@ import { clusterCities, type MapCluster, type MapHandle, type MapViewport, Place
 import { ScoreBadge } from '@/components/ScoreBadge';
 import { SiteHeader, SiteHeaderSpacer } from '@/components/SiteHeader';
 import { suggestRoute, type SuggestTarget } from '@/components/SuggestPlaceCta';
-import { Button, CategoryBadge, Glass, Icon, IconButton, Notice, Text } from '@/components/ui';
+import { Button, CategoryBadge, Chip, Glass, Icon, IconButton, Notice, Text } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useQuery } from '@/hooks/useQuery';
 import { useUserLocation } from '@/hooks/useUserLocation';
@@ -64,6 +64,7 @@ export default function MapScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [colivings, setColivings] = useState(false);
 
   const zoomedIn = viewport !== null && viewport.zoom >= MIN_ZOOM;
 
@@ -73,7 +74,7 @@ export default function MapScreen() {
     const t = setTimeout(async () => {
       setLoading(true);
       try {
-        const next = await getPlacesInBounds(viewport.bounds, LIMIT);
+        const next = await getPlacesInBounds(viewport.bounds, LIMIT, colivings);
         if (!active) return;
         setPlaces(next);
         setError(null);
@@ -87,7 +88,7 @@ export default function MapScreen() {
       active = false;
       clearTimeout(t);
     };
-  }, [viewport]);
+  }, [viewport, colivings]);
 
   const cities = useQuery('map-cities', getMapCities, isSupabaseConfigured);
   const clusters = useMemo(
@@ -175,6 +176,18 @@ export default function MapScreen() {
             onPress={() => void locate()}
           />
         </View>
+        {zoomedIn ? (
+          <View pointerEvents="box-none" style={styles.topRow}>
+            <Chip
+              label={strings.map.colivings}
+              icon="home"
+              color={colors.coliving}
+              selected={colivings}
+              onPress={() => setColivings(!colivings)}
+            />
+          </View>
+        ) : null}
+        {zoomedIn && colivings ? <Notice tone="warning" body={strings.map.colivingsHint} style={styles.notice} /> : null}
         {location.message ? <Notice tone="warning" body={location.message} style={styles.notice} /> : null}
         {error ? <Notice tone="danger" body={error} style={styles.notice} /> : null}
       </View>

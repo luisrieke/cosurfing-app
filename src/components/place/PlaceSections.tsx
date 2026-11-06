@@ -90,6 +90,26 @@ export function hardFacts(place: Place, facts: FactSummary[] = []): FactLine[] {
   const wf = place.web_facts ?? {};
   const lines: FactLine[] = [];
   const community = (key: FactKey) => communityFact(facts, key);
+  const coliving = place.category === 'coliving';
+
+  if (coliving) {
+    const [guest, guestTone] = pick(place.non_guest_work, { yes: [s.nonGuest_yes, 'okay'], no: [s.nonGuest_no, 'bad'] });
+    lines.push({
+      icon: 'key',
+      label: s.nonGuestWork,
+      value: guest ? (place.non_guest_note ? `${guest} · ${place.non_guest_note}` : guest) : null,
+      tone: guestTone,
+      empty: s.nonGuest_no,
+    });
+    const [season, seasonTone] = pick(place.season, { year_round: [s.season_year_round, 'neutral'], seasonal: [s.season_seasonal, 'okay'] });
+    lines.push({
+      icon: 'calendar',
+      label: s.season,
+      value: season ? (place.season_note ? `${season} · ${place.season_note}` : season) : null,
+      tone: seasonTone,
+    });
+    if (place.min_stay) lines.push({ icon: 'moon', label: s.minStay, value: place.min_stay, tone: 'neutral' });
+  }
 
   if (place.download_median_mbps !== null) {
     const down = Number(place.download_median_mbps);
@@ -147,18 +167,18 @@ export function hardFacts(place: Place, facts: FactSummary[] = []): FactLine[] {
   lines.push({ icon: 'headphones', label: s.focus, value: focus, tone: focusTone });
 
   const dayPass = community('day_pass')?.display ?? dayPassLabel(place.day_pass_price_cents, wf.day_pass);
-  if (place.category === 'coworking' || dayPass) {
+  if (place.category === 'coworking' || (dayPass && !coliving)) {
     lines.push({ icon: 'tag', label: s.dayPass, value: dayPass, tone: dayPass ? 'neutral' : 'unknown' });
   }
   const price =
     community('price_range')?.display ??
     (place.price_level ? s.priceLevelLabel(place.price_level) : (wf.price_range?.value ?? null));
-  if (place.category !== 'coworking' || price) {
+  if ((place.category !== 'coworking' && !coliving) || price) {
     lines.push({ icon: 'dollar-sign', label: s.priceLevel, value: price, tone: price ? 'neutral' : 'unknown' });
   }
 
   const hours = community('opening_hours')?.display ?? place.opening_hours ?? wf.opening_hours?.value ?? null;
-  lines.push({ icon: 'clock', label: s.openingHours, value: hours, tone: hours ? 'neutral' : 'unknown' });
+  if (!coliving || hours) lines.push({ icon: 'clock', label: s.openingHours, value: hours, tone: hours ? 'neutral' : 'unknown' });
 
   const laptopsFact = community('laptops');
   const laptops =
@@ -166,15 +186,16 @@ export function hardFacts(place: Place, facts: FactSummary[] = []): FactLine[] {
     place.laptop_rules ??
     (wf.laptops ? (wf.laptops.value === 'welcome' ? s.laptopsWelcome : s.laptopsNotAllowed) : null);
   const laptopsBanned = laptopsFact ? laptopsFact.value === 'not_allowed' : wf.laptops?.value === 'not_allowed' && !place.laptop_rules;
-  lines.push({
-    icon: 'monitor',
-    label: s.laptopRules,
-    value: laptops,
-    tone: laptops ? (laptopsBanned ? 'bad' : 'neutral') : 'unknown',
-  });
-
-  const [outdoor, outdoorTone] = pick(place.outdoor_seating, { yes: [strings.common.yes, 'neutral'], no: [strings.common.no, 'neutral'] });
-  lines.push({ icon: 'sun', label: s.outdoorSeating, value: outdoor, tone: outdoorTone });
+  if (!coliving) {
+    lines.push({
+      icon: 'monitor',
+      label: s.laptopRules,
+      value: laptops,
+      tone: laptops ? (laptopsBanned ? 'bad' : 'neutral') : 'unknown',
+    });
+    const [outdoor, outdoorTone] = pick(place.outdoor_seating, { yes: [strings.common.yes, 'neutral'], no: [strings.common.no, 'neutral'] });
+    lines.push({ icon: 'sun', label: s.outdoorSeating, value: outdoor, tone: outdoorTone });
+  }
 
   const [wheel, wheelTone] = pick(place.wheelchair, {
     yes: [strings.common.yes, 'good'],

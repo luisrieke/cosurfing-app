@@ -1,5 +1,6 @@
 export type CityStatus = 'active' | 'waitlist';
-export type PlaceCategory = 'coworking' | 'cafe' | 'library';
+export type PlaceCategory = 'coworking' | 'cafe' | 'library' | 'coliving';
+export type SeasonValue = 'year_round' | 'seasonal' | 'unknown';
 export type PlaceStatus = 'draft' | 'published' | 'needs_review' | 'archived';
 export type PlaceReviewReason = 'website_parked' | 'website_dead' | 'reported_closed';
 export type WifiValue = 'yes' | 'no' | 'unknown';
@@ -41,6 +42,8 @@ export interface City {
   coworking_count: number;
   cafe_count: number;
   library_count: number;
+  /** Not part of place_count: colivings are listed on their own tab. */
+  coliving_count: number;
   review_count: number;
   speed_test_count: number;
   median_download_mbps: number | null;
@@ -163,6 +166,12 @@ export interface Place {
   text_review_count: number;
   work_score: number;
   score_breakdown: ScoreBreakdown | null;
+  season: SeasonValue;
+  season_note: string | null;
+  /** Whether people who do not stay there can work there (colivings). */
+  non_guest_work: YesNoUnknown;
+  non_guest_note: string | null;
+  min_stay: string | null;
 }
 
 /** Row of `list_cities`. */

@@ -21,6 +21,8 @@ export const colors = {
   cafeSoft: '#F5E1D7',
   library: '#4A5D7A',
   librarySoft: '#E3E8EF',
+  coliving: '#2F6B68',
+  colivingSoft: '#DCEAE7',
   scoreGreat: '#4F6B3A',
   scoreGood: '#6F7F45',
   scoreOkay: '#B5573A',
