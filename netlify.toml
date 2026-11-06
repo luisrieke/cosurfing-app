@@ -5,6 +5,13 @@
 [build.environment]
   NODE_VERSION = "22"
 
+# Link-preview images (netlify/edge-functions/social-meta.ts): city covers and place photos.
+[images]
+  remote_images = [
+    "https://(upload|thumb)\\.wikimedia\\.org/.*",
+    "https://[a-z0-9]+\\.supabase\\.co/storage/v1/object/public/.*",
+  ]
+
 # Single-page app: every route is handled by Expo Router on the client.
 [[redirects]]
   from = "/*"
