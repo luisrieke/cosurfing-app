@@ -342,7 +342,6 @@ export const strings = {
     photosHint: 'Got pictures of the workspace? Desks, seating, outlets and the view help others most.',
     addPhotos: 'Add photos',
     removePhoto: 'Remove photo',
-    photosNeedConsent: 'Please confirm the photo rights, or remove the photos.',
     photosFailed: (n: number) =>
       n === 1 ? 'Your review is saved, but 1 photo could not be uploaded.' : `Your review is saved, but ${n} photos could not be uploaded.`,
     submit: 'Publish review',
@@ -471,15 +470,6 @@ export const strings = {
     title: 'Add photos of this place',
     rules:
       'Show the workspace: desks, seating, power outlets, the view. Only photos you took yourself, no recognizable people, no screens with private content. Photos appear after a quick review.',
-    consent:
-      'I took these photos myself. I grant Spacifik UG (haftungsbeschränkt), the operator of Cosurfing, the exclusive, unlimited, perpetual and free right to use them for any purpose, including commercially. I will not license them to anyone else. Details in the',
-    termsLink: 'Terms of Use',
-    rightsNote: {
-      review:
-        'By publishing you grant Spacifik UG (haftungsbeschränkt), the operator of Cosurfing, the exclusive, unlimited and free right to use your review, ratings and photos for any purpose, including commercially. Details in the',
-      suggestion:
-        'By sending you grant Spacifik UG (haftungsbeschränkt), the operator of Cosurfing, the exclusive, unlimited and free right to use the information you submit. Details in the',
-    },
     choose: 'Choose photos',
     uploading: (n: number, total: number) => `Uploading ${n} of ${total}…`,
     thanks: (n: number) =>
@@ -556,8 +546,9 @@ export const strings = {
     invalidEmail: 'Please enter a valid email address.',
     invalidCode: 'That code is not valid or has expired.',
     useDifferentEmail: 'Use a different email',
-    legal: 'By signing in you agree to the Terms of Use and to receive account emails from Cosurfing.',
-    termsLink: 'Read the Terms of Use',
+    legal: 'By continuing you agree to the',
+    termsLink: 'Terms of Use',
+    legalRights: ', including that Cosurfing may use the photos and reviews you post. We will send you account emails.',
   },
   account: {
     title: 'Your account',

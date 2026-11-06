@@ -10,6 +10,7 @@ import { isValidEmail } from '@/lib/format';
 import { getProfile } from '@/lib/queries';
 import { supabase } from '@/lib/supabase';
 import { strings } from '@/lib/strings';
+import { TERMS_VERSION } from '@/lib/terms';
 import { colors, spacing } from '@/lib/theme';
 
 export default function SignInScreen() {
@@ -43,7 +44,8 @@ export default function SignInScreen() {
     setError(null);
     const { error: err } = await supabase.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
-      options: { shouldCreateUser: true },
+      // Only stored when this call creates the account: evidence of which Terms were accepted at sign-up.
+      options: { shouldCreateUser: true, data: { terms_version: TERMS_VERSION, terms_accepted_at: new Date().toISOString() } },
     });
     setBusy(false);
     if (err) {
@@ -124,18 +126,19 @@ export default function SignInScreen() {
             error={error}
           />
           <Button title={strings.auth.sendCode} size="lg" fullWidth loading={busy} onPress={sendCode} disabled={!isSupabaseConfigured} />
+          <Text variant="small" tone="muted">
+            {strings.auth.legal}{' '}
+            <Text variant="smallStrong" tone="accent" onPress={() => router.push('/terms')} accessibilityRole="link">
+              {strings.auth.termsLink}
+            </Text>
+            {strings.auth.legalRights}
+          </Text>
           <Button
             title={mode === 'login' ? strings.auth.switchToSignUp : strings.auth.switchToLogin}
             variant="ghost"
             size="sm"
             onPress={() => setMode(mode === 'login' ? 'signup' : 'login')}
           />
-          <Text variant="small" tone="muted">
-            {strings.auth.legal}{' '}
-            <Text variant="small" tone="accent" onPress={() => router.push('/terms')} accessibilityRole="link">
-              {strings.auth.termsLink}
-            </Text>
-          </Text>
         </View>
       ) : (
         <View style={styles.form}>
