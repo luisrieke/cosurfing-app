@@ -18,6 +18,7 @@ import { SignupBanner } from '@/components/SignupBanner';
 import { SignupGate } from '@/components/SignupGate';
 import { SiteFooter } from '@/components/SiteFooter';
 import { SiteHeader, SiteHeaderSpacer } from '@/components/SiteHeader';
+import { SuggestPlaceCta } from '@/components/SuggestPlaceCta';
 import { Button, Chip, EmptyState, ErrorState, Glass, Icon, Notice, Skeleton, Text } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useDebounced } from '@/hooks/useDebounced';
@@ -111,6 +112,10 @@ export default function HomeScreen() {
               large
               style={isDesktop ? styles.heroSearch : undefined}
             />
+            <View style={[styles.heroActions, isDesktop && styles.heroActionsDesktop]}>
+              <Button title={strings.home.nearMe} icon="navigation" onPress={() => router.push('/map')} />
+              <Button title={strings.home.addPlace} icon="plus" variant="secondary" onPress={() => router.push('/suggest')} />
+            </View>
           </View>
 
           {!isSupabaseConfigured ? <Notice tone="warning" body={strings.common.backendNotConfigured} /> : null}
@@ -155,7 +160,18 @@ export default function HomeScreen() {
           ) : cities.error ? (
             <ErrorState body={cities.error.message} onAction={() => void cities.refresh()} />
           ) : cities.items.length === 0 ? (
-            <EmptyState icon="search" title={strings.home.noCitiesTitle} body={strings.home.noCitiesBody} />
+            <>
+              <EmptyState icon="search" title={strings.home.noCitiesTitle} body={strings.home.noCitiesBody} />
+              {q ? (
+                <SuggestPlaceCta
+                  title={strings.suggestCta.homeSearchMiss(q)}
+                  body={strings.suggestCta.searchMissBody}
+                  buttonLabel={strings.suggestCta.addNamed(q)}
+                  target={{ name: q }}
+                  style={styles.suggestCta}
+                />
+              ) : null}
+            </>
           ) : (
             <View style={styles.grid}>
               {rows.map((row, rowIndex) => (
@@ -185,6 +201,8 @@ export default function HomeScreen() {
           {!cities.loading && cities.hasMore && !cities.loadingMore ? (
             <Button title={strings.home.loadMore} variant="secondary" onPress={cities.loadMore} style={styles.moreButton} />
           ) : null}
+
+          {cities.items.length > 0 ? <SuggestPlaceCta style={styles.suggestCta} /> : null}
 
           <View style={[styles.how, isDesktop && styles.howDesktop]}>
             <Text variant="heading">{strings.home.howTitle}</Text>
@@ -263,6 +281,19 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 560,
     marginTop: spacing.sm,
+  },
+  heroActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  heroActionsDesktop: {
+    justifyContent: 'center',
+  },
+  suggestCta: {
+    width: '100%',
+    maxWidth: layout.maxContentWidth,
+    alignSelf: 'center',
   },
   chips: {
     gap: spacing.sm,

@@ -416,6 +416,20 @@ export interface LatLng {
   lng: number;
 }
 
+export interface MapPlace {
+  id: string;
+  slug: string;
+  name: string;
+  category: PlaceCategory;
+  lat: number;
+  lng: number;
+  address: string | null;
+  work_score: number;
+  review_count: number;
+  rating_avg: number | null;
+  city: { slug: string; name: string } | null;
+}
+
 export interface CitySearchResult {
   name: string;
   countryCode: string;

@@ -18,11 +18,11 @@ import type { CitySearchResult, PlaceCategory } from '@/lib/types';
 type Step = 'details' | 'account';
 
 export default function SuggestRoute() {
-  const { city } = useLocalSearchParams<{ city?: string }>();
-  return <SuggestScreen presetCitySlug={city ?? null} />;
+  const { city, name } = useLocalSearchParams<{ city?: string; name?: string }>();
+  return <SuggestScreen presetCitySlug={city ?? null} presetName={name?.trim().slice(0, 120) || null} />;
 }
 
-function SuggestScreen({ presetCitySlug }: { presetCitySlug: string | null }) {
+function SuggestScreen({ presetCitySlug, presetName }: { presetCitySlug: string | null; presetName: string | null }) {
   const router = useRouter();
   const { user, ready } = useAuth();
   const cities = useQuery('active-cities', getActiveCities);
@@ -56,12 +56,14 @@ function SuggestScreen({ presetCitySlug }: { presetCitySlug: string | null }) {
         setAwaitingAccount(draft.awaitingAccount);
         if (draft.awaitingAccount) setStep('account');
       }
+      // A search that found nothing (?name=...) starts a fresh suggestion unless one is already being written.
+      if (presetName && !draft?.name.trim()) setName(presetName);
       setHydrated(true);
     });
     return () => {
       active = false;
     };
-  }, []);
+  }, [presetName]);
 
   // Coming from a city page (?city=slug) preselects that city unless the draft already has one.
   useEffect(() => {
