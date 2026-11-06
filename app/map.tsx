@@ -5,10 +5,11 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { clusterCities, type MapCluster, type MapHandle, type MapViewport, PlacesMap } from '@/components/map';
+import { pinColor } from '@/components/map/pinSvg';
 import { ScoreBadge } from '@/components/ScoreBadge';
 import { SiteHeader, SiteHeaderSpacer } from '@/components/SiteHeader';
 import { suggestRoute, type SuggestTarget } from '@/components/SuggestPlaceCta';
-import { Button, CategoryBadge, Chip, Glass, Icon, IconButton, Notice, Text } from '@/components/ui';
+import { Button, CategoryBadge, categoryIcon, Glass, glassSurface, Icon, IconButton, Notice, Text } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useQuery } from '@/hooks/useQuery';
 import { useUserLocation } from '@/hooks/useUserLocation';
@@ -17,7 +18,9 @@ import { distanceKm, formatDistance } from '@/lib/geo';
 import { getMapCities, getPlacesInBounds } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
-import type { LatLng, MapPlace } from '@/lib/types';
+import type { LatLng, MapPlace, PlaceCategory } from '@/lib/types';
+
+const CATEGORIES: PlaceCategory[] = ['coworking', 'cafe', 'library', 'coliving'];
 
 /** Below this zoom an area holds too many places to load at once. */
 const MIN_ZOOM = 9;
@@ -44,6 +47,33 @@ function mostCommonCity(places: MapPlace[]): MapPlace['city'] {
   return best?.city ?? null;
 }
 
+const chipGlass = glassSurface('strong', { flat: true });
+
+/** A map filter that doubles as the legend: it shows the pin color and icon of its category. */
+function LegendChip({ category, shown, onPress }: { category: PlaceCategory; shown: boolean; onPress: () => void }) {
+  const label = strings.map.categories[category];
+  return (
+    <Pressable
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: shown }}
+      accessibilityLabel={strings.map.toggleCategory(label, shown)}
+      onPress={onPress}
+      style={({ pressed }) => [styles.legendChip, chipGlass, pressed && { backgroundColor: colors.surface }]}
+    >
+      <View style={[styles.legendDot, { backgroundColor: shown ? pinColor(category) : colors.bgMuted }]}>
+        <Icon name={categoryIcon(category)} size={12} color={shown ? colors.onAccent : colors.textMuted} />
+      </View>
+      <Text
+        variant="smallStrong"
+        tone={shown ? undefined : 'muted'}
+        style={!shown && styles.legendLabelOff}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 export default function MapScreen() {
   const params = useLocalSearchParams<{ lat?: string; lng?: string; zoom?: string }>();
   const router = useRouter();
@@ -64,7 +94,15 @@ export default function MapScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [colivings, setColivings] = useState(false);
+  const [hidden, setHidden] = useState<ReadonlySet<PlaceCategory>>(() => new Set());
+  const shownCategories = useMemo(() => CATEGORIES.filter((c) => !hidden.has(c)), [hidden]);
+  const toggleCategory = (category: PlaceCategory) =>
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      return next;
+    });
 
   const zoomedIn = viewport !== null && viewport.zoom >= MIN_ZOOM;
 
@@ -74,7 +112,7 @@ export default function MapScreen() {
     const t = setTimeout(async () => {
       setLoading(true);
       try {
-        const next = await getPlacesInBounds(viewport.bounds, LIMIT, colivings);
+        const next = await getPlacesInBounds(viewport.bounds, shownCategories, LIMIT);
         if (!active) return;
         setPlaces(next);
         setError(null);
@@ -88,7 +126,7 @@ export default function MapScreen() {
       active = false;
       clearTimeout(t);
     };
-  }, [viewport, colivings]);
+  }, [viewport, shownCategories]);
 
   const cities = useQuery('map-cities', getMapCities, isSupabaseConfigured);
   const clusters = useMemo(
@@ -98,7 +136,10 @@ export default function MapScreen() {
   const clusterPlaces = clusters.reduce((sum, c) => sum + c.count, 0);
   const openCluster = (c: MapCluster) => mapRef.current?.flyTo(c.target, c.target.zoom);
 
-  const visible = useMemo(() => (zoomedIn ? places : []), [zoomedIn, places]);
+  const visible = useMemo(
+    () => (zoomedIn ? places.filter((p) => !hidden.has(p.category)) : []),
+    [zoomedIn, places, hidden],
+  );
   const markers = useMemo(
     () => visible.map((p) => ({ id: p.id, lat: p.lat, lng: p.lng, category: p.category, name: p.name })),
     [visible],
@@ -177,17 +218,23 @@ export default function MapScreen() {
           />
         </View>
         {zoomedIn ? (
-          <View pointerEvents="box-none" style={styles.topRow}>
-            <Chip
-              label={strings.map.colivings}
-              icon="home"
-              color={colors.coliving}
-              selected={colivings}
-              onPress={() => setColivings(!colivings)}
-            />
+          <View pointerEvents="box-none" style={styles.legend}>
+            {CATEGORIES.map((category) => (
+              <LegendChip
+                key={category}
+                category={category}
+                shown={!hidden.has(category)}
+                onPress={() => toggleCategory(category)}
+              />
+            ))}
           </View>
         ) : null}
-        {zoomedIn && colivings ? <Notice tone="warning" body={strings.map.colivingsHint} style={styles.notice} /> : null}
+        {zoomedIn && shownCategories.length === 0 ? (
+          <Notice tone="info" body={strings.map.allHidden} style={styles.notice} />
+        ) : null}
+        {selected?.category === 'coliving' ? (
+          <Notice tone="warning" body={strings.map.colivingsHint} style={styles.notice} />
+        ) : null}
         {location.message ? <Notice tone="warning" body={location.message} style={styles.notice} /> : null}
         {error ? <Notice tone="danger" body={error} style={styles.notice} /> : null}
       </View>
@@ -288,6 +335,33 @@ const styles = StyleSheet.create({
   notice: {
     width: '100%',
     maxWidth: 720,
+  },
+  legend: {
+    width: '100%',
+    maxWidth: 720,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  legendChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 36,
+    paddingLeft: 5,
+    paddingRight: spacing.sm + 4,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  legendDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  legendLabelOff: {
+    textDecorationLine: 'line-through',
   },
   overlayBottom: {
     position: 'absolute',

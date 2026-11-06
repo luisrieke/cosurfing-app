@@ -256,19 +256,20 @@ export async function getMapCities(): Promise<MapCity[]> {
   }
 }
 
-/** Published places inside a map area, best work score first. Colivings only when asked for. */
+/** Published places of the given categories inside a map area, best work score first. */
 export async function getPlacesInBounds(
   bounds: { north: number; south: number; east: number; west: number },
+  categories: PlaceCategory[],
   limit = 300,
-  withColivings = false,
 ): Promise<MapPlace[]> {
+  if (categories.length === 0) return [];
   let query = requireSupabase()
     .from('places')
     .select('id, slug, name, category, lat, lng, address, work_score, review_count, rating_avg, city:cities(slug, name)')
     .eq('status', 'published')
+    .in('category', categories)
     .gte('lat', bounds.south)
     .lte('lat', bounds.north);
-  if (!withColivings) query = query.neq('category', 'coliving');
   // A view that crosses the antimeridian has west > east; skip the longitude filter there.
   if (bounds.west <= bounds.east) query = query.gte('lng', bounds.west).lte('lng', bounds.east);
   const { data, error } = await query.order('work_score', { ascending: false }).limit(limit);
