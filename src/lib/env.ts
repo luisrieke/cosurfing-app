@@ -17,7 +17,11 @@ export const env = {
     process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY,
   ),
   webPayments: read('EXPO_PUBLIC_WEB_PAYMENTS', process.env.EXPO_PUBLIC_WEB_PAYMENTS),
+  plusWaitlistUrl: read('EXPO_PUBLIC_PLUS_WAITLIST_URL', process.env.EXPO_PUBLIC_PLUS_WAITLIST_URL),
 };
+
+// While set, the paywall sends people to this form instead of a checkout on every platform.
+export const isPlusWaitlistEnabled = /^https:\/\//.test(env.plusWaitlistUrl);
 
 export const isSupabaseConfigured = Boolean(env.supabaseUrl && env.supabaseAnonKey);
 

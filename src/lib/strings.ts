@@ -631,6 +631,12 @@ export const strings = {
     devDisabledOnServer:
       'The server rejected the simulated Plus toggle. Set ALLOW_DEV_ENTITLEMENTS=true on the billing function for local testing.',
     restoreNothing: 'No active subscription found for this account.',
+    waitlistTitle: 'Plus opens soon',
+    waitlistBody:
+      'In-app payments are not live yet. Join the Plus waiting list and I will unlock Plus for your account by hand and let you know by email. Nothing is charged right now.',
+    waitlistCta: 'Join the Plus waiting list',
+    waitlistAfter: 'Already on the list? You will get an email as soon as Plus is unlocked for your account.',
+    manualSource: 'Plus was unlocked for your account by the Cosurfing team.',
     nativeUnavailable:
       'In‑app purchases are not available in this build. Use a development build with RevenueCat configured.',
     successTitle: 'Welcome to Plus',

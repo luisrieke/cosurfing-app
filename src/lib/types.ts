@@ -371,7 +371,7 @@ export interface Profile {
 export interface Entitlement {
   user_id: string;
   status: 'active' | 'inactive';
-  source: 'stripe' | 'revenuecat' | 'dev';
+  source: 'stripe' | 'revenuecat' | 'dev' | 'manual';
   current_period_end: string | null;
   cancel_at_period_end: boolean;
   updated_at: string;
