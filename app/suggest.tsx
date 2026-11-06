@@ -1,6 +1,6 @@
 import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { CitySearch } from '@/components/CitySearch';
@@ -30,7 +30,8 @@ function SuggestScreen({ presetCitySlug, presetName }: { presetCitySlug: string 
   const [hydrated, setHydrated] = useState(false);
   const [step, setStep] = useState<Step>('details');
   const [awaitingAccount, setAwaitingAccount] = useState(false);
-  const [city, setCity] = useState<SuggestionDraft['city']>(null);
+  const [pickedCity, setCity] = useState<SuggestionDraft['city']>(null);
+  const [cityCleared, setCityCleared] = useState(false);
   const [name, setName] = useState('');
   const [category, setCategory] = useState<PlaceCategory>('cafe');
   const [address, setAddress] = useState('');
@@ -66,12 +67,19 @@ function SuggestScreen({ presetCitySlug, presetName }: { presetCitySlug: string 
     };
   }, [presetName]);
 
-  // Coming from a city page (?city=slug) preselects that city unless the draft already has one.
-  useEffect(() => {
-    if (!hydrated || city || !presetCitySlug) return;
-    const preset = (cities.data ?? []).find((c) => c.slug === presetCitySlug);
-    if (preset) setCity({ id: preset.id, label: `${preset.name}, ${preset.country_name}` });
-  }, [hydrated, city, presetCitySlug, cities.data]);
+  // Coming from a city page (?city=slug) preselects that city unless the draft already has one
+  // or the visitor cleared it.
+  const presetCity = presetCitySlug ? cities.data?.find((c) => c.slug === presetCitySlug) : undefined;
+  const city = useMemo<SuggestionDraft['city']>(() => {
+    if (pickedCity) return pickedCity;
+    if (!presetCity || cityCleared) return null;
+    return { id: presetCity.id, label: `${presetCity.name}, ${presetCity.country_name}` };
+  }, [pickedCity, presetCity, cityCleared]);
+
+  const changeCity = () => {
+    setCity(null);
+    setCityCleared(true);
+  };
 
   useEffect(() => {
     if (!hydrated || sent) return;
@@ -206,7 +214,7 @@ function SuggestScreen({ presetCitySlug, presetName }: { presetCitySlug: string 
                     <Text variant="bodyStrong" style={styles.selectedCityLabel}>
                       {city.label}
                     </Text>
-                    <Button title={strings.suggest.changeCity} variant="ghost" size="sm" onPress={() => setCity(null)} />
+                    <Button title={strings.suggest.changeCity} variant="ghost" size="sm" onPress={changeCity} />
                   </View>
                 ) : (
                   <CitySearch
