@@ -1,5 +1,6 @@
 import { previewUrl, signedPhotoUrls } from './storage';
 import { requireSupabase } from './supabase';
+import { TERMS_VERSION } from './terms';
 import type {
   City,
   CityContributor,
@@ -382,6 +383,8 @@ export async function upsertReview(userId: string, placeId: string, input: Revie
         comfort_rating: input.comfort_rating,
         value_rating: input.value_rating,
         calls_ok: input.calls_ok,
+        rights_accepted_at: new Date().toISOString(),
+        terms_version: TERMS_VERSION,
       },
       { onConflict: 'place_id,user_id' },
     );

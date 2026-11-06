@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { CitySearch } from '@/components/CitySearch';
+import { RightsNote } from '@/components/RightsNote';
 import { Button, Chip, Icon, Input, Notice, Screen, Text, TopBar } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
@@ -243,6 +244,7 @@ function SuggestScreen({ presetCitySlug, presetName }: { presetCitySlug: string 
                 {strings.suggest.reviewNote}
                 {!user ? ` ${strings.suggest.draftSaved}` : ''}
               </Text>
+              <RightsNote kind="suggestion" />
               <Button
                 title={user ? strings.suggest.submit : strings.suggest.continueToAccount}
                 size="lg"

@@ -10,6 +10,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { AVATAR_BUCKET, PHOTO_BUCKET, PREVIEW_BUCKET } from './storage';
 import { requireSupabase } from './supabase';
+import { TERMS_VERSION } from './terms';
 
 export const FULL_WIDTH = 1600;
 export const PREVIEW_WIDTH = 24;
@@ -93,6 +94,7 @@ export async function uploadPlacePhoto(
     row.uploaded_by = asUser.userId;
     row.status = 'pending';
     row.rights_accepted_at = asUser.rightsAcceptedAt;
+    row.terms_version = TERMS_VERSION;
   }
   const { data, error } = await sb.from('place_photos').insert(row).select('id, full_path, preview_path, sort_order').single();
   if (error) {

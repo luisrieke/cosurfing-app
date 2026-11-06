@@ -3,11 +3,20 @@ import { Linking, ScrollView, StyleSheet, View } from 'react-native';
 
 import { SiteFooter } from '@/components/SiteFooter';
 import { SiteHeader, SiteHeaderSpacer } from '@/components/SiteHeader';
-import { Text } from '@/components/ui';
-import { layout, spacing } from '@/lib/theme';
+import { Glass, Icon, Text } from '@/components/ui';
+import { TERMS_UPDATED } from '@/lib/terms';
+import { colors, layout, radius, spacing } from '@/lib/theme';
 
-const UPDATED = 'November 1, 2026';
 const CONTACT = 'luis@cosurfing.app';
+
+/** Plain-language summary; the clauses below are what counts. */
+const SUMMARY = [
+  'Cosurfing is run by Spacifik UG (haftungsbeschränkt) in Berlin.',
+  'Photos, reviews, ratings and suggestions you submit: you give Spacifik UG the exclusive, unlimited and free right to use them for any purpose, including commercially. You cannot license your submitted photos to anyone else.',
+  'Only upload photos you took yourself, without recognizable people.',
+  'Your profile picture and name stay yours.',
+  'Place information can be wrong or outdated. Check important details with the venue.',
+];
 
 interface Clause {
   title: string;
@@ -39,11 +48,13 @@ const CLAUSES: Clause[] = [
   {
     title: '4. Your content and the rights you grant us',
     paragraphs: [
-      '“Your content” means everything you submit to Cosurfing: photos, reviews, ratings, speed test results, place suggestions, reports, corrections and any other text or media.',
-      'Under German copyright law the copyright itself (Urheberrecht) cannot be transferred. By submitting your content you therefore grant Spacifik UG (haftungsbeschränkt), as operator of cosurfing.app, an exclusive, perpetual, irrevocable, worldwide, royalty-free, transferable and sublicensable right to use your content in any form and for any purpose, for all types of use known now or in the future. This includes in particular the right to reproduce, distribute, publicly display and make available, edit, adapt, translate, crop, combine with other works, and use your content commercially, including in advertising, in other products and services of Spacifik UG, and by passing it on to partners and licensees.',
-      'Because the right of use is exclusive, you may not license or publish the same photos to third parties after submitting them to Cosurfing. You receive no payment for your content; contributor points are not a payment and have no monetary value.',
+      '“Your content” means everything you submit to Cosurfing: photos (whether added on a place page or together with a review), written reviews, star and detail ratings, facts about a place, speed test results, place suggestions, reports, corrections and any other text or media. Your profile picture and display name are not “your content” in this sense; see the last paragraph of this section.',
+      'Under German copyright law the copyright itself (Urheberrecht) cannot be transferred. By submitting your content you therefore grant Spacifik UG (haftungsbeschränkt), as operator of Cosurfing, an exclusive, unlimited, perpetual, irrevocable, worldwide, royalty-free, transferable and sublicensable right to use your content in any form and for any purpose, for all types of use known now or in the future (§ 31 UrhG). This includes in particular the right to reproduce, distribute, publicly display and make available, edit, adapt, translate, crop, combine with other works, and use your content commercially, including in advertising, in other products and services of Spacifik UG, and by passing it on to partners and licensees.',
+      'Because the right of use is exclusive, you may not license, sell or publish photos you submitted to Cosurfing to or with third parties (for example stock photo sites, review platforms or other apps). You receive no payment for your content; contributor points are not a payment and have no monetary value.',
+      'You grant these rights each time you submit content. Before you upload photos you confirm this with a checkbox; before you publish a review, ratings or a suggestion we show a notice next to the button. We store the time and the version of these Terms you accepted with your content.',
       'To the extent permitted by law, you waive your right to be named as the author (§ 13 UrhG). We may show your display name next to your content, but we are not obliged to.',
-      'Deleting your account does not end the rights granted above. We may keep showing content that you submitted, without your name.',
+      'Deleting your account or your review does not end the rights granted above. We may keep using content that you submitted, without your name.',
+      'Your profile picture and display name stay yours. You only grant us a simple (non-exclusive), free right to show them in Cosurfing next to your contributions for as long as your account exists.',
     ],
   },
   {
@@ -102,9 +113,20 @@ export default function TermsScreen() {
           <View style={styles.intro}>
             <Text variant="title">Terms of Use</Text>
             <Text variant="small" tone="muted">
-              Last updated {UPDATED}
+              Last updated {TERMS_UPDATED}
             </Text>
           </View>
+          <Glass variant="strong" style={styles.summary}>
+            <Text variant="bodyStrong">In short</Text>
+            {SUMMARY.map((s) => (
+              <View key={s.slice(0, 40)} style={styles.summaryRow}>
+                <Icon name="check" size={16} color={colors.accent} />
+                <Text variant="small" style={styles.flex}>
+                  {s}
+                </Text>
+              </View>
+            ))}
+          </Glass>
           {CLAUSES.map((c) => (
             <View key={c.title} style={styles.clause}>
               <Text variant="bodyStrong">{c.title}</Text>
@@ -149,5 +171,18 @@ const styles = StyleSheet.create({
   },
   clause: {
     gap: spacing.sm,
+  },
+  summary: {
+    gap: spacing.sm,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  flex: {
+    flex: 1,
   },
 });
