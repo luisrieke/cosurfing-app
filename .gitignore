@@ -51,3 +51,4 @@ public/maplibre-gl-worker.mjs
 # City import output + local crawler secret
 scripts/data/cities*.generated.json
 .env.crawler
+scripts/data/*.generated.sql

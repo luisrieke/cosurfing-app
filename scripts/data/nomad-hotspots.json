@@ -30,6 +30,7 @@
   { "name": "Florence", "country_code": "IT", "lat": 43.7696, "lng": 11.2558, "population": 380000, "wiki": "Florence" },
   { "name": "Bologna", "country_code": "IT", "lat": 44.4949, "lng": 11.3426, "population": 390000, "wiki": "Bologna" },
   { "name": "Edinburgh", "country_code": "GB", "lat": 55.9533, "lng": -3.1883, "population": 480000, "wiki": "Edinburgh" },
+  { "name": "St Austell", "country_code": "GB", "lat": 50.3398, "lng": -4.7925, "population": 20000, "wiki": "St Austell", "radius_km": 5 },
   { "name": "Thessaloniki", "country_code": "GR", "lat": 40.6401, "lng": 22.9444, "population": 355000, "wiki": "Thessaloniki" },
   { "name": "Limassol", "country_code": "CY", "lat": 34.6786, "lng": 33.0413, "population": 180000, "wiki": "Limassol" },
   { "name": "St. Julian's", "country_code": "MT", "lat": 35.9184, "lng": 14.4897, "population": 13000, "wiki": "St. Julian's, Malta" },
