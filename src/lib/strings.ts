@@ -539,7 +539,7 @@ export const strings = {
   auth: {
     title: 'Create your free account',
     titleLogin: 'Log in to Cosurfing',
-    intro: 'Enter your email and we will send you a 6‑digit code. No password, no credit card.',
+    intro: 'Enter your email and we will send you an 8‑digit code. No password, no credit card.',
     benefits: [
       'Unlock up to 3 written reviews a day',
       'See detailed ratings and Wi‑Fi speed tests',
@@ -550,7 +550,7 @@ export const strings = {
     email: 'Email address',
     sendCode: 'Send code',
     codeSent: (email: string) => `We sent a code to ${email}.`,
-    code: '6‑digit code',
+    code: '8‑digit code',
     verify: 'Verify and sign in',
     resend: 'Send a new code',
     invalidEmail: 'Please enter a valid email address.',

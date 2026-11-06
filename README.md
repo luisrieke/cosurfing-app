@@ -88,7 +88,7 @@ To reproduce elsewhere: `supabase link --project-ref <ref>`, `supabase db push`,
 ### Auth (email OTP)
 
 1. Authentication → Providers → Email: enable, **disable "Confirm email"** is not needed; keep sign‑ups open.
-2. Authentication → Email Templates → **Magic Link**: the app verifies a 6‑digit code, so the template must contain `{{ .Token }}`, for example:
+2. Authentication → Email Templates → **Magic Link**: the app verifies an 8‑digit code (Authentication → Providers → Email → OTP length), so the template must contain `{{ .Token }}`, for example:
    `Your Cosurfing sign-in code is {{ .Token }}. It expires in 1 hour.`
 3. Authentication → URL Configuration: Site URL `https://cosurfing.app`, add `http://localhost:8081` and `cosurfing://` to redirect URLs.
 4. For production, configure a custom SMTP sender (Resend works) so OTP emails are not rate limited.

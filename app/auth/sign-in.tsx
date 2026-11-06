@@ -56,7 +56,7 @@ export default function SignInScreen() {
   const verify = async () => {
     if (!supabase) return;
     const token = code.replace(/\s+/g, '');
-    if (token.length < 6) {
+    if (token.length < 8) {
       setError(strings.auth.invalidCode);
       return;
     }
@@ -144,7 +144,7 @@ export default function SignInScreen() {
             label={strings.auth.code}
             value={code}
             onChangeText={setCode}
-            placeholder="123456"
+            placeholder="12345678"
             keyboardType="number-pad"
             autoComplete="one-time-code"
             textContentType="oneTimeCode"
