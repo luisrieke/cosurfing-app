@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AddPhotos } from '@/components/place/AddPhotos';
 import { RequireAuth } from '@/components/RequireAuth';
+import { RightsNote } from '@/components/RightsNote';
 import { Stars } from '@/components/Reviews';
 import { SearchField } from '@/components/SearchField';
 import { Badge, Button, CategoryBadge, Icon, Input, Notice, Screen, Skeleton, Text } from '@/components/ui';
@@ -319,6 +320,7 @@ function WelcomeScreen() {
               ))}
             </ScrollView>
           )}
+          <RightsNote kind="review" />
           <Button
             title={ratedCount > 0 ? strings.welcome.continue : strings.welcome.finish}
             size="lg"
@@ -386,6 +388,7 @@ function WelcomeScreen() {
               </View>
             </View>
           ))}
+          <RightsNote kind="review" />
           <Button title={strings.welcome.detailsSave} size="lg" fullWidth loading={busy} onPress={() => void saveDetails()} />
           <Button title={strings.welcome.rateSkip} variant="ghost" onPress={() => void finish()} disabled={busy} />
         </View>

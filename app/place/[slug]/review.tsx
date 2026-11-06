@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { RequireAuth } from '@/components/RequireAuth';
+import { RightsNote } from '@/components/RightsNote';
 import { Stars } from '@/components/Reviews';
 import { ScoreBadge } from '@/components/ScoreBadge';
 import { Button, CategoryBadge, Chip, EmptyState, Icon, Input, Notice, Screen, Skeleton, Text, TopBar } from '@/components/ui';
@@ -500,6 +501,7 @@ function ReviewScreen({ slug }: { slug: string }) {
         {photoError ? <Notice tone="danger" body={photoError} /> : null}
       </View>
 
+      <RightsNote kind="review" />
       <Button
         title={progress ?? (own ? strings.review.update : strings.review.submit)}
         size="lg"

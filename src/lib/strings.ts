@@ -472,8 +472,14 @@ export const strings = {
     rules:
       'Show the workspace: desks, seating, power outlets, the view. Only photos you took yourself, no recognizable people, no screens with private content. Photos appear after a quick review.',
     consent:
-      'I took these photos myself and grant Spacifik UG (haftungsbeschränkt), the operator of cosurfing.app, the exclusive, unlimited rights of use described in the',
+      'I took these photos myself. I grant Spacifik UG (haftungsbeschränkt), the operator of Cosurfing, the exclusive, unlimited, perpetual and free right to use them for any purpose, including commercially. I will not license them to anyone else. Details in the',
     termsLink: 'Terms of Use',
+    rightsNote: {
+      review:
+        'By publishing you grant Spacifik UG (haftungsbeschränkt), the operator of Cosurfing, the exclusive, unlimited and free right to use your review, ratings and photos for any purpose, including commercially. Details in the',
+      suggestion:
+        'By sending you grant Spacifik UG (haftungsbeschränkt), the operator of Cosurfing, the exclusive, unlimited and free right to use the information you submit. Details in the',
+    },
     choose: 'Choose photos',
     uploading: (n: number, total: number) => `Uploading ${n} of ${total}…`,
     thanks: (n: number) =>
