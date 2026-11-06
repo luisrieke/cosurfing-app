@@ -247,7 +247,7 @@ export const strings = {
     categoryCafe: 'Café',
     categoryLibrary: 'Library',
     rankIn: (rank: number, city: string) => `#${rank} place to work in ${city}`,
-    rankInColiving: (rank: number, city: string) => `#${rank} coliving in ${city}`,
+    rankInColiving: (rank: number, city: string) => `#${rank} in ${city}`,
     colivingStayTitle: 'Not a drop-in place to work',
     colivingStayBody:
       'This is a coliving: a place to stay with a workspace for its residents. Unless you booked a stay, do not expect to be able to work here.',

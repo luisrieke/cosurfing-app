@@ -144,7 +144,7 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
   };
 
   const counts: Record<PlaceCategory | 'all', number> = {
-    all: city.place_count,
+    all: city.place_count + city.coliving_count,
     coworking: city.coworking_count,
     cafe: city.cafe_count,
     library: city.library_count,
