@@ -1,2 +1,2 @@
 export { PlacesMap } from './Map';
-export type { MapHandle, MapMarker, MapProps } from './types';
+export type { MapBounds, MapHandle, MapMarker, MapProps, MapViewport } from './types';

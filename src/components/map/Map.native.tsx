@@ -6,7 +6,7 @@ import { colors } from '@/lib/theme';
 import type { LatLng } from '@/lib/types';
 
 import { Pin } from './Pin';
-import type { MapHandle, MapProps } from './types';
+import type { MapHandle, MapProps, MapViewport } from './types';
 
 function regionFromZoom(center: LatLng, zoom: number, width: number, height: number): Region {
   const longitudeDelta = (360 * width) / (256 * Math.pow(2, zoom));
@@ -14,8 +14,21 @@ function regionFromZoom(center: LatLng, zoom: number, width: number, height: num
   return { latitude: center.lat, longitude: center.lng, latitudeDelta, longitudeDelta };
 }
 
+function viewportFromRegion(r: Region, width: number): MapViewport {
+  return {
+    center: { lat: r.latitude, lng: r.longitude },
+    zoom: Math.log2((360 * width) / (256 * Math.max(r.longitudeDelta, 1e-6))),
+    bounds: {
+      north: r.latitude + r.latitudeDelta / 2,
+      south: r.latitude - r.latitudeDelta / 2,
+      east: r.longitude + r.longitudeDelta / 2,
+      west: r.longitude - r.longitudeDelta / 2,
+    },
+  };
+}
+
 export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
-  { center, zoom, markers, selectedId, onSelect, userLocation, style },
+  { center, zoom, markers, selectedId, onSelect, userLocation, onMoveEnd, style },
   ref,
 ) {
   const mapRef = useRef<MapView | null>(null);
@@ -58,8 +71,10 @@ export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
         ref={mapRef}
         style={StyleSheet.absoluteFill}
         initialRegion={initialRegion}
+        onMapReady={() => onMoveEnd?.(viewportFromRegion(regionRef.current, width))}
         onRegionChangeComplete={(r) => {
           regionRef.current = r;
+          onMoveEnd?.(viewportFromRegion(r, width));
         }}
         onPress={() => onSelect(null)}
         showsUserLocation={Boolean(userLocation)}

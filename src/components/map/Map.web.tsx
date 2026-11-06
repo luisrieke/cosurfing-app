@@ -55,7 +55,7 @@ function buildPin(category: PlaceCategory, name: string): HTMLButtonElement {
 }
 
 export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
-  { center, zoom, markers, selectedId, onSelect, userLocation, showControls, style },
+  { center, zoom, markers, selectedId, onSelect, userLocation, onMoveEnd, showControls, style },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -66,6 +66,8 @@ export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
+  const onMoveEndRef = useRef(onMoveEnd);
+  onMoveEndRef.current = onMoveEnd;
   const markersRef = useRef(markers);
   markersRef.current = markers;
 
@@ -93,6 +95,17 @@ export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     }
     map.on('click', () => onSelectRef.current(null));
+    const emitViewport = () => {
+      const b = map.getBounds();
+      const c = map.getCenter();
+      onMoveEndRef.current?.({
+        center: { lat: c.lat, lng: c.lng },
+        zoom: map.getZoom(),
+        bounds: { north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() },
+      });
+    };
+    map.on('load', emitViewport);
+    map.on('moveend', emitViewport);
     mapRef.current = map;
     const markerStore = markerRefs.current;
     return () => {

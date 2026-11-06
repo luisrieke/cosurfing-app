@@ -34,8 +34,9 @@ export function SiteHeader({ back }: { back?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const top = useTopInset();
-  const { isDesktop } = useBreakpoint();
+  const { isDesktop, width } = useBreakpoint();
   const { user, profile, isPlus } = useAuth();
+  const narrow = width < 420;
   const points = profile?.points ?? 0;
 
   const goBack = () => {
@@ -59,11 +60,12 @@ export function SiteHeader({ back }: { back?: boolean }) {
           ) : null}
           <Pressable onPress={() => router.push('/')} accessibilityRole="link" style={styles.brand}>
             <Image source={require('../../assets/logo-mark.png')} style={styles.logo} accessibilityIgnoresInvertColors />
-            <Text variant="heading">{strings.app.name}</Text>
+            {!narrow ? <Text variant="heading">{strings.app.name}</Text> : null}
           </Pressable>
           {isDesktop ? (
             <View style={styles.nav}>
               <NavLink label={strings.nav.cities} active={pathname === '/'} onPress={() => router.push('/')} />
+              <NavLink label={strings.nav.map} active={pathname === '/map'} onPress={() => router.push('/map')} />
               <NavLink label={strings.nav.suggest} active={pathname === '/suggest'} onPress={() => router.push('/suggest')} />
               {!isPlus ? (
                 <NavLink label={strings.nav.plus} active={pathname.startsWith('/plus')} onPress={() => router.push('/plus')} />
@@ -72,6 +74,26 @@ export function SiteHeader({ back }: { back?: boolean }) {
           ) : null}
         </View>
         <View style={styles.right}>
+          {!isDesktop ? (
+            <>
+              <IconButton
+                icon="map"
+                accessibilityLabel={strings.nav.map}
+                onPress={() => router.push('/map')}
+                size={40}
+                background="transparent"
+                style={styles.noBorder}
+              />
+              <IconButton
+                icon="plus-circle"
+                accessibilityLabel={strings.nav.suggest}
+                onPress={() => router.push('/suggest')}
+                size={40}
+                background="transparent"
+                style={styles.noBorder}
+              />
+            </>
+          ) : null}
           {user ? (
             <Pressable
               onPress={() => router.push('/account')}

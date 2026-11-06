@@ -8,6 +8,7 @@ import type {
   Continent,
   Entitlement,
   FactInput,
+  MapPlace,
   NetworkType,
   Place,
   PlaceFactEntry,
@@ -232,6 +233,24 @@ export async function getPlaceBySlug(slug: string): Promise<(Place & { city: Cit
     .maybeSingle();
   throwIf(error);
   return (data as (Place & { city: City }) | null) ?? null;
+}
+
+/** Published places inside a map area, best work score first. */
+export async function getPlacesInBounds(
+  bounds: { north: number; south: number; east: number; west: number },
+  limit = 300,
+): Promise<MapPlace[]> {
+  let query = requireSupabase()
+    .from('places')
+    .select('id, slug, name, category, lat, lng, address, work_score, review_count, rating_avg, city:cities(slug, name)')
+    .eq('status', 'published')
+    .gte('lat', bounds.south)
+    .lte('lat', bounds.north);
+  // A view that crosses the antimeridian has west > east; skip the longitude filter there.
+  if (bounds.west <= bounds.east) query = query.gte('lng', bounds.west).lte('lng', bounds.east);
+  const { data, error } = await query.order('work_score', { ascending: false }).limit(limit);
+  throwIf(error);
+  return ((data ?? []) as unknown as MapPlace[]).map((p) => ({ ...p, work_score: Number(p.work_score) }));
 }
 
 export async function getPlaceById(id: string): Promise<Place | null> {

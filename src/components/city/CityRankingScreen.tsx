@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 
 import { AdSlot } from '@/components/AdSlot';
-import { PlacesMap } from '@/components/map';
+import { type MapHandle, PlacesMap } from '@/components/map';
 import { ScoreBadge } from '@/components/ScoreBadge';
 import { SearchField } from '@/components/SearchField';
 import { Shade } from '@/components/Shade';
@@ -23,12 +23,14 @@ import { SignupGate } from '@/components/SignupGate';
 import { SignupInterstitial } from '@/components/SignupInterstitial';
 import { SiteFooter } from '@/components/SiteFooter';
 import { SiteHeader, SiteHeaderSpacer } from '@/components/SiteHeader';
-import { Button, Chip, EmptyState, ErrorState, Glass, Icon, Skeleton, Text } from '@/components/ui';
+import { SuggestPlaceCta, suggestRoute, type SuggestTarget } from '@/components/SuggestPlaceCta';
+import { Button, Chip, EmptyState, ErrorState, Glass, Icon, Notice, Skeleton, Text } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useDebounced } from '@/hooks/useDebounced';
 import { usePaged } from '@/hooks/usePaged';
 import { useQuery } from '@/hooks/useQuery';
 import { useSlowConnection } from '@/hooks/useSlowConnection';
+import { useUserLocation } from '@/hooks/useUserLocation';
 import { useAuth } from '@/lib/auth';
 import { formatDate, formatMbps } from '@/lib/format';
 import { canShowInterstitial, dismissInterstitial, markInterstitialShown, signUpHref } from '@/lib/funnel';
@@ -64,6 +66,8 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
   const [interstitial, setInterstitial] = useState(false);
   const [findingPlace, setFindingPlace] = useState(false);
   const q = useDebounced(query.trim(), 250);
+  const mapRef = useRef<MapHandle | null>(null);
+  const location = useUserLocation();
 
   const filters: RankingFilters = { category, sort, wifi, power, calls, q };
   const filtered = category !== 'all' || wifi || power || calls || q !== '';
@@ -101,6 +105,12 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
   const selected = ranking.items.find((p) => p.id === selectedId) ?? null;
   const compact = width < 640;
   const sideBySide = width >= 1024;
+  const suggestTarget: SuggestTarget = { city: city.slug, name: q || null };
+
+  const locateOnMap = async () => {
+    const here = await location.request();
+    if (here) mapRef.current?.flyTo(here, 15);
+  };
 
   const loadMore = async () => {
     if (!user && (await canShowInterstitial())) {
@@ -125,9 +135,9 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
     try {
       const next = await getPlacesToRate(city.id, 1);
       if (next[0]) router.push(`/place/${next[0].slug}/review`);
-      else router.push('/suggest');
+      else router.push(suggestRoute(suggestTarget));
     } catch {
-      router.push('/suggest');
+      router.push(suggestRoute(suggestTarget));
     } finally {
       setFindingPlace(false);
     }
@@ -189,6 +199,9 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
           loading={findingPlace}
         />
       </Glass>
+      {sideBySide ? (
+        <SuggestPlaceCta title={strings.suggestCta.cityTitle(city.name)} target={{ city: city.slug }} />
+      ) : null}
       <Glass style={styles.contributors}>
         <Text variant="bodyStrong">{strings.city.contributorsTitle}</Text>
         {contributors.loading ? (
@@ -357,7 +370,14 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
               ) : ranking.error ? (
                 <ErrorState body={ranking.error.message} onAction={() => void ranking.refresh()} />
               ) : ranking.items.length === 0 ? (
-                filtered ? (
+                q ? (
+                  <SuggestPlaceCta
+                    title={strings.suggestCta.searchMissTitle(q)}
+                    body={strings.suggestCta.searchMissBody}
+                    buttonLabel={strings.suggestCta.addNamed(q)}
+                    target={suggestTarget}
+                  />
+                ) : filtered ? (
                   <EmptyState icon="filter" title={strings.city.noMatchTitle} body={strings.city.noMatchBody} />
                 ) : (
                   <EmptyState
@@ -365,18 +385,42 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
                     title={strings.city.emptyTitle(city.name)}
                     body={city.crawl_status === 'failed' ? strings.city.crawlFailed : strings.city.emptyBody}
                     actionLabel={strings.nav.suggest}
-                    onAction={() => router.push('/suggest')}
+                    onAction={() => router.push(suggestRoute(suggestTarget))}
                   />
                 )
               ) : view === 'map' ? (
                 <View style={styles.mapWrap}>
+                  <View style={styles.mapActions}>
+                    <Button
+                      title={strings.city.nearMe}
+                      icon="navigation"
+                      variant="secondary"
+                      size="sm"
+                      loading={location.status === 'loading'}
+                      onPress={() => void locateOnMap()}
+                    />
+                    <Button
+                      title={strings.city.fullMap}
+                      icon="maximize-2"
+                      variant="secondary"
+                      size="sm"
+                      onPress={() =>
+                        router.push({
+                          pathname: '/map',
+                          params: { lat: String(city.lat), lng: String(city.lng), zoom: String(city.zoom) },
+                        })
+                      }
+                    />
+                  </View>
+                  {location.message ? <Notice tone="warning" body={location.message} /> : null}
                   <PlacesMap
+                    ref={mapRef}
                     center={{ lat: city.lat, lng: city.lng }}
                     zoom={city.zoom}
                     markers={markers}
                     selectedId={selectedId}
                     onSelect={setSelectedId}
-                    userLocation={null}
+                    userLocation={location.location}
                     showControls={isDesktop}
                     style={styles.map}
                   />
@@ -397,6 +441,14 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
               {ranking.loadingMore ? <ActivityIndicator color={colors.accent} style={styles.more} /> : null}
               {!ranking.loading && ranking.hasMore && !ranking.loadingMore ? (
                 <Button title={strings.city.loadMore} variant="secondary" onPress={() => void loadMore()} style={styles.moreButton} />
+              ) : null}
+              {ranking.items.length > 0 ? (
+                <SuggestPlaceCta
+                  title={q ? strings.suggestCta.searchMissTitle(q) : strings.suggestCta.cityTitle(city.name)}
+                  buttonLabel={q ? strings.suggestCta.addNamed(q) : strings.suggestCta.button}
+                  target={suggestTarget}
+                  style={styles.suggestCta}
+                />
               ) : null}
             </View>
             {sidebar}
@@ -528,6 +580,11 @@ const styles = StyleSheet.create({
   mapWrap: {
     gap: spacing.sm,
   },
+  mapActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
   map: {
     height: 560,
     borderRadius: radius.lg,
@@ -538,6 +595,9 @@ const styles = StyleSheet.create({
   },
   moreButton: {
     alignSelf: 'center',
+    marginTop: spacing.md,
+  },
+  suggestCta: {
     marginTop: spacing.md,
   },
   sidebar: {
