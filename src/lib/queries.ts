@@ -9,6 +9,7 @@ import type {
   Continent,
   Entitlement,
   FactInput,
+  MapCity,
   MapPlace,
   NetworkType,
   Place,
@@ -234,6 +235,25 @@ export async function getPlaceBySlug(slug: string): Promise<(Place & { city: Cit
     .maybeSingle();
   throwIf(error);
   return (data as (Place & { city: City }) | null) ?? null;
+}
+
+/** Every live city that has places, for the zoomed-out map overview (paged: the API caps rows at 1,000). */
+export async function getMapCities(): Promise<MapCity[]> {
+  const pageSize = 1000;
+  const all: MapCity[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await requireSupabase()
+      .from('cities')
+      .select('slug, name, lat, lng, zoom, place_count')
+      .eq('status', 'active')
+      .gt('place_count', 0)
+      .order('id')
+      .range(from, from + pageSize - 1);
+    throwIf(error);
+    const rows = (data ?? []) as MapCity[];
+    all.push(...rows);
+    if (rows.length < pageSize) return all;
+  }
 }
 
 /** Published places inside a map area, best work score first. */

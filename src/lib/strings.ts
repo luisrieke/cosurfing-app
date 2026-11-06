@@ -503,6 +503,7 @@ export const strings = {
     count: (n: number) => (n === 1 ? '1 place in this area' : `${n.toLocaleString('en-US')} places in this area`),
     countCapped: (n: number) => `Top ${n.toLocaleString('en-US')} places in this area`,
     zoomIn: 'Zoom in or tap “Near me” to see places',
+    overview: (n: number) => `${n.toLocaleString('en-US')} places · tap a city to see them`,
     emptyTitle: 'No places to work here yet',
     emptyBody: 'Know a good one around here? Put it on the map.',
     openPlace: 'Open',

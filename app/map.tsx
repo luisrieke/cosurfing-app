@@ -4,16 +4,17 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { type MapHandle, type MapViewport, PlacesMap } from '@/components/map';
+import { clusterCities, type MapCluster, type MapHandle, type MapViewport, PlacesMap } from '@/components/map';
 import { ScoreBadge } from '@/components/ScoreBadge';
 import { SiteHeader, SiteHeaderSpacer } from '@/components/SiteHeader';
 import { suggestRoute, type SuggestTarget } from '@/components/SuggestPlaceCta';
 import { Button, CategoryBadge, Glass, Icon, IconButton, Notice, Text } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { useQuery } from '@/hooks/useQuery';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { isSupabaseConfigured } from '@/lib/env';
 import { distanceKm, formatDistance } from '@/lib/geo';
-import { getPlacesInBounds } from '@/lib/queries';
+import { getMapCities, getPlacesInBounds } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
 import type { LatLng, MapPlace } from '@/lib/types';
@@ -88,6 +89,14 @@ export default function MapScreen() {
     };
   }, [viewport]);
 
+  const cities = useQuery('map-cities', getMapCities, isSupabaseConfigured);
+  const clusters = useMemo(
+    () => (viewport && !zoomedIn && cities.data ? clusterCities(cities.data, viewport.zoom, viewport.bounds, MIN_ZOOM) : []),
+    [viewport, zoomedIn, cities.data],
+  );
+  const clusterPlaces = clusters.reduce((sum, c) => sum + c.count, 0);
+  const openCluster = (c: MapCluster) => mapRef.current?.flyTo(c.target, c.target.zoom);
+
   const visible = useMemo(() => (zoomedIn ? places : []), [zoomedIn, places]);
   const markers = useMemo(
     () => visible.map((p) => ({ id: p.id, lat: p.lat, lng: p.lng, category: p.category, name: p.name })),
@@ -116,7 +125,11 @@ export default function MapScreen() {
   const status = !isSupabaseConfigured
     ? strings.common.backendNotConfigured
     : !zoomedIn
-      ? strings.map.zoomIn
+      ? cities.loading
+        ? strings.map.loading
+        : clusters.length > 0
+          ? strings.map.overview(clusterPlaces)
+          : strings.map.zoomIn
       : loading && places.length === 0
         ? strings.map.loading
         : visible.length >= LIMIT
@@ -133,8 +146,10 @@ export default function MapScreen() {
         center={initial.center}
         zoom={initial.zoom}
         markers={markers}
+        clusters={clusters}
         selectedId={selectedId}
         onSelect={setSelectedId}
+        onClusterPress={openCluster}
         userLocation={location.location}
         onMoveEnd={setViewport}
         showControls={isDesktop}

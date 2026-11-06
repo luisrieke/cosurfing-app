@@ -10,6 +10,18 @@ export interface MapMarker {
   name: string;
 }
 
+/** Several places drawn as one bubble, used when the map is zoomed out too far for single pins. */
+export interface MapCluster {
+  id: string;
+  lat: number;
+  lng: number;
+  count: number;
+  /** City name when the bubble stands for one city or is dominated by one. */
+  label: string | null;
+  /** Where a tap should take the camera. */
+  target: { lat: number; lng: number; zoom: number };
+}
+
 export interface MapBounds {
   north: number;
   south: number;
@@ -27,8 +39,10 @@ export interface MapProps {
   center: LatLng;
   zoom: number;
   markers: MapMarker[];
+  clusters?: MapCluster[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  onClusterPress?: (cluster: MapCluster) => void;
   userLocation: LatLng | null;
   /** Called once the map is ready and after every pan or zoom. */
   onMoveEnd?: (viewport: MapViewport) => void;
