@@ -38,6 +38,7 @@ src/
   hooks/                 useQuery, usePaged, useBreakpoint, useUserLocation
 scripts/
   import-cities.mjs      GeoNames ≥500k + nomad hotspots + Wikimedia cover photos → cities + crawl queue
+  replace-collage-covers.mjs   Finds collage covers of imported cities and writes SQL that swaps in single photos
 supabase/
   migrations/            Schema, RLS, RPCs, crawler schedule (applied to the project)
   functions/             crawl-city, enrich-places, import-cities, waitlist, billing, stripe-webhook, revenuecat-webhook
@@ -62,7 +63,7 @@ The old seeded example places have been removed from the project; if any remain 
 | Data | Source | License / attribution |
 | --- | --- | --- |
 | Cities, population, coordinates | [GeoNames](https://www.geonames.org) `cities500` (≥ 500,000 inhabitants) + `scripts/data/nomad-hotspots.json` | CC BY 4.0, credited in the footer |
-| City cover photos | Wikimedia Commons via Wikidata (P18) | Per-photo license + author stored in `cities.cover_attribution` / `cover_source_url`, shown on the city page |
+| City cover photos | Wikimedia Commons via Wikidata (P18); infobox montages are swapped for a single photo of the city's Wikipedia article (`scripts/lib/covers.mjs`) | Per-photo license + author stored in `cities.cover_attribution` / `cover_source_url`, shown on the city page |
 | Places and their tags (Wi‑Fi, outlets, hours, website…) | OpenStreetMap via [QLever](https://qlever.cs.uni-freiburg.de) SPARQL, Overpass as fallback | ODbL, "© OpenStreetMap contributors" on every page with OSM data, plus an "edit on OSM" link |
 | Day pass, advertised Mbit/s, phone booths, 24/7, laptop policy | The venue's own public website (`enrich-places`) | Each fact is stored with the sentence and URL it came from and shown with its source |
 | Reviews, detail ratings, speed tests | Users | Speed tests use Cloudflare's public speed endpoints. `submit_speed_test` checks GPS distance, accuracy and network type on the server; only tests confirmed on site count toward a place's medians |
