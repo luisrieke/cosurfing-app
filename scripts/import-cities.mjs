@@ -16,11 +16,21 @@
  * The crawler secret is stored in Supabase Vault (`crawler_secret`); the import-cities edge function
  * checks it. SUPABASE_URL defaults to EXPO_PUBLIC_SUPABASE_URL from .env.
  */
+import { Buffer } from 'node:buffer';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  commonsInfo,
+  coverFields,
+  fileNameFromCommonsUrl,
+  isCollage,
+  replaceCollages,
+  sparql,
+  USER_AGENT,
+} from './lib/covers.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -37,7 +47,6 @@ const HOTSPOT_MERGE_KM = 3;
 const SAME_NAME_KM = 25;
 // Distance between a hotspot's coordinates and its Wikidata item above which the import warns.
 const COORD_WARN_KM = 10;
-const USER_AGENT = 'CosurfingBot/1.0 (https://cosurfing.app; luis@cosurfing.app)';
 
 function readDotEnv() {
   const file = path.join(root, '.env');
@@ -156,33 +165,21 @@ async function loadGeoNames(minPopulation) {
 }
 
 // ---------------------------------------------------------------------------
-// Covers: Wikidata P18 -> Wikimedia Commons (license + author for attribution)
+// Covers: Wikidata P18 -> Wikimedia Commons (license + author for attribution), see lib/covers.mjs
 // ---------------------------------------------------------------------------
 
-async function sparql(query) {
-  const url = `https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(query)}`;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT, Accept: 'application/sparql-results+json' } });
-    if (res.ok) return (await res.json()).results.bindings;
-    await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
-  }
-  throw new Error('Wikidata query failed');
-}
-
-function fileNameFromCommonsUrl(url) {
-  return decodeURIComponent(url.split('/Special:FilePath/')[1] ?? '').replace(/_/g, ' ');
-}
+const qidOf = (r) => r.item.value.split('/').pop();
 
 async function findImages(cities) {
-  const images = new Map(); // key -> commons file name
+  const images = new Map(); // key -> { file: commons file name, qid }
   const byGeonames = cities.filter((c) => c.geonames_id);
   for (let i = 0; i < byGeonames.length; i += 150) {
     const batch = byGeonames.slice(i, i + 150);
     const values = batch.map((c) => `"${c.geonames_id}"`).join(' ');
-    const rows = await sparql(`SELECT ?gn ?img WHERE { VALUES ?gn { ${values} } ?item wdt:P1566 ?gn; wdt:P18 ?img. }`);
+    const rows = await sparql(`SELECT ?gn ?item ?img WHERE { VALUES ?gn { ${values} } ?item wdt:P1566 ?gn; wdt:P18 ?img. }`);
     for (const r of rows) {
       const key = `gn:${r.gn.value}`;
-      if (!images.has(key)) images.set(key, fileNameFromCommonsUrl(r.img.value));
+      if (!images.has(key)) images.set(key, { file: fileNameFromCommonsUrl(r.img.value), qid: qidOf(r) });
     }
     process.stdout.write(`\rWikidata images: ${Math.min(i + 150, byGeonames.length)}/${byGeonames.length}`);
   }
@@ -196,63 +193,14 @@ async function findImages(cities) {
     const batch = byWiki.slice(i, i + 50);
     const values = batch.map((c) => `"${c.wiki.replace(/"/g, '\\"')}"@en`).join(' ');
     const rows = await sparql(
-      `SELECT ?title ?img WHERE { VALUES ?title { ${values} } ?article schema:about ?item; schema:isPartOf <https://en.wikipedia.org/>; schema:name ?title. ?item wdt:P18 ?img. }`,
+      `SELECT ?title ?item ?img WHERE { VALUES ?title { ${values} } ?article schema:about ?item; schema:isPartOf <https://en.wikipedia.org/>; schema:name ?title. ?item wdt:P18 ?img. }`,
     );
     for (const r of rows) {
       const key = `wiki:${r.title.value}`;
-      if (!images.has(key)) images.set(key, fileNameFromCommonsUrl(r.img.value));
+      if (!images.has(key)) images.set(key, { file: fileNameFromCommonsUrl(r.img.value), qid: qidOf(r) });
     }
   }
   return images;
-}
-
-function stripHtml(value) {
-  return (value ?? '')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-async function commonsInfo(fileNames) {
-  const info = new Map();
-  const unique = [...new Set(fileNames)];
-  for (let i = 0; i < unique.length; i += 40) {
-    const batch = unique.slice(i, i + 40);
-    const params = new URLSearchParams({
-      action: 'query',
-      format: 'json',
-      prop: 'imageinfo',
-      iiprop: 'url|extmetadata',
-      iiurlwidth: '1280',
-      titles: batch.map((f) => `File:${f}`).join('|'),
-    });
-    const res = await fetch(`https://commons.wikimedia.org/w/api.php?${params}`, { headers: { 'User-Agent': USER_AGENT } });
-    if (!res.ok) continue;
-    const json = await res.json();
-    const normalized = new Map((json.query?.normalized ?? []).map((n) => [n.to, n.from]));
-    for (const page of Object.values(json.query?.pages ?? {})) {
-      const ii = page.imageinfo?.[0];
-      if (!ii?.thumburl) continue;
-      const meta = ii.extmetadata ?? {};
-      const artist = stripHtml(meta.Artist?.value).slice(0, 120) || 'Unknown author';
-      const license = stripHtml(meta.LicenseShortName?.value) || 'see source';
-      const original = (normalized.get(page.title) ?? page.title).replace(/^File:/, '');
-      const url = ii.thumburl.split('?')[0];
-      info.set(original.replace(/_/g, ' '), {
-        cover_url: url,
-        // Commons only serves a fixed set of thumbnail widths (500 is one of them).
-        cover_thumb_url: url.replace(/\/1280px-/, '/500px-'),
-        cover_attribution: `Photo: ${artist}, ${license}, via Wikimedia Commons`,
-        cover_source_url: ii.descriptionurl,
-      });
-    }
-    process.stdout.write(`\rCommons metadata: ${Math.min(i + 40, unique.length)}/${unique.length}`);
-  }
-  process.stdout.write('\n');
-  return info;
 }
 
 // ---------------------------------------------------------------------------
@@ -369,20 +317,29 @@ async function main() {
   }
 
   const images = await findImages(kept);
-  const info = await commonsInfo([...images.values()]);
-  let withCover = 0;
+  const info = await commonsInfo(
+    [...images.values()].map((i) => i.file),
+    { progress: true },
+  );
+  const covers = new Map();
+  const collages = [];
   for (const c of kept) {
     // Hotspots borrow GeoNames ids of nearby places, so their own Wikipedia article picks the photo.
-    const wikiFile = c.wiki ? images.get(`wiki:${c.wiki}`) : undefined;
-    const gnFile = images.get(`gn:${c.geonames_id}`);
-    const file = c.is_hotspot ? (wikiFile ?? gnFile) : (gnFile ?? wikiFile);
-    const cover = file ? info.get(file) : undefined;
-    if (cover) {
-      Object.assign(c, cover);
-      withCover += 1;
+    const wikiImage = c.wiki ? images.get(`wiki:${c.wiki}`) : undefined;
+    const gnImage = images.get(`gn:${c.geonames_id}`);
+    const image = c.is_hotspot ? (wikiImage ?? gnImage) : (gnImage ?? wikiImage);
+    const cover = image ? info.get(image.file) : undefined;
+    if (cover) covers.set(c, cover);
+    if (isCollage(cover)) {
+      collages.push({ key: c, label: `${c.name} (${c.country_code})`, name: c.name, qid: image.qid, wiki: c.wiki ?? undefined });
     }
   }
-  console.log(`Covers: ${withCover}/${kept.length}`);
+  // A collage without a usable single photo stays as the cover.
+  console.log(`Collage covers: ${collages.length}, looking for single photos`);
+  const replacements = await replaceCollages(collages);
+  for (const [c, cover] of replacements) covers.set(c, cover);
+  for (const [c, cover] of covers) Object.assign(c, coverFields(cover));
+  console.log(`Covers: ${covers.size}/${kept.length} (${replacements.size} collages replaced)`);
 
   const out = kept.map(({ wiki: _wiki, radius_km: _radius, ...c }) => c);
   const suffix = `${HOTSPOTS_ONLY ? '.hotspots' : ''}${COUNTRY ? `.${COUNTRY.toLowerCase()}` : ''}`;
