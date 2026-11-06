@@ -45,7 +45,7 @@ function stripe(): Stripe {
 interface EntitlementRow {
   user_id: string;
   status: 'active' | 'inactive';
-  source: 'stripe' | 'revenuecat' | 'dev';
+  source: 'stripe' | 'revenuecat' | 'dev' | 'manual';
   stripe_customer_id: string | null;
   current_period_end: string | null;
 }

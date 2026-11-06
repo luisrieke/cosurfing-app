@@ -156,6 +156,21 @@ Protection is server‑side: `get_place_reviews()` returns review bodies only fo
 
 Until a provider is configured, the paywall says so and never shows a fake purchase. In `__DEV__` builds with `ALLOW_DEV_ENTITLEMENTS=true` on the server, a dashed **Development mode** box offers "Simulate Plus (no payment)" and stores the entitlement with `source = 'dev'`.
 
+### Plus waiting list (Tally, until payments are live)
+
+Set `EXPO_PUBLIC_PLUS_WAITLIST_URL` to a Tally form (`https://tally.so/r/<id>`) and the paywall on web, iOS and Android shows "Join the Plus waiting list" instead of a checkout, for signed-in users. The form is opened with `?email=…&user_id=…&plan=…&platform=…`; add hidden fields with exactly those names (and set the email field's pre-populate name to `email`) so every submission carries the Supabase user id. Turn on the form's self email notification (Integrations → Email notifications) to get an email per signup. Unset the variable to go back to the normal paywall.
+
+To unlock someone by hand, run in the Supabase SQL editor:
+
+```sql
+insert into public.entitlements (user_id, status, source, current_period_end)
+values ('<user_id from the submission>', 'active', 'manual', now() + interval '1 year')
+on conflict (user_id) do update
+  set status = 'active', source = 'manual', current_period_end = excluded.current_period_end;
+```
+
+Use `current_period_end = null` for no end date, and `status = 'inactive'` to take it back.
+
 ## Maps
 
 Web uses MapLibre with the OpenFreeMap `positron` style (no key). iOS uses Apple Maps. Android needs `GOOGLE_MAPS_ANDROID_API_KEY` (Maps SDK for Android) at build time.

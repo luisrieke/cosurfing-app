@@ -14,7 +14,7 @@ import {
   type PlusPlan,
   setDevEntitlement,
 } from '@/lib/billing';
-import { isDev, isSupabaseConfigured, isWebPaymentsConfigured } from '@/lib/env';
+import { env, isDev, isPlusWaitlistEnabled, isSupabaseConfigured, isWebPaymentsConfigured } from '@/lib/env';
 import { formatDate } from '@/lib/format';
 import {
   configurePurchases,
@@ -37,6 +37,15 @@ async function openUrl(url: string) {
     return;
   }
   await WebBrowser.openBrowserAsync(url);
+}
+
+// Tally fills hidden fields (and fields with a matching pre-populate name) from query params.
+function waitlistUrl(params: Record<string, string>) {
+  const query = Object.entries(params)
+    .filter(([, v]) => v)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&');
+  return `${env.plusWaitlistUrl}${env.plusWaitlistUrl.includes('?') ? '&' : '?'}${query}`;
 }
 
 export default function PlusScreen() {
@@ -64,7 +73,7 @@ export default function PlusScreen() {
 
   // Native: configure RevenueCat and fetch the localized prices.
   useEffect(() => {
-    if (isWeb || !purchasesConfigured || !user) return;
+    if (isWeb || isPlusWaitlistEnabled || !purchasesConfigured || !user) return;
     let cancelled = false;
     configurePurchases(user.id)
       .then(getPlanOffers)
@@ -143,6 +152,13 @@ export default function PlusScreen() {
       if (url) await Linking.openURL(url);
       else if (Platform.OS === 'ios') await Linking.openURL('https://apps.apple.com/account/subscriptions');
       else await Linking.openURL('https://play.google.com/store/account/subscriptions');
+    });
+
+  const joinWaitlist = () =>
+    run('waitlist', async () => {
+      const url = waitlistUrl({ email: user?.email ?? '', user_id: user?.id ?? '', plan, platform: Platform.OS });
+      if (Platform.OS === 'web') window.open(url, '_blank', 'noopener');
+      else await WebBrowser.openBrowserAsync(url);
     });
 
   const toggleDev = (enabled: boolean) =>
@@ -247,6 +263,10 @@ export default function PlusScreen() {
             <Button title={strings.plus.manage} variant="secondary" loading={busy === 'manage'} onPress={manageNative} />
           ) : entitlement?.source === 'dev' ? (
             <Notice tone="warning" title={strings.plus.devModeTitle} body={strings.plus.devModeBody} />
+          ) : entitlement?.source === 'manual' ? (
+            <Text variant="small" tone="muted">
+              {strings.plus.manualSource}
+            </Text>
           ) : entitlement?.source ? (
             <Text variant="small" tone="muted">
               {entitlement.source === 'stripe'
@@ -260,7 +280,22 @@ export default function PlusScreen() {
         </View>
       ) : (
         <View style={styles.block}>
-          {isWeb && isWebPaymentsConfigured ? (
+          {isPlusWaitlistEnabled ? (
+            <>
+              <Notice tone="plus" title={strings.plus.waitlistTitle} body={strings.plus.waitlistBody} />
+              <Button
+                title={strings.plus.waitlistCta}
+                variant="plus"
+                size="lg"
+                fullWidth
+                loading={busy === 'waitlist'}
+                onPress={joinWaitlist}
+              />
+              <Text variant="small" tone="muted" align="center">
+                {strings.plus.waitlistAfter}
+              </Text>
+            </>
+          ) : isWeb && isWebPaymentsConfigured ? (
             <Button title={strings.plus.cta(priceOf(plan))} variant="plus" size="lg" fullWidth loading={busy === 'checkout'} onPress={startWeb} />
           ) : !isWeb && purchasesConfigured ? (
             <>
