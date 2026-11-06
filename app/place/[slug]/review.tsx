@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { RequireAuth } from '@/components/RequireAuth';
-import { RightsNote } from '@/components/RightsNote';
 import { Stars } from '@/components/Reviews';
 import { ScoreBadge } from '@/components/ScoreBadge';
 import { Button, CategoryBadge, Chip, EmptyState, Icon, Input, Notice, Screen, Skeleton, Text, TopBar } from '@/components/ui';
@@ -110,7 +109,6 @@ function ReviewScreen({ slug }: { slug: string }) {
   const [done, setDone] = useState<{ isNew: boolean; photosSent: number; photosFailed: number } | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [photos, setPhotos] = useState<string[]>([]);
-  const [photosAccepted, setPhotosAccepted] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
 
@@ -169,10 +167,6 @@ function ReviewScreen({ slug }: { slug: string }) {
       factInput.day_pass = { amount, currency: dayPassCurrency(place.web_facts ?? {}) };
     }
     setFactError(null);
-    if (photos.length > 0 && !photosAccepted) {
-      setPhotoError(strings.review.photosNeedConsent);
-      return;
-    }
     setPhotoError(null);
     setBusy(true);
     setError(null);
@@ -474,34 +468,13 @@ function ReviewScreen({ slug }: { slug: string }) {
           />
         ) : null}
         {photos.length > 0 ? (
-          <>
-            <Text variant="caption" tone="muted">
-              {strings.photos.rules}
-            </Text>
-            <Pressable
-              style={styles.checkbox}
-              onPress={() => {
-                setPhotosAccepted((a) => !a);
-                setPhotoError(null);
-              }}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: photosAccepted }}
-            >
-              <Icon name={photosAccepted ? 'check-square' : 'square'} size={20} color={photosAccepted ? colors.accent : colors.textMuted} />
-              <Text variant="small" style={styles.flex}>
-                {strings.photos.consent}{' '}
-                <Text variant="smallStrong" tone="accent" onPress={() => router.push('/terms')}>
-                  {strings.photos.termsLink}
-                </Text>
-                .
-              </Text>
-            </Pressable>
-          </>
+          <Text variant="caption" tone="muted">
+            {strings.photos.rules}
+          </Text>
         ) : null}
         {photoError ? <Notice tone="danger" body={photoError} /> : null}
       </View>
 
-      <RightsNote kind="review" />
       <Button
         title={progress ?? (own ? strings.review.update : strings.review.submit)}
         size="lg"
@@ -624,13 +597,5 @@ const styles = StyleSheet.create({
   },
   selfStart: {
     alignSelf: 'flex-start',
-  },
-  checkbox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-  },
-  flex: {
-    flex: 1,
   },
 });

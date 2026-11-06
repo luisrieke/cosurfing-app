@@ -1,8 +1,7 @@
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { Button, Icon, Notice, Text } from '@/components/ui';
+import { Button, Notice, Text } from '@/components/ui';
 import { MAX_USER_PHOTOS_PER_UPLOAD, pickImages, uploadPlacePhoto } from '@/lib/photoUpload';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
@@ -14,11 +13,9 @@ interface AddPhotosProps {
   onSignIn: () => void;
 }
 
-/** "Add photos" for signed-in users: consent to the Terms, pick, upload as pending. */
+/** "Add photos" for signed-in users: pick, upload as pending. Usage rights are covered by the Terms accepted at sign-up. */
 export function AddPhotos({ placeId, userId, onSignIn }: AddPhotosProps) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +32,7 @@ export function AddPhotos({ placeId, userId, onSignIn }: AddPhotosProps) {
   };
 
   const upload = async () => {
-    if (!userId || !accepted) return;
+    if (!userId) return;
     setError(null);
     try {
       const uris = await pickImages(MAX_USER_PHOTOS_PER_UPLOAD);
@@ -73,30 +70,9 @@ export function AddPhotos({ placeId, userId, onSignIn }: AddPhotosProps) {
       <Text variant="small" tone="muted">
         {strings.photos.rules}
       </Text>
-      <Pressable
-        style={styles.checkbox}
-        onPress={() => setAccepted((a) => !a)}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: accepted }}
-      >
-        <Icon name={accepted ? 'check-square' : 'square'} size={20} color={accepted ? colors.accent : colors.textMuted} />
-        <Text variant="small" style={styles.flex}>
-          {strings.photos.consent}{' '}
-          <Text variant="smallStrong" tone="accent" onPress={() => router.push('/terms')}>
-            {strings.photos.termsLink}
-          </Text>
-          .
-        </Text>
-      </Pressable>
       {error ? <Notice tone="danger" body={error} /> : null}
       <View style={styles.actions}>
-        <Button
-          title={progress ?? strings.photos.choose}
-          icon="image"
-          loading={busy}
-          disabled={!accepted || busy}
-          onPress={upload}
-        />
+        <Button title={progress ?? strings.photos.choose} icon="image" loading={busy} disabled={busy} onPress={upload} />
         <Button title={strings.common.cancel} variant="ghost" onPress={() => setOpen(false)} disabled={busy} />
       </View>
     </View>
@@ -117,14 +93,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.bgSubtle,
-  },
-  checkbox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-  },
-  flex: {
-    flex: 1,
   },
   actions: {
     flexDirection: 'row',
