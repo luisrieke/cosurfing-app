@@ -216,8 +216,9 @@ export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
 });
 
 const styles = StyleSheet.create({
+  // No flex: 1 here. On web it sets flex-basis 0, which beats a caller's fixed height and collapses
+  // the map to 0 px inside a ScrollView. Callers size the map through `style`.
   wrap: {
-    flex: 1,
     overflow: 'hidden',
     backgroundColor: colors.bgMuted,
   },

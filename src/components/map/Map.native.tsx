@@ -105,8 +105,8 @@ export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
 });
 
 const styles = StyleSheet.create({
+  // Callers size the map through `style`; flex: 1 would override a fixed height inside a ScrollView.
   wrap: {
-    flex: 1,
     overflow: 'hidden',
     backgroundColor: colors.bgMuted,
   },
