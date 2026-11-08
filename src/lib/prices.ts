@@ -2,8 +2,13 @@ import type { PlaceCategory, PlacePriceEntry, PriceItem, WebFacts } from './type
 
 /** Order of the price list. Keep in sync with the place_prices check constraint. */
 export const PRICE_ITEMS: PriceItem[] = [
-  'coffee',
+  'espresso',
+  'americano',
+  'cappuccino',
   'tea',
+  'lemonade',
+  'water_033',
+  'water_075',
   'lunch',
   'week_pass',
   'flex_desk_month',
@@ -13,8 +18,13 @@ export const PRICE_ITEMS: PriceItem[] = [
 ];
 
 const PRICE_CATEGORIES: Record<PriceItem, PlaceCategory[]> = {
-  coffee: ['coworking', 'cafe', 'library'],
+  espresso: ['coworking', 'cafe', 'library'],
+  americano: ['coworking', 'cafe', 'library'],
+  cappuccino: ['coworking', 'cafe', 'library'],
   tea: ['cafe'],
+  lemonade: ['coworking', 'cafe', 'library'],
+  water_033: ['coworking', 'cafe', 'library'],
+  water_075: ['coworking', 'cafe', 'library'],
   lunch: ['cafe', 'library'],
   week_pass: ['coworking'],
   flex_desk_month: ['coworking'],

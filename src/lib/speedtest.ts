@@ -69,21 +69,30 @@ async function measureTransfer(
 ): Promise<number | null> {
   const samples: number[] = [];
   const started = now();
+  let lastMbps: number | null = null;
+  const result = () => (samples.length ? median(samples.slice(-4)) : lastMbps);
   for (const size of sizes) {
+    // Sizes grow 10x, so on slow links the next one could exceed the request timeout.
+    if (lastMbps !== null && (size * 8) / (lastMbps * 1_000_000) * 1000 > ENOUGH_MS * 2) return result();
     // Two transfers per size smooth out a single slow start.
     for (let i = 0; i < 2; i++) {
-      const { ms, bytes } = await run(size);
+      let sample: { ms: number; bytes: number };
+      try {
+        sample = await run(size);
+      } catch (e) {
+        if (lastMbps === null) throw e;
+        return result();
+      }
+      const { ms, bytes } = sample;
+      lastMbps = (bytes * 8) / (ms / 1000) / 1_000_000;
       if (ms >= MIN_SAMPLE_MS) {
-        const mbps = (bytes * 8) / (ms / 1000) / 1_000_000;
-        samples.push(mbps);
-        onSample(mbps);
+        samples.push(lastMbps);
+        onSample(lastMbps);
       }
-      if (ms >= ENOUGH_MS || now() - started > PHASE_BUDGET_MS) {
-        return samples.length ? median(samples.slice(-4)) : (bytes * 8) / (ms / 1000) / 1_000_000;
-      }
+      if (ms >= ENOUGH_MS || now() - started > PHASE_BUDGET_MS) return result();
     }
   }
-  return samples.length ? median(samples.slice(-4)) : null;
+  return result();
 }
 
 /**

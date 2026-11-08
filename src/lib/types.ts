@@ -105,8 +105,13 @@ export interface PlaceFactEntry {
 
 /** What members can price at a place (see place_prices). */
 export type PriceItem =
-  | 'coffee'
+  | 'espresso'
+  | 'americano'
+  | 'cappuccino'
   | 'tea'
+  | 'lemonade'
+  | 'water_033'
+  | 'water_075'
   | 'lunch'
   | 'week_pass'
   | 'flex_desk_month'
