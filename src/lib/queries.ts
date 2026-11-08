@@ -12,8 +12,11 @@ import type {
   MapCity,
   MapPlace,
   NetworkType,
+  OfferInput,
   Place,
   PlaceFactEntry,
+  PlaceOffer,
+  PlacePriceEntry,
   PlaceStatus,
   PlaceCategory,
   PlacePhoto,
@@ -22,6 +25,7 @@ import type {
   PlaceReview,
   PlaceSuggestion,
   PlaceToRate,
+  PriceInput,
   Profile,
   RankedPlace,
   RankingFilters,
@@ -333,6 +337,20 @@ export async function getPlaceFacts(placeId: string): Promise<PlaceFactEntry[]> 
   return (data ?? []) as PlaceFactEntry[];
 }
 
+/** Prices members entered for a place; author names stay hidden from visitors without an account. */
+export async function getPlacePrices(placeId: string): Promise<PlacePriceEntry[]> {
+  const { data, error } = await requireSupabase().rpc('get_place_prices', { p_place_id: placeId });
+  throwIf(error);
+  return ((data ?? []) as PlacePriceEntry[]).map((p) => ({ ...p, amount: Number(p.amount) }));
+}
+
+/** Offers that have not expired; links and codes are only returned to signed-in users. */
+export async function getPlaceOffers(placeId: string): Promise<PlaceOffer[]> {
+  const { data, error } = await requireSupabase().rpc('get_place_offers', { p_place_id: placeId });
+  throwIf(error);
+  return (data ?? []) as PlaceOffer[];
+}
+
 // ---------------------------------------------------------------------------
 // Profile, favorites, reviews, suggestions, reports (signed-in users)
 // ---------------------------------------------------------------------------
@@ -442,6 +460,48 @@ export async function savePlaceFacts(placeId: string, facts: FactInput): Promise
   throwIf(error);
 }
 
+export async function getMyPrices(userId: string, placeId: string): Promise<PriceInput> {
+  const { data, error } = await requireSupabase()
+    .from('place_prices')
+    .select('item, amount, currency')
+    .eq('user_id', userId)
+    .eq('place_id', placeId);
+  throwIf(error);
+  return Object.fromEntries(
+    ((data ?? []) as { item: string; amount: number; currency: string }[]).map((r) => [
+      r.item,
+      { amount: Number(r.amount), currency: r.currency },
+    ]),
+  ) as PriceInput;
+}
+
+/** Replaces the user's prices for a place; items left out are removed. */
+export async function savePlacePrices(placeId: string, prices: PriceInput): Promise<void> {
+  const { error } = await requireSupabase().rpc('save_place_prices', { p_place_id: placeId, p_prices: prices });
+  throwIf(error);
+}
+
+export class OfferLimitError extends Error {
+  constructor() {
+    super('offer_limit_reached');
+    this.name = 'OfferLimitError';
+  }
+}
+
+export async function createOffer(userId: string, placeId: string, input: OfferInput): Promise<void> {
+  const { error } = await requireSupabase()
+    .from('place_offers')
+    .insert({ ...input, user_id: userId, place_id: placeId });
+  if (error?.message.includes('offer_limit_reached')) throw new OfferLimitError();
+  throwIf(error);
+}
+
+/** Members delete their own offers, admins any. */
+export async function deleteOffer(offerId: string): Promise<void> {
+  const { error } = await requireSupabase().from('place_offers').delete().eq('id', offerId);
+  throwIf(error);
+}
+
 export async function updateProfile(
   userId: string,
   patch: {
@@ -480,18 +540,33 @@ export async function createSuggestion(input: {
   address: string | null;
   website: string | null;
   notes: string | null;
-}): Promise<void> {
-  const { error } = await requireSupabase().from('place_suggestions').insert({
-    user_id: input.userId,
-    city_id: input.cityId,
-    city_text: input.cityText,
-    name: input.name.trim(),
-    category: input.category,
-    address: input.address,
-    website: input.website,
-    notes: input.notes,
-  });
+}): Promise<{ placeSlug: string | null }> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from('place_suggestions')
+    .insert({
+      user_id: input.userId,
+      city_id: input.cityId,
+      city_text: input.cityText,
+      name: input.name.trim(),
+      category: input.category,
+      address: input.address,
+      website: input.website,
+      notes: input.notes,
+    })
+    .select('id')
+    .single();
   throwIf(error);
+  const { data: row, error: rowError } = await sb
+    .from('place_suggestions')
+    .select('place_id')
+    .eq('id', data!.id)
+    .single();
+  throwIf(rowError);
+  if (!row?.place_id) return { placeSlug: null };
+  const { data: place, error: placeError } = await sb.from('places').select('slug').eq('id', row.place_id).maybeSingle();
+  throwIf(placeError);
+  return { placeSlug: (place?.slug as string | undefined) ?? null };
 }
 
 export async function createReport(
@@ -620,13 +695,15 @@ export async function adminGetPhotoRows(placeId: string) {
   return (data ?? []) as { id: string; place_id: string; sort_order: number; full_path: string; preview_path: string }[];
 }
 
-export async function adminGetSuggestions(): Promise<(PlaceSuggestion & { city: City | null })[]> {
+export async function adminGetSuggestions(): Promise<
+  (PlaceSuggestion & { city: City | null; place: { id: string; slug: string } | null })[]
+> {
   const { data, error } = await requireSupabase()
     .from('place_suggestions')
-    .select('*, city:cities(*)')
+    .select('*, city:cities(*), place:places(id, slug)')
     .order('created_at', { ascending: false });
   throwIf(error);
-  return (data ?? []) as (PlaceSuggestion & { city: City | null })[];
+  return (data ?? []) as (PlaceSuggestion & { city: City | null; place: { id: string; slug: string } | null })[];
 }
 
 export async function adminSetSuggestionStatus(id: string, status: 'rejected' | 'pending'): Promise<void> {

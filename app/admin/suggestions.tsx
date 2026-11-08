@@ -100,14 +100,19 @@ export default function AdminSuggestions() {
                   </>
                 }
                 right={
-                  s.status === 'pending' ? (
-                    <View style={styles.rowActions}>
-                      <Button title={strings.admin.approve} size="sm" variant="secondary" onPress={() => startApprove(s)} disabled={!s.city} />
-                      <Button title={strings.admin.reject} size="sm" variant="ghost" loading={busy === s.id} onPress={() => setStatus(s.id, 'rejected')} />
-                    </View>
-                  ) : s.status === 'rejected' ? (
-                    <Button title={strings.admin.reopen} size="sm" variant="ghost" loading={busy === s.id} onPress={() => setStatus(s.id, 'pending')} />
-                  ) : null
+                  <View style={styles.rowActions}>
+                    {s.place ? (
+                      <Button title={strings.suggest.viewPlace} size="sm" variant="secondary" onPress={() => router.push(`/place/${s.place!.slug}`)} />
+                    ) : null}
+                    {s.status === 'pending' ? (
+                      <>
+                        <Button title={strings.admin.approve} size="sm" variant="secondary" onPress={() => startApprove(s)} disabled={!s.city} />
+                        <Button title={strings.admin.reject} size="sm" variant="ghost" loading={busy === s.id} onPress={() => setStatus(s.id, 'rejected')} />
+                      </>
+                    ) : s.status === 'rejected' ? (
+                      <Button title={strings.admin.reopen} size="sm" variant="ghost" loading={busy === s.id} onPress={() => setStatus(s.id, 'pending')} />
+                    ) : null}
+                  </View>
                 }
               />
               {s.notes ? (

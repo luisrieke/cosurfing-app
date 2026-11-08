@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { AdminList, AdminRow } from '@/components/admin/AdminShell';
 import { RequireAuth } from '@/components/RequireAuth';
 import { Stars } from '@/components/Reviews';
 import { Badge, Button, Card, CategoryBadge, Icon, Input, Notice, Screen, Section, Skeleton, Text, TopBar } from '@/components/ui';
@@ -10,7 +11,7 @@ import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
 import { formatDate } from '@/lib/format';
 import { levelFor } from '@/lib/levels';
-import { getCityById, getFavoritePlaces, getMyReviews, updateDisplayName } from '@/lib/queries';
+import { adminGetCounts, getCityById, getFavoritePlaces, getMyReviews, updateDisplayName } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
 
@@ -29,6 +30,7 @@ function AccountScreen() {
   const [syncedName, setSyncedName] = useState(profile?.display_name ?? null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const counts = useQuery(`account-admin-counts:${user?.id}`, adminGetCounts, isAdmin);
   const favorites = useQuery(`favorites:${user?.id}:${favoriteIds.size}`, () => getFavoritePlaces(user!.id), Boolean(user));
   const reviews = useQuery(`my-reviews:${user?.id}`, () => getMyReviews(user!.id), Boolean(user));
   const homeCity = useQuery(`home-city:${profile?.home_city_id}`, () => getCityById(profile!.home_city_id!), Boolean(profile?.home_city_id));
@@ -73,9 +75,12 @@ function AccountScreen() {
             <Text variant="caption" tone="muted">
               {strings.account.level}
             </Text>
-            <Text variant="bodyStrong">
-              {level.name} · {strings.levels.points(points)}
-            </Text>
+            <View style={[styles.row, styles.wrap]}>
+              <Text variant="bodyStrong">
+                {level.name} · {strings.levels.points(points)}
+              </Text>
+              {isAdmin ? <Badge label={strings.nav.admin} icon="shield" tone="accent" /> : null}
+            </View>
           </View>
         </View>
         <View style={styles.progressTrack}>
@@ -96,6 +101,43 @@ function AccountScreen() {
           />
         ) : null}
       </Card>
+
+      {isAdmin ? (
+        <Section title={strings.account.admin}>
+          <Text tone="muted">{strings.account.adminHint}</Text>
+          <AdminList>
+            <AdminRow
+              icon="inbox"
+              title={strings.admin.suggestions}
+              subtitle="Places suggested by other people"
+              meta={counts.data && counts.data.suggestions > 0 ? <Badge label={`${counts.data.suggestions} ${strings.admin.pending}`} tone="accent" /> : null}
+              onPress={() => router.push('/admin/suggestions')}
+            />
+            <AdminRow
+              icon="check-circle"
+              title={strings.admin.verify}
+              subtitle="Places hidden until you confirm they still exist"
+              meta={counts.data && counts.data.toVerify > 0 ? <Badge label={`${counts.data.toVerify} to check`} tone="danger" /> : null}
+              onPress={() => router.push('/admin/verify')}
+            />
+            <AdminRow
+              icon="image"
+              title={strings.admin.photos}
+              subtitle="Photos waiting for approval"
+              meta={counts.data && counts.data.pendingPhotos > 0 ? <Badge label={`${counts.data.pendingPhotos} ${strings.admin.pending}`} tone="accent" /> : null}
+              onPress={() => router.push('/admin/photos')}
+            />
+            <AdminRow
+              icon="flag"
+              title={strings.admin.reports}
+              subtitle="Wrong information reported by users"
+              meta={counts.data && counts.data.reports > 0 ? <Badge label={`${counts.data.reports} open`} tone="danger" /> : null}
+              onPress={() => router.push('/admin/reports')}
+            />
+            <AdminRow icon="shield" title={strings.account.admin} subtitle={user?.email} onPress={() => router.push('/admin')} />
+          </AdminList>
+        </Section>
+      ) : null}
 
       <Card style={styles.plusCard}>
         <View style={styles.plusRow}>
@@ -191,10 +233,6 @@ function AccountScreen() {
         )}
       </Section>
 
-      {isAdmin ? (
-        <Button title={strings.account.admin} variant="secondary" icon="shield" onPress={() => router.push('/admin')} />
-      ) : null}
-
       <View style={styles.footer}>
         <Button title={strings.common.signOut} variant="ghost" icon="log-out" onPress={() => signOut().then(() => router.replace('/'))} />
         <Text variant="caption" tone="faint">
@@ -242,6 +280,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+  },
+  wrap: {
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
   list: {
     borderWidth: 1,

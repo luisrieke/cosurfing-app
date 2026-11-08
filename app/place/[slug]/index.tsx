@@ -1,6 +1,6 @@
 import Head from 'expo-router/head';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 
 import { RankedPlaceRow } from '@/components/city/RankedPlaceRow';
@@ -9,6 +9,8 @@ import { AddPhotos } from '@/components/place/AddPhotos';
 import {
   DetailRatings,
   FactTable,
+  OfferList,
+  PriceList,
   RatingDistribution,
   ScoreBreakdownCard,
   SpeedTestHistory,
@@ -33,11 +35,15 @@ import { summarizeFacts } from '@/lib/facts';
 import { formatDate, formatRating, hostFromUrl, liveWebsite } from '@/lib/format';
 import { canShowInterstitial, markInterstitialShown, dismissInterstitial, recordPlaceView, signUpHref } from '@/lib/funnel';
 import { openDirections } from '@/lib/geo';
+import { summarizePrices } from '@/lib/prices';
 import {
+  deleteOffer,
   getCityRanking,
   getPlaceBySlug,
   getPlaceFacts,
+  getPlaceOffers,
   getPlacePhotos,
+  getPlacePrices,
   getPlaceRank,
   getPlaceRatingStats,
   getPlaceReviews,
@@ -48,7 +54,7 @@ import {
 } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, layout, radius, spacing } from '@/lib/theme';
-import { defaultRankingFilters } from '@/lib/types';
+import { defaultRankingFilters, type PlaceOffer } from '@/lib/types';
 
 const INTERSTITIAL_AFTER_VIEWS = 2;
 const INTERSTITIAL_DELAY_MS = 4_000;
@@ -62,6 +68,7 @@ export default function PlaceScreen() {
   const [interstitial, setInterstitial] = useState(false);
   const [unlocking, setUnlocking] = useState<string | null>(null);
   const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [offerError, setOfferError] = useState<string | null>(null);
 
   const placeQuery = useQuery(`place:${slug}`, () => getPlaceBySlug(slug!), Boolean(slug) && isSupabaseConfigured);
   const place = placeQuery.data ?? null;
@@ -71,15 +78,28 @@ export default function PlaceScreen() {
   const photosQuery = useQuery(`photos:${place?.id}:${gateKey}`, () => getPlacePhotos(place!.id), enabled);
   const reviewsQuery = useQuery(`reviews:${place?.id}:${gateKey}`, () => getPlaceReviews(place!.id), enabled);
   const factsQuery = useQuery(`facts:${place?.id}:${gateKey}`, () => getPlaceFacts(place!.id), enabled);
+  const pricesQuery = useQuery(`prices:${place?.id}:${gateKey}`, () => getPlacePrices(place!.id), enabled);
+  const offersQuery = useQuery(`offers:${place?.id}:${gateKey}`, () => getPlaceOffers(place!.id), enabled);
   const statsQuery = useQuery(`stats:${place?.id}:${gateKey}`, () => getPlaceRatingStats(place!.id), enabled && Boolean(user));
   const testsQuery = useQuery(`tests:${place?.id}:${gateKey}`, () => getPlaceSpeedTests(place!.id), enabled && Boolean(user));
   const quotaQuery = useQuery(`unlock-quota:${gateKey}`, getReviewUnlockQuota, Boolean(user));
+  const placeId = place?.id;
   const rankQuery = useQuery(`rank:${place?.id}:${place?.work_score}`, () => getPlaceRank(place!.id), enabled);
   const coliving = place?.category === 'coliving';
   const moreQuery = useQuery(
     `more:${place?.city_id}:${coliving}`,
     () => getCityRanking(place!.city_id, { ...defaultRankingFilters, category: coliving ? 'coliving' : 'all' }, 6),
     enabled,
+  );
+
+  const refetchPrices = pricesQuery.refetch;
+  const refetchOffers = offersQuery.refetch;
+  useFocusEffect(
+    useCallback(() => {
+      if (!placeId) return;
+      void refetchPrices(true);
+      void refetchOffers(true);
+    }, [placeId, refetchPrices, refetchOffers]),
   );
 
   useEffect(() => {
@@ -89,7 +109,6 @@ export default function PlaceScreen() {
   }, [flash]);
 
   // Visitors without an account get one sign-up interstitial from their second place on.
-  const placeId = place?.id;
   useEffect(() => {
     if (!ready || user || !placeId) return;
     let cancelled = false;
@@ -195,6 +214,10 @@ export default function PlaceScreen() {
   const canReview = place.status === 'published';
   const cityHref = `/${place.city.slug}` as const;
   const reviewHref = `/place/${slug}/review` as const;
+  const costsHref = `/place/${slug}/costs` as const;
+  const prices = summarizePrices(pricesQuery.data ?? []);
+  const offers = offersQuery.data ?? [];
+  const lockedOffers = offers.filter((o) => o.is_locked).length;
   const rank = rankQuery.data ?? null;
   const more = (moreQuery.data?.items ?? []).filter((p) => p.id !== place.id).slice(0, 5);
   const webFacts = place.web_facts ?? {};
@@ -205,6 +228,20 @@ export default function PlaceScreen() {
 
   const goReview = () => {
     if (requireUser(reviewHref)) router.push(reviewHref);
+  };
+
+  const goCosts = () => {
+    if (requireUser(costsHref)) router.push(costsHref);
+  };
+
+  const removeOffer = async (offer: PlaceOffer) => {
+    setOfferError(null);
+    try {
+      await deleteOffer(offer.id);
+      await offersQuery.refetch(true);
+    } catch (e) {
+      setOfferError(e instanceof Error ? e.message : strings.common.somethingWentWrong);
+    }
   };
 
   const unlock = async (reviewId: string) => {
@@ -395,6 +432,42 @@ export default function PlaceScreen() {
                     <VenueFactsList facts={venueFacts} web={webFacts} />
                   ) : (
                     <Text tone="muted">{strings.place.noVenueFacts}</Text>
+                  )}
+                </Section>
+              ) : null}
+
+              {prices.length > 0 || canReview ? (
+                <Section
+                  title={strings.costs.title}
+                  right={
+                    canReview ? (
+                      <Button title={strings.costs.edit} size="sm" variant="secondary" icon="edit-3" onPress={goCosts} />
+                    ) : undefined
+                  }
+                >
+                  {prices.length > 0 ? <PriceList prices={prices} /> : <Text tone="muted">{strings.costs.empty}</Text>}
+                </Section>
+              ) : null}
+
+              {offers.length > 0 || canReview ? (
+                <Section
+                  title={strings.costs.offers}
+                  right={
+                    canReview ? (
+                      <Button title={strings.costs.addOffer} size="sm" variant="secondary" icon="plus" onPress={goCosts} />
+                    ) : undefined
+                  }
+                >
+                  {offers.length > 0 ? (
+                    <>
+                      {!user && lockedOffers > 0 ? (
+                        <SignupGate compact title={strings.costs.lockedOffersTitle(lockedOffers)} body={strings.funnel.gateBody} />
+                      ) : null}
+                      {offerError ? <Notice tone="danger" body={offerError} /> : null}
+                      <OfferList offers={offers} onDelete={removeOffer} canDelete={(o) => o.is_own || isAdmin} />
+                    </>
+                  ) : (
+                    <Text tone="muted">{strings.costs.noOffers}</Text>
                   )}
                 </Section>
               ) : null}

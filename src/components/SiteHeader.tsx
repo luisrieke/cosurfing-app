@@ -5,9 +5,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Glass, Icon, IconButton, Text } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
 import { signUpHref } from '@/lib/funnel';
 import { levelFor } from '@/lib/levels';
+import { adminGetCounts } from '@/lib/queries';
 import { avatarUrl } from '@/lib/storage';
 import { strings } from '@/lib/strings';
 import { colors, layout, radius, spacing } from '@/lib/theme';
@@ -35,9 +37,15 @@ export function SiteHeader({ back }: { back?: boolean }) {
   const pathname = usePathname();
   const top = useTopInset();
   const { isDesktop, width } = useBreakpoint();
-  const { user, profile, isPlus } = useAuth();
+  const { user, profile, isPlus, isAdmin } = useAuth();
+  const counts = useQuery(`header-admin-counts:${user?.id}`, adminGetCounts, isAdmin);
   const narrow = width < 420;
   const points = profile?.points ?? 0;
+  const openAdmin =
+    (counts.data?.suggestions ?? 0) +
+    (counts.data?.reports ?? 0) +
+    (counts.data?.toVerify ?? 0) +
+    (counts.data?.pendingPhotos ?? 0);
 
   const goBack = () => {
     if (router.canGoBack()) router.back();
@@ -93,6 +101,28 @@ export function SiteHeader({ back }: { back?: boolean }) {
                 style={styles.noBorder}
               />
             </>
+          ) : null}
+          {user && isAdmin ? (
+            <Pressable
+              onPress={() => router.push('/admin')}
+              accessibilityRole="button"
+              accessibilityLabel={strings.nav.admin}
+              style={({ pressed }) => [styles.adminPill, pressed && { opacity: 0.85 }]}
+            >
+              <Icon name="shield" size={14} color={colors.onAccent} />
+              {!narrow ? (
+                <Text variant="smallStrong" tone="inverse">
+                  {strings.nav.admin}
+                </Text>
+              ) : null}
+              {openAdmin > 0 ? (
+                <View style={styles.adminCount}>
+                  <Text variant="caption" style={{ color: colors.accent }}>
+                    {openAdmin > 99 ? '99+' : openAdmin}
+                  </Text>
+                </View>
+              ) : null}
+            </Pressable>
           ) : null}
           {user ? (
             <Pressable
@@ -211,6 +241,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  adminPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 36,
+    paddingLeft: spacing.md,
+    paddingRight: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.accent,
+  },
+  adminCount: {
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
+    borderRadius: radius.pill,
+    backgroundColor: colors.onAccent,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   accountPill: {
     flexDirection: 'row',

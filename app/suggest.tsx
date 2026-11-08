@@ -24,7 +24,7 @@ export default function SuggestRoute() {
 
 function SuggestScreen({ presetCitySlug, presetName }: { presetCitySlug: string | null; presetName: string | null }) {
   const router = useRouter();
-  const { user, ready } = useAuth();
+  const { user, ready, isAdmin } = useAuth();
   const cities = useQuery('active-cities', getActiveCities);
   const [hydrated, setHydrated] = useState(false);
   const [step, setStep] = useState<Step>('details');
@@ -39,6 +39,7 @@ function SuggestScreen({ presetCitySlug, presetName }: { presetCitySlug: string 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
+  const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
   const autoSending = useRef(false);
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
@@ -109,7 +110,7 @@ function SuggestScreen({ presetCitySlug, presetName }: { presetCitySlug: string 
     setBusy(true);
     setError(null);
     try {
-      await createSuggestion({
+      const result = await createSuggestion({
         userId: user.id,
         cityId: city?.id ?? null,
         cityText: city?.id ? null : (city?.label.trim() ?? null),
@@ -120,6 +121,7 @@ function SuggestScreen({ presetCitySlug, presetName }: { presetCitySlug: string 
         notes: notes.trim() || null,
       });
       await clearSuggestionDraft();
+      setPublishedSlug(result.placeSlug);
       setSent(true);
     } catch (e) {
       setAwaitingAccount(false);
@@ -166,10 +168,25 @@ function SuggestScreen({ presetCitySlug, presetName }: { presetCitySlug: string 
       {!isSupabaseConfigured ? <Notice tone="warning" body={strings.common.backendNotConfigured} /> : null}
 
       {sent ? (
-        <>
-          <Notice tone="success" body={strings.suggest.sent} />
-          <Button title={strings.common.back} variant="secondary" onPress={back} />
-        </>
+        publishedSlug ? (
+          <>
+            <Notice tone="success" body={strings.suggest.published} />
+            <Button title={strings.suggest.viewPlace} onPress={() => router.replace(`/place/${publishedSlug}`)} />
+            {isAdmin ? (
+              <Button title={strings.suggest.reviewQueue} variant="secondary" onPress={() => router.push('/admin')} />
+            ) : null}
+          </>
+        ) : isAdmin ? (
+          <>
+            <Notice tone="info" body={strings.suggest.adminNeedsCity} />
+            <Button title={strings.admin.suggestions} variant="secondary" onPress={() => router.push('/admin/suggestions')} />
+          </>
+        ) : (
+          <>
+            <Notice tone="success" body={strings.suggest.sent} />
+            <Button title={strings.common.back} variant="secondary" onPress={back} />
+          </>
+        )
       ) : !hydrated || autoSendPending ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.accent} />
@@ -249,11 +266,11 @@ function SuggestScreen({ presetCitySlug, presetName }: { presetCitySlug: string 
 
               {error ? <Notice tone="danger" body={error} /> : null}
               <Text variant="small" tone="muted">
-                {strings.suggest.reviewNote}
+                {isAdmin ? strings.suggest.adminReviewNote : strings.suggest.reviewNote}
                 {!user ? ` ${strings.suggest.draftSaved}` : ''}
               </Text>
               <Button
-                title={user ? strings.suggest.submit : strings.suggest.continueToAccount}
+                title={user ? (isAdmin ? strings.suggest.publish : strings.suggest.submit) : strings.suggest.continueToAccount}
                 size="lg"
                 fullWidth
                 loading={busy}

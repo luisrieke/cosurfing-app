@@ -103,6 +103,62 @@ export interface PlaceFactEntry {
   updated_at: string;
 }
 
+/** What members can price at a place (see place_prices). */
+export type PriceItem =
+  | 'coffee'
+  | 'tea'
+  | 'lunch'
+  | 'week_pass'
+  | 'flex_desk_month'
+  | 'fixed_desk_month'
+  | 'meeting_room_hour'
+  | 'membership_year';
+
+export interface Money {
+  amount: number;
+  currency: string;
+}
+
+export type PriceInput = Partial<Record<PriceItem, Money>>;
+
+/** Row of `get_place_prices`. */
+export interface PlacePriceEntry {
+  item: PriceItem;
+  amount: number;
+  currency: string;
+  /** `null` for visitors without an account. */
+  author_name: string | null;
+  is_own: boolean;
+  updated_at: string;
+}
+
+export type OfferKind = 'deal' | 'referral';
+
+/** Row of `get_place_offers`; link, code and author are `null` for visitors without an account. */
+export interface PlaceOffer {
+  id: string;
+  kind: OfferKind;
+  title: string;
+  details: string | null;
+  url: string | null;
+  code: string | null;
+  /** The offer has a link or code that is hidden until the visitor signs up. */
+  is_locked: boolean;
+  expires_on: string | null;
+  author_name: string | null;
+  is_own: boolean;
+  created_at: string;
+}
+
+export interface OfferInput {
+  kind: OfferKind;
+  title: string;
+  details: string | null;
+  url: string | null;
+  code: string | null;
+  expires_on: string | null;
+}
+
 /** Each part is on a 0–10 scale; `score` is the weighted total (see compute_place_score). */
 export interface ScoreBreakdown {
   score: number;
@@ -394,6 +450,7 @@ export interface PlaceSuggestion {
   website: string | null;
   notes: string | null;
   status: 'pending' | 'approved' | 'rejected';
+  place_id: string | null;
   created_at: string;
 }
 

@@ -1,13 +1,23 @@
 import { useState } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { Stars } from '@/components/Reviews';
-import { Icon, type IconName, Text } from '@/components/ui';
+import { Badge, Icon, type IconName, Text } from '@/components/ui';
 import { communityFact, formatFactValue, type FactSummary } from '@/lib/facts';
-import { dayPassLabel, formatDate, formatMbps, hostFromUrl, liveWebsite } from '@/lib/format';
+import { dayPassLabel, formatDate, formatMbps, formatMoney, hostFromUrl, liveWebsite } from '@/lib/format';
+import type { PriceSummary } from '@/lib/prices';
 import { strings } from '@/lib/strings';
 import { colors, radius, scoreColor, spacing } from '@/lib/theme';
-import type { FactKey, Place, PlaceRatingStats, PlaceReview, SpeedTest, WebFacts } from '@/lib/types';
+import type {
+  FactKey,
+  Place,
+  PlaceOffer,
+  PlaceRatingStats,
+  PlaceReview,
+  PriceItem,
+  SpeedTest,
+  WebFacts,
+} from '@/lib/types';
 
 type Tone = 'good' | 'okay' | 'bad' | 'neutral' | 'unknown';
 
@@ -359,6 +369,173 @@ export function VenueFactsList({ facts, web }: { facts: FactSummary[]; web: WebF
 }
 
 // ---------------------------------------------------------------------------
+// Costs: member prices and offers
+// ---------------------------------------------------------------------------
+
+export function PriceList({ prices }: { prices: PriceSummary[] }) {
+  const [open, setOpen] = useState<PriceItem | null>(null);
+  const c = strings.costs;
+  return (
+    <View style={styles.box}>
+      <Text variant="caption" tone="muted">
+        {c.hint}
+      </Text>
+      <View style={styles.table}>
+        {prices.map((p, i) => {
+          const expanded = open === p.item;
+          const range = p.min !== p.max ? ` · ${c.range(formatMoney(p.min, p.currency), formatMoney(p.max, p.currency))}` : '';
+          return (
+            <View key={p.item} style={[styles.venueFact, i === prices.length - 1 && styles.factRowLast]}>
+              <Pressable
+                onPress={() => setOpen(expanded ? null : p.item)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded }}
+                style={styles.venueFactHead}
+              >
+                <Text variant="small" tone="muted" style={styles.venueFactLabel}>
+                  {c.items[p.item]}
+                </Text>
+                <View style={styles.factValue}>
+                  <Text variant="smallStrong" align="right">
+                    {formatMoney(p.amount, p.currency)}
+                  </Text>
+                  <Text variant="caption" tone="faint" align="right">
+                    {(p.count === 1 ? c.oneEntry : c.entries(p.count)) + range}
+                  </Text>
+                </View>
+                <Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={colors.textFaint} />
+              </Pressable>
+              {expanded ? (
+                <View style={styles.sources}>
+                  {p.entries.map((e, k) => (
+                    <View key={k} style={styles.source}>
+                      <View style={styles.sourceHead}>
+                        <Icon name="user" size={13} color={colors.textMuted} />
+                        <Text variant="small" style={styles.sourceName}>
+                          {`${e.author_name ?? strings.place.factAuthorHidden}${e.is_own ? ' (you)' : ''}`}
+                        </Text>
+                        <Text variant="smallStrong">{formatMoney(e.amount, e.currency)}</Text>
+                      </View>
+                      <Text variant="caption" tone="faint" style={styles.sourceMeta}>
+                        {formatDate(e.updated_at)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+async function copyText(text: string): Promise<boolean> {
+  const nav = typeof navigator !== 'undefined' ? navigator : null;
+  if (Platform.OS !== 'web' || !nav?.clipboard) return false;
+  try {
+    await nav.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function OfferCard({ offer, onDelete }: { offer: PlaceOffer; onDelete?: () => void }) {
+  const c = strings.costs;
+  const [copied, setCopied] = useState(false);
+  const referral = offer.kind === 'referral';
+  return (
+    <View style={styles.offer}>
+      <View style={styles.offerHead}>
+        <Badge
+          label={referral ? c.kindReferral : c.kindDeal}
+          tone={referral ? 'plus' : 'success'}
+          icon={referral ? 'users' : 'tag'}
+        />
+        {offer.expires_on ? (
+          <Text variant="caption" tone="muted">
+            {c.validUntil(formatDate(offer.expires_on))}
+          </Text>
+        ) : null}
+        <View style={styles.flex} />
+        {onDelete ? (
+          <Pressable onPress={onDelete} accessibilityRole="button" accessibilityLabel={c.deleteOffer} hitSlop={8}>
+            <Icon name="trash-2" size={15} color={colors.textMuted} />
+          </Pressable>
+        ) : null}
+      </View>
+      <Text variant="bodyStrong">{offer.title}</Text>
+      {offer.details ? (
+        <Text variant="small" tone="muted">
+          {offer.details}
+        </Text>
+      ) : null}
+      {offer.code ? (
+        <Pressable
+          onPress={async () => {
+            if (await copyText(offer.code!)) {
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            }
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={c.copyCode}
+          style={styles.code}
+        >
+          <Text variant="caption" tone="muted">
+            {c.code}
+          </Text>
+          <Text variant="smallStrong" selectable style={styles.codeText}>
+            {offer.code}
+          </Text>
+          {Platform.OS === 'web' ? (
+            <Text variant="caption" tone={copied ? 'success' : 'accent'}>
+              {copied ? c.codeCopied : c.copyCode}
+            </Text>
+          ) : null}
+        </Pressable>
+      ) : null}
+      {offer.url ? (
+        <Pressable onPress={() => void Linking.openURL(offer.url!)} accessibilityRole="link" style={styles.offerLink}>
+          <Icon name="external-link" size={14} color={colors.accent} />
+          <Text variant="smallStrong" tone="accent">
+            {`${c.openLink} · ${hostFromUrl(offer.url)}`}
+          </Text>
+        </Pressable>
+      ) : null}
+      {offer.author_name ? (
+        <Text variant="caption" tone="faint">
+          {`${c.sharedBy(offer.author_name)}${offer.is_own ? ' (you)' : ''} · ${formatDate(offer.created_at)}`}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+export function OfferList({
+  offers,
+  onDelete,
+  canDelete,
+}: {
+  offers: PlaceOffer[];
+  onDelete?: (offer: PlaceOffer) => void;
+  canDelete?: (offer: PlaceOffer) => boolean;
+}) {
+  return (
+    <View style={styles.box}>
+      <Text variant="caption" tone="muted">
+        {strings.costs.offersHint}
+      </Text>
+      {offers.map((o) => (
+        <OfferCard key={o.id} offer={o} onDelete={onDelete && canDelete?.(o) ? () => onDelete(o) : undefined} />
+      ))}
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Detail ratings (members only)
 // ---------------------------------------------------------------------------
 
@@ -566,6 +743,44 @@ const styles = StyleSheet.create({
   },
   quote: {
     fontStyle: 'italic',
+  },
+  flex: {
+    flex: 1,
+  },
+  offer: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  offerHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  code: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.bgSubtle,
+  },
+  codeText: {
+    letterSpacing: 0.5,
+  },
+  offerLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
   },
   distribution: {
     flexDirection: 'row',
