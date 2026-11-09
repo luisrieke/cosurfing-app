@@ -86,7 +86,7 @@ Visiting a city that has not been crawled yet bumps its job to the front (`reque
 
 ## Supabase
 
-Project: `cosurfing` (eu-central-1). Migrations in `supabase/migrations` are already applied; all Edge Functions are deployed.
+Project: `cosurfing` (eu-central-1). Migrations in `supabase/migrations` are already applied; all Edge Functions are deployed, except the legal-compliance changes of November 9, 2026 (migrations `20261109200000`–`20261109202000`, functions `account`, `moderation-notices`, `cancel`, and updates to `billing` and `waitlist`).
 
 To reproduce elsewhere: `supabase link --project-ref <ref>`, `supabase db push`, add `crawler_secret` and `project_url` to Vault, run the city import, then `supabase functions deploy <name> --no-verify-jwt` for each function (they authenticate in code: public waitlist actions are rate‑limited, admin/billing actions verify the user's session, webhooks verify provider signatures/secrets).
 
@@ -113,13 +113,14 @@ Set in Dashboard → Edge Functions → Secrets (or `supabase secrets set`). `SU
 
 | Secret | Used by | Notes |
 | --- | --- | --- |
-| `SITE_URL` | waitlist, billing | `https://cosurfing.app`; links in emails and Stripe return URLs |
-| `RESEND_API_KEY` | waitlist | Until set, joining a waiting list returns `email_not_configured` and nothing is stored |
-| `RESEND_FROM` | waitlist | Default `Luis from Cosurfing <luis@cosurfing.app>` |
-| `RESEND_REPLY_TO` | waitlist | Monitored mailbox for replies to the ambassador email |
-| `EMAIL_SANDBOX_TO` | waitlist | **Testing safety net**: when set, every email is redirected to this address with the original recipient in the subject. Set it before any test, unset for production. |
+| `SITE_URL` | waitlist, billing, cancel, moderation-notices | `https://cosurfing.app`; links in emails and Stripe return URLs |
+| `RESEND_API_KEY` | waitlist, cancel, moderation-notices | Until set, joining a waiting list returns `email_not_configured` and nothing is stored; moderation notices stay queued |
+| `RESEND_FROM` | waitlist, cancel, moderation-notices | Default `Luis from Cosurfing <luis@cosurfing.app>` |
+| `RESEND_REPLY_TO` | waitlist, cancel, moderation-notices | Monitored mailbox for replies (also the DSA contact point) |
+| `STRIPE_AUTOMATIC_TAX` | billing | `true` once Stripe Tax is set up: Checkout collects the billing address and charges VAT of the customer's country (OSS) |
+| `EMAIL_SANDBOX_TO` | waitlist, cancel, moderation-notices | **Testing safety net**: when set, every email is redirected to this address with the original recipient in the subject. Set it before any test, unset for production. |
 | `RATE_LIMIT_SALT` | waitlist | Random string; IPs are only stored as salted hashes |
-| `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID_WEEKLY`, `STRIPE_PRICE_ID_YEARLY`, `STRIPE_WEBHOOK_SECRET` | billing, stripe-webhook | See Stripe below |
+| `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID_WEEKLY`, `STRIPE_PRICE_ID_YEARLY`, `STRIPE_WEBHOOK_SECRET` | billing, stripe-webhook, account, cancel | See Stripe below |
 | `REVENUECAT_WEBHOOK_AUTH` | revenuecat-webhook | Shared secret RevenueCat sends in the `Authorization` header |
 | `ALLOW_DEV_ENTITLEMENTS` | billing | `true` only on a development project. Enables the clearly labelled "simulate Plus" toggle. Never set in production. |
 
@@ -145,7 +146,8 @@ Protection is server‑side: `get_place_reviews()` returns review bodies only fo
 1. Create a product "Cosurfing Plus" with two recurring prices: €0.99 **weekly** → `STRIPE_PRICE_ID_WEEKLY` and €29.99 **yearly** → `STRIPE_PRICE_ID_YEARLY`. The checkout refuses a plan whose price id is missing (`plan_not_configured`).
 2. Enable the Customer Portal (Settings → Billing → Customer portal) so users can cancel.
 3. Add a webhook endpoint `https://<ref>.supabase.co/functions/v1/stripe-webhook` with events `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted` → `STRIPE_WEBHOOK_SECRET`.
-4. Set `STRIPE_SECRET_KEY` and set `EXPO_PUBLIC_WEB_PAYMENTS=stripe` in the web build env so the paywall shows the real checkout button.
+4. Set `STRIPE_SECRET_KEY` and set `EXPO_PUBLIC_WEB_PAYMENTS=stripe` in the web build env so the paywall shows the real checkout button. This also puts the "Cancel contracts here" link (§ 312k BGB, page `/cancel`, function `cancel`) in the footer.
+5. Before the first sale: register for OSS, enable Stripe Tax with the origin address, then set `STRIPE_AUTOMATIC_TAX=true`.
 
 ### RevenueCat (iOS / Android)
 

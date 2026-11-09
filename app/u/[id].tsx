@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Stars } from '@/components/Reviews';
+import { ReportButton } from '@/components/ReportButton';
 import { LevelMark, UserAvatar } from '@/components/UserBadge';
 import { type MapHandle, PlacesMap } from '@/components/map';
 import {
@@ -173,6 +174,7 @@ function ProfileScreen({ userId }: { userId: string }) {
             style={styles.selfStart}
           />
         ) : null}
+        {!own ? <ReportButton type="profile" id={person.id} label /> : null}
       </Card>
 
       <Section title={strings.profile.places}>

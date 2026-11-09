@@ -480,9 +480,8 @@ function Photos({ placeId }: { placeId: string }) {
   const add = async () => {
     setError(null);
     try {
-      const uri = await pickImage();
+      const uri = await pickImage(() => setBusy('upload'));
       if (!uri) return;
-      setBusy('upload');
       await uploadPlacePhoto(placeId, uri, photos.data?.length ?? 0);
       await photos.refetch();
     } catch (e) {

@@ -47,8 +47,14 @@ export function getBillingStatus(): Promise<BillingStatus> {
 }
 
 /** Creates a Stripe Checkout session (web) and returns its URL. */
-export function createCheckout(plan: PlusPlan): Promise<{ url: string }> {
-  return call<{ url: string }>({ action: 'checkout', platform: 'web', plan });
+export function createCheckout(plan: PlusPlan, consent: { immediateStart: boolean; termsVersion: string }): Promise<{ url: string }> {
+  return call<{ url: string }>({
+    action: 'checkout',
+    platform: 'web',
+    plan,
+    immediate_start: consent.immediateStart,
+    terms_version: consent.termsVersion,
+  });
 }
 
 /** Opens the Stripe customer portal for subscription management (web). */

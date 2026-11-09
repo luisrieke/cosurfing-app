@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { ReportButton } from '@/components/ReportButton';
 import { LevelMark, ProfileLink, UserAvatar } from '@/components/UserBadge';
 import { Button, Icon, Text } from '@/components/ui';
 import { formatDate } from '@/lib/format';
@@ -126,6 +127,7 @@ export function ReviewItem({ review, onUnlock, unlocking }: ReviewItemProps) {
         <Text variant="caption" tone="faint">
           {formatDate(review.created_at)}
         </Text>
+        {!review.is_own ? <ReportButton type="review" id={review.id} /> : null}
       </View>
       {shown.length > 0 || review.calls_ok !== null ? (
         <View style={styles.details}>

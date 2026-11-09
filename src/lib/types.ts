@@ -549,6 +549,31 @@ export interface PlaceReport {
   created_at: string;
 }
 
+export type ReportTargetType = 'review' | 'photo' | 'menu' | 'offer' | 'wifi_note' | 'profile';
+export type ContentReportReason = 'illegal' | 'personal_data' | 'copyright' | 'spam' | 'offensive' | 'inaccurate' | 'other';
+export type ModerationReason = 'rules' | 'illegal' | 'personal_data' | 'copyright' | 'spam' | 'offensive' | 'inaccurate' | 'duplicate';
+
+export interface ContentReport {
+  id: string;
+  target_type: ReportTargetType;
+  target_id: string;
+  reason: ContentReportReason;
+  body: string;
+  status: 'open' | 'removed' | 'kept';
+  decision_reason: ModerationReason | null;
+  decision_note: string | null;
+  decided_at: string | null;
+  created_at: string;
+  reporter_is_user: boolean;
+  place_name: string | null;
+  place_slug: string | null;
+  author_id: string | null;
+  author_name: string | null;
+  content_text: string | null;
+  content_image: string | null;
+  content_exists: boolean;
+}
+
 export interface WaitlistEntry {
   id: string;
   city_id: string;

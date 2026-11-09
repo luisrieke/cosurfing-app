@@ -126,7 +126,7 @@ function CostsScreen({ slug }: { slug: string }) {
     setMenuSaved(0);
     let done = 0;
     try {
-      const uris = await pickImages(MAX_MENU_PHOTOS_PER_UPLOAD);
+      const uris = await pickImages(MAX_MENU_PHOTOS_PER_UPLOAD, (count) => setMenuBusy(strings.costs.menuUploading(1, count)));
       if (uris.length === 0) return;
       for (const uri of uris) {
         setMenuBusy(strings.costs.menuUploading(done + 1, uris.length));

@@ -1,7 +1,7 @@
 import Head from 'expo-router/head';
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Button, Icon, Input, Notice, Screen, Text, TopBar } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
@@ -24,6 +24,7 @@ export default function SignInScreen() {
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
 
   const safeRedirect = redirect && redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : null;
   const target: Href = (safeRedirect ?? '/') as Href;
@@ -40,16 +41,25 @@ export default function SignInScreen() {
       setError(strings.auth.invalidEmail);
       return;
     }
+    const signup = mode === 'signup';
+    if (signup && !ageConfirmed) {
+      setError(strings.auth.needAge);
+      return;
+    }
     setBusy(true);
     setError(null);
+    const now = new Date().toISOString();
     const { error: err } = await supabase.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
-      // Only stored when this call creates the account: evidence of which Terms were accepted at sign-up.
-      options: { shouldCreateUser: true, data: { terms_version: TERMS_VERSION, terms_accepted_at: new Date().toISOString() } },
+      // Only stored when this call creates the account: evidence of which Terms were accepted and that the age was confirmed.
+      // Logging in never creates an account, so nobody skips the age confirmation.
+      options: signup
+        ? { shouldCreateUser: true, data: { terms_version: TERMS_VERSION, terms_accepted_at: now, age_confirmed_at: now } }
+        : { shouldCreateUser: false },
     });
     setBusy(false);
     if (err) {
-      setError(err.message);
+      setError(!signup && /signups? not allowed|user not found/i.test(err.message) ? strings.auth.noAccount : err.message);
       return;
     }
     setStep('code');
@@ -125,6 +135,17 @@ export default function SignInScreen() {
             onSubmitEditing={sendCode}
             error={error}
           />
+          {mode === 'signup' ? (
+            <Pressable
+              style={styles.check}
+              onPress={() => setAgeConfirmed(!ageConfirmed)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: ageConfirmed }}
+            >
+              <Icon name={ageConfirmed ? 'check-square' : 'square'} size={20} color={ageConfirmed ? colors.accent : colors.textMuted} />
+              <Text variant="small">{strings.auth.ageConfirm}</Text>
+            </Pressable>
+          ) : null}
           <Button title={strings.auth.sendCode} size="lg" fullWidth loading={busy} onPress={sendCode} disabled={!isSupabaseConfigured} />
           <Text variant="small" tone="muted">
             {strings.auth.legal}{' '}
@@ -132,6 +153,10 @@ export default function SignInScreen() {
               {strings.auth.termsLink}
             </Text>
             {strings.auth.legalRights}
+            <Text variant="smallStrong" tone="accent" onPress={() => router.push('/privacy')} accessibilityRole="link">
+              {strings.auth.privacyLink}
+            </Text>
+            .
           </Text>
           <Button
             title={mode === 'login' ? strings.auth.switchToSignUp : strings.auth.switchToLogin}
@@ -191,6 +216,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accentSoft,
   },
   benefit: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  check: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,

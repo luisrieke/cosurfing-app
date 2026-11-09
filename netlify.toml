@@ -5,7 +5,8 @@
 [build.environment]
   NODE_VERSION = "22"
 
-# Link-preview images (netlify/edge-functions/social-meta.ts): city covers and place photos.
+# City covers in the app (src/lib/storage.ts coverUrl) and link-preview images
+# (netlify/edge-functions/social-meta.ts) are served through the Image CDN, never hotlinked.
 [images]
   remote_images = [
     "https://(upload|thumb)\\.wikimedia\\.org/.*",

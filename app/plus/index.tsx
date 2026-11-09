@@ -1,5 +1,5 @@
 import Head from 'expo-router/head';
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import { Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
@@ -27,6 +27,7 @@ import {
   restorePurchases,
 } from '@/lib/purchases';
 import { strings } from '@/lib/strings';
+import { TERMS_VERSION } from '@/lib/terms';
 import { colors, radius, spacing } from '@/lib/theme';
 
 const PLANS: PlusPlan[] = ['yearly', 'weekly'];
@@ -56,6 +57,7 @@ export default function PlusScreen() {
   const [info, setInfo] = useState<string | null>(null);
   const [devAllowed, setDevAllowed] = useState<boolean | null>(null);
   const [plan, setPlan] = useState<PlusPlan>('yearly');
+  const [consent, setConsent] = useState(false);
   const [nativeOffers, setNativeOffers] = useState<Partial<Record<PlusPlan, PlanOffer>> | null>(null);
   const [nativeUnavailable, setNativeUnavailable] = useState(false);
 
@@ -113,11 +115,16 @@ export default function PlusScreen() {
     }
   };
 
-  const startWeb = () =>
-    run('checkout', async () => {
-      const { url } = await createCheckout(plan);
+  const startWeb = () => {
+    if (!consent) {
+      setError(strings.plus.needConsent);
+      return;
+    }
+    return run('checkout', async () => {
+      const { url } = await createCheckout(plan, { immediateStart: true, termsVersion: TERMS_VERSION });
       await openUrl(url);
     });
+  };
 
   const manageWeb = () =>
     run('portal', async () => {
@@ -225,7 +232,7 @@ export default function PlusScreen() {
           </View>
         )}
         <Text variant="small" tone="muted">
-          {strings.plus.renewNote} {strings.plus.cancelAnytime}
+          {strings.plus.vatNote} {strings.plus.renewNote} {strings.plus.cancelAnytime}
         </Text>
         <View style={styles.features}>
           {strings.plus.features.map((f) => (
@@ -258,7 +265,10 @@ export default function PlusScreen() {
             </Text>
           ) : null}
           {entitlement?.source === 'stripe' && isWeb ? (
-            <Button title={strings.plus.manage} variant="secondary" loading={busy === 'portal'} onPress={manageWeb} />
+            <>
+              <Button title={strings.plus.manage} variant="secondary" loading={busy === 'portal'} onPress={manageWeb} />
+              <Button title={strings.legal.cancel} variant="ghost" onPress={() => router.push('/cancel')} />
+            </>
           ) : entitlement?.source === 'revenuecat' && !isWeb ? (
             <Button title={strings.plus.manage} variant="secondary" loading={busy === 'manage'} onPress={manageNative} />
           ) : entitlement?.source === 'dev' ? (
@@ -296,10 +306,28 @@ export default function PlusScreen() {
               </Text>
             </>
           ) : isWeb && isWebPaymentsConfigured ? (
-            <Button title={strings.plus.cta(priceOf(plan))} variant="plus" size="lg" fullWidth loading={busy === 'checkout'} onPress={startWeb} />
+            <>
+              <Pressable
+                style={styles.consent}
+                onPress={() => setConsent(!consent)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: consent }}
+              >
+                <Icon name={consent ? 'check-square' : 'square'} size={20} color={consent ? colors.plus : colors.textMuted} />
+                <Text variant="small" style={styles.flex}>
+                  {strings.plus.immediateConsent}
+                </Text>
+              </Pressable>
+              <PlusLegal onNavigate={(href) => router.push(href)} />
+              <Button title={strings.plus.cta(priceOf(plan))} variant="plus" size="lg" fullWidth loading={busy === 'checkout'} onPress={startWeb} />
+            </>
           ) : !isWeb && purchasesConfigured ? (
             <>
               {nativeUnavailable ? <Notice tone="warning" body={strings.plus.nativeUnavailable} /> : null}
+              <Text variant="small" tone="muted">
+                {strings.plus.storeTerms}
+              </Text>
+              <PlusLegal onNavigate={(href) => router.push(href)} />
               <Button
                 title={strings.plus.cta(priceOf(plan))}
                 variant="plus"
@@ -341,7 +369,29 @@ export default function PlusScreen() {
   );
 }
 
+function PlusLegal({ onNavigate }: { onNavigate: (href: Href) => void }) {
+  const link = (label: string, href: Href) => (
+    <Text variant="small" tone="accent" onPress={() => onNavigate(href)} accessibilityRole="link">
+      {label}
+    </Text>
+  );
+  return (
+    <Text variant="small" tone="muted">
+      {strings.plus.legalLead} {link(strings.legal.terms, '/terms')}. {strings.plus.legalAnd} {link(strings.legal.withdrawal, '/withdrawal')} ·{' '}
+      {link(strings.legal.privacy, '/privacy')}
+    </Text>
+  );
+}
+
 const styles = StyleSheet.create({
+  consent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  flex: {
+    flex: 1,
+  },
   hero: {
     alignItems: 'center',
     gap: spacing.sm,

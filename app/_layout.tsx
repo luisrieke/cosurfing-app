@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AmbientBackground } from '@/components/AmbientBackground';
+import { TermsUpdateBanner } from '@/components/TermsUpdateBanner';
 import { AuthProvider } from '@/lib/auth';
 import { colors } from '@/lib/theme';
 
@@ -40,6 +41,7 @@ export default function RootLayout() {
                 animation: Platform.OS === 'web' ? 'none' : 'default',
               }}
             />
+            <TermsUpdateBanner />
           </ThemeProvider>
         </AuthProvider>
       </SafeAreaProvider>

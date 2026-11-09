@@ -41,9 +41,11 @@ export function AddPhotos({ placeId, userId, onSignIn }: AddPhotosProps) {
     if (!userId) return;
     setError(null);
     try {
-      const uris = await pickImages(MAX_USER_PHOTOS_PER_UPLOAD);
+      const uris = await pickImages(MAX_USER_PHOTOS_PER_UPLOAD, (count) => {
+        setBusy(true);
+        setProgress(strings.photos.uploading(1, count));
+      });
       if (uris.length === 0) return;
-      setBusy(true);
       const rightsAcceptedAt = new Date().toISOString();
       let done = 0;
       for (const uri of uris) {

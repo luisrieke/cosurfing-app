@@ -1,5 +1,5 @@
 import Head from 'expo-router/head';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -46,6 +46,7 @@ const COLUMN_KEYS = ['c1', 'c2', 'c3', 'c4', 'c5'];
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { deleted } = useLocalSearchParams<{ deleted?: string }>();
   const { width, isDesktop } = useBreakpoint();
   const { user } = useAuth();
   const [query, setQuery] = useState('');
@@ -119,6 +120,12 @@ export default function HomeScreen() {
           </View>
 
           {!isSupabaseConfigured ? <Notice tone="warning" body={strings.common.backendNotConfigured} /> : null}
+          {deleted ? (
+            <Notice
+              tone="success"
+              body={deleted === 'store' ? `${strings.account.deleteAccountDone} ${strings.account.deleteAccountStoreNote}` : strings.account.deleteAccountDone}
+            />
+          ) : null}
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
             <Chip label={strings.home.filterAll} selected={continent === null} onPress={() => setContinent(null)} color={colors.text} />

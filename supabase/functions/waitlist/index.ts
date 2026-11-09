@@ -4,7 +4,7 @@
 
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
-import { EmailNotConfiguredError, emailConfigured, sendEmail } from './email.ts';
+import { EmailNotConfiguredError, emailConfigured, sendEmail } from '../_shared/email.ts';
 import { ambassadorEmail, confirmationEmail } from './templates.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;

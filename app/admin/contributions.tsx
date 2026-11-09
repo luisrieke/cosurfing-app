@@ -6,7 +6,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { AdminShell } from '@/components/admin/AdminShell';
 import { UserAvatar } from '@/components/UserBadge';
-import { Button, Card, Notice, Skeleton, Text } from '@/components/ui';
+import { Button, Card, Chip, Notice, Skeleton, Text } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
 import { formatDateTime } from '@/lib/format';
@@ -14,7 +14,7 @@ import { getPendingContributions, moderateContribution } from '@/lib/queries';
 import { menuUrl, previewUrl } from '@/lib/storage';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
-import type { PendingContribution } from '@/lib/types';
+import type { ModerationReason, PendingContribution } from '@/lib/types';
 
 function itemKey(item: PendingContribution): string {
   return `${item.kind}:${item.id ?? ''}:${item.place_id ?? ''}:${item.user_id}:${item.fact_key ?? ''}`;
@@ -26,6 +26,7 @@ export default function AdminContributions() {
   const queue = useQuery('admin-contributions', getPendingContributions, isAdmin);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reason, setReason] = useState<ModerationReason>('rules');
 
   const groups = useMemo(() => {
     const map = new Map<string, { userId: string; name: string; avatar: string | null; items: PendingContribution[] }>();
@@ -54,6 +55,7 @@ export default function AdminContributions() {
         placeId: item.place_id,
         userId: item.user_id,
         key: item.fact_key,
+        reason,
       });
       await queue.refetch();
     } catch (e) {
@@ -69,6 +71,14 @@ export default function AdminContributions() {
         <title>Contributions · Admin · Cosurfing</title>
       </Head>
       <Text tone="muted">{strings.admin.contributionsHint}</Text>
+      <View style={styles.reasons}>
+        <Text variant="smallStrong">{strings.admin.rejectReason}</Text>
+        <View style={styles.actions}>
+          {(Object.keys(strings.moderationReasons) as ModerationReason[]).map((m) => (
+            <Chip key={m} label={strings.moderationReasons[m]} selected={reason === m} onPress={() => setReason(m)} />
+          ))}
+        </View>
+      </View>
       {error ? <Notice tone="danger" body={error} /> : null}
       {queue.loading && !queue.data ? (
         <Skeleton height={160} />
@@ -130,6 +140,9 @@ export default function AdminContributions() {
 }
 
 const styles = StyleSheet.create({
+  reasons: {
+    gap: spacing.sm,
+  },
   group: {
     gap: spacing.md,
   },

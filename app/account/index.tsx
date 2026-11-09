@@ -6,8 +6,10 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AdminList, AdminRow } from '@/components/admin/AdminShell';
 import { RequireAuth } from '@/components/RequireAuth';
 import { Stars } from '@/components/Reviews';
+import { LegalLinks } from '@/components/SiteFooter';
 import { Badge, Button, Card, CategoryBadge, Icon, Input, Notice, Screen, Section, Skeleton, Text, TopBar } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
+import { deleteAccount } from '@/lib/account';
 import { useAuth } from '@/lib/auth';
 import { formatDate } from '@/lib/format';
 import { confirmedPoints, GUIDE_POINTS, levelFor } from '@/lib/levels';
@@ -46,6 +48,23 @@ function AccountScreen() {
     setSyncedName(profileName);
     setName(profileName ?? '');
   }
+
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const removeAccount = async () => {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const { storeSubscription } = await deleteAccount();
+      await signOut();
+      router.replace({ pathname: '/', params: { deleted: storeSubscription ? 'store' : '1' } });
+    } catch {
+      setDeleteError(strings.account.deleteAccountFailed);
+      setDeleting(false);
+    }
+  };
 
   const save = async () => {
     if (!user) return;
@@ -155,7 +174,7 @@ function AccountScreen() {
             <AdminRow
               icon="flag"
               title={strings.admin.reports}
-              subtitle="Wrong information reported by users"
+              subtitle="Reported content and wrong place information"
               meta={counts.data && counts.data.reports > 0 ? <Badge label={`${counts.data.reports} open`} tone="danger" /> : null}
               onPress={() => router.push('/admin/reports')}
             />
@@ -263,9 +282,23 @@ function AccountScreen() {
 
       <View style={styles.footer}>
         <Button title={strings.common.signOut} variant="ghost" icon="log-out" onPress={() => signOut().then(() => router.replace('/'))} />
-        <Text variant="caption" tone="faint">
-          {strings.account.deleteAccountHint}
-        </Text>
+        {confirmDelete ? (
+          <Notice tone="danger" title={strings.account.deleteAccountTitle} body={strings.account.deleteAccountBody}>
+            <Text variant="small">{strings.account.deleteAccountStoreNote}</Text>
+            {deleteError ? (
+              <Text variant="small" tone="danger">
+                {deleteError}
+              </Text>
+            ) : null}
+            <View style={[styles.row, styles.wrap]}>
+              <Button title={strings.account.deleteAccountConfirm} variant="danger" size="sm" loading={deleting} onPress={removeAccount} />
+              <Button title={strings.common.cancel} variant="ghost" size="sm" disabled={deleting} onPress={() => setConfirmDelete(false)} />
+            </View>
+          </Notice>
+        ) : (
+          <Button title={strings.account.deleteAccount} variant="ghost" icon="trash-2" size="sm" onPress={() => setConfirmDelete(true)} style={styles.selfStart} />
+        )}
+        <LegalLinks onNavigate={(href) => router.push(href)} />
       </View>
     </Screen>
   );

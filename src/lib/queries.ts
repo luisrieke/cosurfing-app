@@ -4,6 +4,10 @@ import { TERMS_VERSION } from './terms';
 import type {
   City,
   CityContributor,
+  ContentReport,
+  ContentReportReason,
+  ModerationReason,
+  ReportTargetType,
   CityListItem,
   CitySort,
   Continent,
@@ -430,8 +434,10 @@ export async function moderateContribution(input: {
   placeId?: string | null;
   userId?: string | null;
   key?: string | null;
+  reason?: ModerationReason;
 }): Promise<void> {
-  const { error } = await requireSupabase().rpc('moderate_contribution', {
+  const { error } = await requireSupabase().rpc('moderate_contribution_with_reason', {
+    p_reason: input.reason ?? 'rules',
     p_kind: input.kind,
     p_decision: input.decision,
     p_id: input.id ?? null,
@@ -911,8 +917,41 @@ export async function adminGetReviews(): Promise<AdminReview[]> {
   return (data ?? []) as AdminReview[];
 }
 
-export async function adminSetReviewStatus(id: string, status: 'visible' | 'hidden'): Promise<void> {
-  const { error } = await requireSupabase().from('reviews').update({ status }).eq('id', id);
+export async function adminSetReviewStatus(id: string, status: 'visible' | 'hidden', reason: ModerationReason = 'rules'): Promise<void> {
+  const { error } = await requireSupabase().rpc('admin_set_review_status', { p_id: id, p_status: status, p_reason: reason });
+  throwIf(error);
+}
+
+export async function submitContentReport(input: {
+  targetType: ReportTargetType;
+  targetId: string;
+  reason: ContentReportReason;
+  body: string;
+  email?: string | null;
+}): Promise<void> {
+  const { error } = await requireSupabase().rpc('submit_content_report', {
+    p_target_type: input.targetType,
+    p_target_id: input.targetId,
+    p_reason: input.reason,
+    p_body: input.body.trim(),
+    p_email: input.email?.trim() || null,
+  });
+  throwIf(error);
+}
+
+export async function adminGetContentReports(): Promise<ContentReport[]> {
+  const { data, error } = await requireSupabase().rpc('admin_get_content_reports');
+  throwIf(error);
+  return (data ?? []) as ContentReport[];
+}
+
+export async function adminDecideContentReport(id: string, decision: 'remove' | 'keep', reason: ModerationReason, note?: string): Promise<void> {
+  const { error } = await requireSupabase().rpc('admin_decide_content_report', {
+    p_report_id: id,
+    p_decision: decision,
+    p_reason: reason,
+    p_note: note?.trim() || null,
+  });
   throwIf(error);
 }
 
@@ -1048,19 +1087,20 @@ export async function adminGetCounts(): Promise<{
   contributions: number;
 }> {
   const sb = requireSupabase();
-  const [s, r, d, v, p, c] = await Promise.all([
+  const [s, r, cr, d, v, p, c] = await Promise.all([
     sb.from('place_suggestions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     sb.from('place_reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
+    sb.from('content_reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
     sb.from('places').select('id', { count: 'exact', head: true }).eq('status', 'draft'),
     sb.from('places').select('id', { count: 'exact', head: true }).eq('status', 'needs_review'),
     sb.from('place_photos').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     sb.rpc('pending_contribution_count'),
   ]);
-  for (const res of [s, r, d, v, p]) throwIf(res.error);
+  for (const res of [s, r, cr, d, v, p]) throwIf(res.error);
   throwIf(c.error);
   return {
     suggestions: s.count ?? 0,
-    reports: r.count ?? 0,
+    reports: (r.count ?? 0) + (cr.count ?? 0),
     drafts: d.count ?? 0,
     toVerify: v.count ?? 0,
     pendingPhotos: p.count ?? 0,

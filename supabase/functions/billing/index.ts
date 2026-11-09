@@ -16,6 +16,8 @@ const STRIPE_PRICES: Record<string, string> = {
   yearly: Deno.env.get('STRIPE_PRICE_ID_YEARLY') ?? '',
 };
 const ALLOW_DEV_ENTITLEMENTS = Deno.env.get('ALLOW_DEV_ENTITLEMENTS') === 'true';
+// Requires Stripe Tax to be set up in the dashboard (origin address, OSS registration, prices with tax behaviour "inclusive").
+const STRIPE_AUTOMATIC_TAX = Deno.env.get('STRIPE_AUTOMATIC_TAX') === 'true';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -112,6 +114,10 @@ Deno.serve(async (req) => {
         const plan = body.plan === 'yearly' ? 'yearly' : 'weekly';
         const price = STRIPE_PRICES[plan];
         if (!price) return json({ error: 'plan_not_configured' }, 503);
+        // § 356 (4) / § 357a (2) BGB: service may only start within the withdrawal period on the consumer's express request.
+        if (body.immediate_start !== true) return json({ error: 'consent_required' }, 400);
+        const termsVersion = typeof body.terms_version === 'string' ? body.terms_version.slice(0, 20) : '';
+        const consentAt = new Date().toISOString();
         const current = await getEntitlement(sb, user.id);
         if (current?.status === 'active' && current.source !== 'dev') return json({ error: 'already_subscribed' }, 409);
         const customerId = await ensureStripeCustomer(sb, user.id, user.email ?? undefined);
@@ -120,10 +126,30 @@ Deno.serve(async (req) => {
           customer: customerId,
           client_reference_id: user.id,
           line_items: [{ price, quantity: 1 }],
-          subscription_data: { metadata: { supabase_user_id: user.id, plan } },
+          subscription_data: {
+            metadata: {
+              supabase_user_id: user.id,
+              plan,
+              terms_version: termsVersion,
+              immediate_start_consent_at: consentAt,
+            },
+          },
           success_url: `${SITE_URL}/plus/success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${SITE_URL}/plus`,
           allow_promotion_codes: false,
+          locale: 'auto',
+          custom_text: {
+            submit: {
+              message: `Prices include VAT. Your subscription renews automatically until you cancel it, at any time, at ${SITE_URL}/cancel or in your account. Terms: ${SITE_URL}/terms · Right of withdrawal: ${SITE_URL}/withdrawal`,
+            },
+          },
+          ...(STRIPE_AUTOMATIC_TAX
+            ? {
+                automatic_tax: { enabled: true },
+                billing_address_collection: 'required' as const,
+                customer_update: { address: 'auto' as const, name: 'auto' as const },
+              }
+            : {}),
         });
         if (!session.url) return json({ error: 'server_error' }, 500);
         return json({ url: session.url });

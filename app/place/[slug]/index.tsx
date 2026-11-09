@@ -25,6 +25,7 @@ import { ReviewItem, Stars } from '@/components/Reviews';
 import { ScoreBadge } from '@/components/ScoreBadge';
 import { SignupBanner } from '@/components/SignupBanner';
 import { SignupGate } from '@/components/SignupGate';
+import { TransparencyLink } from '@/components/TransparencyLink';
 import { SignupInterstitial } from '@/components/SignupInterstitial';
 import { SiteFooter } from '@/components/SiteFooter';
 import { SiteHeader, SiteHeaderSpacer } from '@/components/SiteHeader';
@@ -653,6 +654,7 @@ export default function PlaceScreen() {
                         />
                       ))}
                     </View>
+                    <TransparencyLink label={strings.legal.reviewChecks} />
                   </View>
                 )}
               </Section>

@@ -2,7 +2,9 @@ import { Image } from 'expo-image';
 import { useState } from 'react';
 import { Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { ReportButton } from '@/components/ReportButton';
 import { Stars } from '@/components/Reviews';
+import { TransparencyLink } from '@/components/TransparencyLink';
 import { Badge, Icon, type IconName, Text } from '@/components/ui';
 import { communityFact, formatFactValue, type FactSummary } from '@/lib/facts';
 import { dayPassLabel, formatDate, formatMbps, hostFromUrl, liveWebsite } from '@/lib/format';
@@ -74,6 +76,7 @@ export function ScoreBreakdownCard({ place }: { place: Place }) {
       <Text variant="caption" tone="muted">
         {strings.place.scoreExplainer}
       </Text>
+      <TransparencyLink />
     </View>
   );
 }
@@ -516,8 +519,14 @@ function OfferCard({ offer, onDelete }: { offer: PlaceOffer; onDelete?: () => vo
             <Icon name="trash-2" size={15} color={colors.textMuted} />
           </Pressable>
         ) : null}
+        {!offer.is_own ? <ReportButton type="offer" id={offer.id} /> : null}
       </View>
       <Text variant="bodyStrong">{offer.title}</Text>
+      {referral ? (
+        <Text variant="caption" tone="muted">
+          {c.referralDisclosure(offer.author_name, offer.is_own)}
+        </Text>
+      ) : null}
       {offer.details ? (
         <Text variant="small" tone="muted">
           {offer.details}
@@ -646,6 +655,7 @@ export function MenuGallery({
                   <Icon name="trash-2" size={14} color={colors.textMuted} />
                 </Pressable>
               ) : null}
+              {!m.is_own ? <ReportButton type="menu" id={m.id} /> : null}
             </View>
           </View>
         ))}
@@ -710,6 +720,7 @@ export function WifiNoteList({
                 <Icon name="trash-2" size={15} color={colors.textMuted} />
               </Pressable>
             ) : null}
+            {!n.is_own ? <ReportButton type="wifi_note" id={n.id} /> : null}
           </View>
           {n.body ? (
             <Text variant="small" selectable>

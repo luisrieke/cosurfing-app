@@ -84,7 +84,7 @@ function WelcomeScreen() {
     if (!user) return;
     setError(null);
     try {
-      const uri = remove ? null : await pickImage();
+      const uri = remove ? null : await pickImage(() => setAvatarBusy(true));
       if (!remove && !uri) return;
       setAvatarBusy(true);
       const previous = avatarPath;

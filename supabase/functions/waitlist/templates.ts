@@ -1,5 +1,9 @@
 // Email templates for the city waiting list. English only for now.
 
+import { operatorFooterHtml, operatorFooterText } from '../_shared/operator.ts';
+
+const SITE_URL = Deno.env.get('SITE_URL') ?? 'https://cosurfing.app';
+
 export const INTERVIEW_URL = 'https://cal.com/luisrieke/user-interview';
 
 function escapeHtml(value: string): string {
@@ -40,7 +44,7 @@ function layout(bodyHtml: string, footerHtml: string): string {
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
             <tr>
               <td style="padding:16px 32px;font-size:12px;line-height:18px;color:#6B675E;">
-                ${footerHtml}
+                ${footerHtml}${operatorFooterHtml(SITE_URL)}
               </td>
             </tr>
           </table>
@@ -80,7 +84,7 @@ ${input.confirmUrl}
 
 The link is valid for 48 hours. If you did not sign up, you can ignore this email and nothing will happen.
 
-— Cosurfing`;
+— Cosurfing${operatorFooterText(SITE_URL)}`;
   return { subject, html, text };
 }
 
@@ -125,6 +129,6 @@ Luis
 Founder, Cosurfing
 
 —
-Leave the ${input.city} waiting list: ${input.leaveUrl}`;
+Leave the ${input.city} waiting list: ${input.leaveUrl}${operatorFooterText(SITE_URL)}`;
   return { subject, html, text };
 }

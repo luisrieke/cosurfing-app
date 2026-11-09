@@ -5,6 +5,7 @@ import { ScoreBadge } from '@/components/ScoreBadge';
 import { Shade } from '@/components/Shade';
 import { Icon, Text, glassSurface } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { coverUrl } from '@/lib/storage';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
 import type { CityListItem } from '@/lib/types';
@@ -39,7 +40,7 @@ export function CityCard({
     >
       {city.cover_thumb_url ? (
         <Image
-          source={{ uri: city.cover_thumb_url }}
+          source={{ uri: coverUrl(city.cover_thumb_url, 480) }}
           style={StyleSheet.absoluteFill}
           contentFit="cover"
           transition={150}

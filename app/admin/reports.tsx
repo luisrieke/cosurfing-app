@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AdminList, AdminRow, AdminShell } from '@/components/admin/AdminShell';
+import { ContentReports } from '@/components/admin/ContentReports';
 import { Badge, Button, Chip, Notice, Skeleton, Text } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
@@ -47,6 +48,8 @@ export default function AdminReports() {
         ))}
       </View>
       {error ? <Notice tone="danger" body={error} /> : null}
+      <ContentReports filter={filter} />
+      <Text variant="bodyStrong">{strings.admin.placeReports}</Text>
       {reports.loading && !reports.data ? (
         <Skeleton height={80} />
       ) : reports.error ? (

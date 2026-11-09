@@ -36,6 +36,7 @@ import { formatMbps } from '@/lib/format';
 import { canShowInterstitial, dismissInterstitial, markInterstitialShown, signUpHref } from '@/lib/funnel';
 import { LevelMark, UserAvatar } from '@/components/UserBadge';
 import { getCityContributors, getCityRanking, getPlacesToRate, requestCityCrawl } from '@/lib/queries';
+import { coverUrl } from '@/lib/storage';
 import { strings } from '@/lib/strings';
 import { colors, layout, radius, spacing } from '@/lib/theme';
 import type { City, PlaceCategory, RankedPlace, RankingFilters, RankingSort } from '@/lib/types';
@@ -53,7 +54,9 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
   const router = useRouter();
   const { isDesktop, width } = useBreakpoint();
   const slow = useSlowConnection();
-  const heroCover = (slow ? city.cover_thumb_url : null) ?? city.cover_url;
+  const heroSource = (slow ? city.cover_thumb_url : null) ?? city.cover_url;
+  const heroCover = heroSource ? coverUrl(heroSource, slow ? 640 : 1600) : null;
+  const heroPlaceholder = city.cover_thumb_url ? coverUrl(city.cover_thumb_url, 480) : null;
   const { user } = useAuth();
   const [category, setCategory] = useState<PlaceCategory | 'all'>('all');
   const [sort, setSort] = useState<RankingSort>('score');
@@ -253,7 +256,7 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
           {heroCover ? (
             <Image
               source={{ uri: heroCover }}
-              placeholder={city.cover_thumb_url ? { uri: city.cover_thumb_url } : undefined}
+              placeholder={heroPlaceholder ? { uri: heroPlaceholder } : undefined}
               placeholderContentFit="cover"
               style={StyleSheet.absoluteFill}
               contentFit="cover"

@@ -85,9 +85,8 @@ create trigger place_suggestions_admin_publish
   after insert on public.place_suggestions
   for each row execute function public.tg_publish_admin_suggestion();
 
-insert into public.admin_users (user_id)
-select id from auth.users where email = 'luis.rieke@spacifik.com'
-on conflict (user_id) do nothing;
+-- Admins are granted per user in the database, never by email address in a migration:
+-- insert into public.admin_users (user_id) values ('<user id>');
 
 do $$
 declare

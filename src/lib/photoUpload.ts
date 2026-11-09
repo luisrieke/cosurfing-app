@@ -22,13 +22,17 @@ export const AVATAR_SIZE = 512;
 export const MENU_WIDTH = 1800;
 export const MAX_MENU_PHOTOS_PER_UPLOAD = 5;
 
-export async function pickImage(): Promise<string | null> {
-  const [uri] = await pickImages(1);
+/**
+ * `onSelected` fires as soon as the user has picked files, before they are read and converted
+ * (which can take seconds on web, especially for HEIC), so callers can show a spinner right away.
+ */
+export async function pickImage(onSelected?: (count: number) => void): Promise<string | null> {
+  const [uri] = await pickImages(1, onSelected);
   return uri ?? null;
 }
 
-export async function pickImages(limit: number): Promise<string[]> {
-  if (Platform.OS === 'web') return pickImagesOnWeb(limit);
+export async function pickImages(limit: number, onSelected?: (count: number) => void): Promise<string[]> {
+  if (Platform.OS === 'web') return pickImagesOnWeb(limit, onSelected);
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) throw new Error('Photo library access was denied.');
   const result = await ImagePicker.launchImageLibraryAsync({
@@ -39,7 +43,9 @@ export async function pickImages(limit: number): Promise<string[]> {
     exif: false,
   });
   if (result.canceled) return [];
-  return result.assets.slice(0, limit).map((a) => a.uri);
+  const uris = result.assets.slice(0, limit).map((a) => a.uri);
+  if (uris.length > 0) onSelected?.(uris.length);
+  return uris;
 }
 
 /**
@@ -47,7 +53,7 @@ export async function pickImages(limit: number): Promise<string[]> {
  * some systems and it rejects files the browser reports without an image MIME type.
  * HEIC/HEIF is converted to JPEG right away, since only Safari can decode it.
  */
-function pickImagesOnWeb(limit: number): Promise<string[]> {
+function pickImagesOnWeb(limit: number, onSelected?: (count: number) => void): Promise<string[]> {
   return new Promise((resolve, reject) => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -57,6 +63,7 @@ function pickImagesOnWeb(limit: number): Promise<string[]> {
     const finish = (files: File[]) => {
       input.remove();
       const images = files.filter((f) => f.type.startsWith('image/') || isHeicFile(f)).slice(0, limit);
+      if (images.length > 0) onSelected?.(images.length);
       Promise.all(images.map(webImageUri)).then(resolve, reject);
     };
     input.addEventListener('change', () => finish(Array.from(input.files ?? [])));

@@ -19,6 +19,11 @@ export function menuUrl(path: string): string {
   return `${env.supabaseUrl}/storage/v1/object/public/${MENU_BUCKET}/${path}`;
 }
 
+/** City covers are hosted on Wikimedia; serving them through our Netlify Image CDN keeps visitors' IPs away from third parties. Only hosts allowed in netlify.toml `remote_images` work. */
+export function coverUrl(url: string, width: number): string {
+  return `${env.siteUrl.replace(/\/$/, '')}/.netlify/images?url=${encodeURIComponent(url)}&w=${width}&q=75`;
+}
+
 /**
  * Signed URLs for full-resolution photos. Storage RLS only signs objects the caller may read
  * (approved photos of published places, plus the caller's own uploads).

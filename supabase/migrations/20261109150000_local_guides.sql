@@ -41,9 +41,8 @@ $$;
 
 revoke all on function public.is_trusted_author(uuid) from public, anon, authenticated;
 
-insert into public.local_guides (user_id)
-select id from auth.users where email in ('luis.rieke@spacifik.com', 'sophie510@gmx.de')
-on conflict (user_id) do nothing;
+-- Local guides are granted per user in the database, never by email address in a migration:
+-- insert into public.local_guides (user_id) values ('<user id>');
 
 -- ---------------------------------------------------------------------------
 -- Suggestions from admins and local guides publish immediately

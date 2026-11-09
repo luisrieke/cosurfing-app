@@ -298,7 +298,7 @@ function ReviewScreen({ slug }: { slug: string }) {
     setHoursSaved(0);
     let done = 0;
     try {
-      const uris = await pickImages(MAX_MENU_PHOTOS_PER_UPLOAD);
+      const uris = await pickImages(MAX_MENU_PHOTOS_PER_UPLOAD, (count) => setHoursBusy(strings.review.hoursUploading(1, count)));
       if (uris.length === 0) return;
       for (const uri of uris) {
         setHoursBusy(strings.review.hoursUploading(done + 1, uris.length));
