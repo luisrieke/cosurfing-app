@@ -7,15 +7,20 @@
  */
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
+import { Platform } from 'react-native';
 
-import { AVATAR_BUCKET, PHOTO_BUCKET, PREVIEW_BUCKET } from './storage';
+import { AVATAR_BUCKET, MENU_BUCKET, PHOTO_BUCKET, PREVIEW_BUCKET, WIFI_BUCKET } from './storage';
 import { requireSupabase } from './supabase';
 import { TERMS_VERSION } from './terms';
+import type { MenuKind } from './types';
 
 export const FULL_WIDTH = 1600;
 export const PREVIEW_WIDTH = 24;
 export const MAX_USER_PHOTOS_PER_UPLOAD = 5;
 export const AVATAR_SIZE = 512;
+/** Wide enough that small print on a menu stays readable. */
+export const MENU_WIDTH = 1800;
+export const MAX_MENU_PHOTOS_PER_UPLOAD = 5;
 
 export async function pickImage(): Promise<string | null> {
   const [uri] = await pickImages(1);
@@ -23,6 +28,7 @@ export async function pickImage(): Promise<string | null> {
 }
 
 export async function pickImages(limit: number): Promise<string[]> {
+  if (Platform.OS === 'web') return pickImagesOnWeb(limit);
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) throw new Error('Photo library access was denied.');
   const result = await ImagePicker.launchImageLibraryAsync({
@@ -34,6 +40,46 @@ export async function pickImages(limit: number): Promise<string[]> {
   });
   if (result.canceled) return [];
   return result.assets.slice(0, limit).map((a) => a.uri);
+}
+
+/**
+ * Own file input instead of expo-image-picker on web: its `image/*` filter hides .heic files on
+ * some systems and it rejects files the browser reports without an image MIME type.
+ * HEIC/HEIF is converted to JPEG right away, since only Safari can decode it.
+ */
+function pickImagesOnWeb(limit: number): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*,.heic,.heif';
+    input.multiple = limit > 1;
+    input.style.display = 'none';
+    const finish = (files: File[]) => {
+      input.remove();
+      const images = files.filter((f) => f.type.startsWith('image/') || isHeicFile(f)).slice(0, limit);
+      Promise.all(images.map(webImageUri)).then(resolve, reject);
+    };
+    input.addEventListener('change', () => finish(Array.from(input.files ?? [])));
+    input.addEventListener('cancel', () => finish([]));
+    document.body.appendChild(input);
+    input.click();
+  });
+}
+
+function isHeicFile(file: File): boolean {
+  return /^image\/hei[cf](-sequence)?$/i.test(file.type) || /\.hei[cf]$/i.test(file.name);
+}
+
+async function webImageUri(file: File): Promise<string> {
+  if (!isHeicFile(file)) return URL.createObjectURL(file);
+  try {
+    // ~3 MB of WebAssembly, so only loaded once someone actually picks a HEIC photo.
+    const { heicTo } = await import('heic-to');
+    const jpeg = await heicTo({ blob: file, type: 'image/jpeg', quality: 0.92 });
+    return URL.createObjectURL(jpeg);
+  } catch {
+    throw new Error(`"${file.name}" could not be converted. Please export it as JPEG and try again.`);
+  }
 }
 
 async function resizeToJpeg(uri: string, width: number, compress: number): Promise<string> {
@@ -119,6 +165,85 @@ export async function uploadAvatar(userId: string, sourceUri: string): Promise<s
   const { error } = await sb.storage.from(AVATAR_BUCKET).upload(path, bytes, { contentType: 'image/jpeg', upsert: false });
   if (error) throw new Error(error.message);
   return path;
+}
+
+export class MenuLimitError extends Error {
+  constructor() {
+    super('menu_limit_reached');
+    this.name = 'MenuLimitError';
+  }
+}
+
+/** Uploads a menu or opening hours photo to place-menus/{place}/{user}/… and inserts the place_menus row; live right away. */
+export async function uploadPlaceMenu(placeId: string, userId: string, sourceUri: string, kind: MenuKind = 'menu'): Promise<void> {
+  const sb = requireSupabase();
+  const bytes = await readBytes(await resizeToJpeg(sourceUri, MENU_WIDTH, 0.85));
+  const path = `${placeId}/${userId}/${randomId()}.jpg`;
+  const upload = await sb.storage.from(MENU_BUCKET).upload(path, bytes, { contentType: 'image/jpeg', upsert: false });
+  if (upload.error) throw new Error(upload.error.message);
+  const { error } = await sb.from('place_menus').insert({
+    place_id: placeId,
+    user_id: userId,
+    path,
+    kind,
+    rights_accepted_at: new Date().toISOString(),
+    terms_version: TERMS_VERSION,
+  });
+  if (error) {
+    await sb.storage.from(MENU_BUCKET).remove([path]);
+    if (error.message.includes('menu_limit_reached')) throw new MenuLimitError();
+    throw new Error(error.message);
+  }
+}
+
+export async function deletePlaceMenu(menu: { id: string; path: string }): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.from('place_menus').delete().eq('id', menu.id);
+  if (error) throw new Error(error.message);
+  await sb.storage.from(MENU_BUCKET).remove([menu.path]);
+}
+
+export class WifiNoteLimitError extends Error {
+  constructor() {
+    super('wifi_note_limit_reached');
+    this.name = 'WifiNoteLimitError';
+  }
+}
+
+/** Uploads the optional photo to place-wifi/{place}/{user}/… and inserts the place_wifi_notes row; live right away. */
+export async function createWifiNote(
+  placeId: string,
+  userId: string,
+  input: { body: string | null; photoUri: string | null },
+): Promise<void> {
+  const sb = requireSupabase();
+  let path: string | null = null;
+  if (input.photoUri) {
+    const bytes = await readBytes(await resizeToJpeg(input.photoUri, MENU_WIDTH, 0.85));
+    path = `${placeId}/${userId}/${randomId()}.jpg`;
+    const upload = await sb.storage.from(WIFI_BUCKET).upload(path, bytes, { contentType: 'image/jpeg', upsert: false });
+    if (upload.error) throw new Error(upload.error.message);
+  }
+  const { error } = await sb.from('place_wifi_notes').insert({
+    place_id: placeId,
+    user_id: userId,
+    body: input.body,
+    photo_path: path,
+    rights_accepted_at: new Date().toISOString(),
+    terms_version: TERMS_VERSION,
+  });
+  if (error) {
+    if (path) await sb.storage.from(WIFI_BUCKET).remove([path]);
+    if (error.message.includes('wifi_note_limit_reached')) throw new WifiNoteLimitError();
+    throw new Error(error.message);
+  }
+}
+
+export async function deleteWifiNote(note: { id: string; photo_path: string | null }): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.from('place_wifi_notes').delete().eq('id', note.id);
+  if (error) throw new Error(error.message);
+  if (note.photo_path) await sb.storage.from(WIFI_BUCKET).remove([note.photo_path]);
 }
 
 export async function deleteAvatar(path: string): Promise<void> {

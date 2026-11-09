@@ -27,6 +27,13 @@ export default function AdminHome() {
       ) : null}
       <AdminList>
         <AdminRow
+          icon="inbox"
+          title={strings.admin.contributions}
+          subtitle={strings.admin.contributionsHint}
+          meta={counts.data && counts.data.contributions > 0 ? <Badge label={`${counts.data.contributions} ${strings.admin.pending}`} tone="accent" /> : null}
+          onPress={() => router.push('/admin/contributions')}
+        />
+        <AdminRow
           icon="map-pin"
           title={strings.admin.places}
           subtitle="Create, edit, publish and photograph places"

@@ -24,7 +24,8 @@ export default function SuggestRoute() {
 
 function SuggestScreen({ presetCitySlug, presetName }: { presetCitySlug: string | null; presetName: string | null }) {
   const router = useRouter();
-  const { user, ready, isAdmin } = useAuth();
+  const { user, ready, isAdmin, isLocalGuide } = useAuth();
+  const publishesDirectly = isAdmin || isLocalGuide;
   const cities = useQuery('active-cities', getActiveCities);
   const [hydrated, setHydrated] = useState(false);
   const [step, setStep] = useState<Step>('details');
@@ -170,7 +171,7 @@ function SuggestScreen({ presetCitySlug, presetName }: { presetCitySlug: string 
       {sent ? (
         publishedSlug ? (
           <>
-            <Notice tone="success" body={strings.suggest.published} />
+            <Notice tone="success" body={isAdmin ? strings.suggest.published : strings.suggest.guidePublished} />
             <Button title={strings.suggest.viewPlace} onPress={() => router.replace(`/place/${publishedSlug}`)} />
             {isAdmin ? (
               <Button title={strings.suggest.reviewQueue} variant="secondary" onPress={() => router.push('/admin')} />
@@ -266,11 +267,15 @@ function SuggestScreen({ presetCitySlug, presetName }: { presetCitySlug: string 
 
               {error ? <Notice tone="danger" body={error} /> : null}
               <Text variant="small" tone="muted">
-                {isAdmin ? strings.suggest.adminReviewNote : strings.suggest.reviewNote}
+                {isAdmin
+                  ? strings.suggest.adminReviewNote
+                  : isLocalGuide
+                    ? strings.suggest.guideReviewNote
+                    : strings.suggest.reviewNote}
                 {!user ? ` ${strings.suggest.draftSaved}` : ''}
               </Text>
               <Button
-                title={user ? (isAdmin ? strings.suggest.publish : strings.suggest.submit) : strings.suggest.continueToAccount}
+                title={user ? (publishesDirectly ? strings.suggest.publish : strings.suggest.submit) : strings.suggest.continueToAccount}
                 size="lg"
                 fullWidth
                 loading={busy}

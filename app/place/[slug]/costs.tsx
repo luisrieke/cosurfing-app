@@ -3,28 +3,17 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { OfferList } from '@/components/place/PlaceSections';
+import { MenuGallery, OfferList } from '@/components/place/PlaceSections';
 import { RequireAuth } from '@/components/RequireAuth';
 import { Button, CategoryBadge, Chip, EmptyState, Input, Notice, Screen, Skeleton, Text, TopBar } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
-import { formatMoney, normalizeWebsite } from '@/lib/format';
-import { PRICE_ITEMS, defaultCurrency, priceAppliesTo, summarizePrices } from '@/lib/prices';
-import {
-  OfferLimitError,
-  createOffer,
-  deleteOffer,
-  getMyPrices,
-  getPlaceBySlug,
-  getPlaceOffers,
-  getPlacePrices,
-  savePlacePrices,
-} from '@/lib/queries';
+import { normalizeWebsite } from '@/lib/format';
+import { MAX_MENU_PHOTOS_PER_UPLOAD, MenuLimitError, deletePlaceMenu, pickImages, uploadPlaceMenu } from '@/lib/photoUpload';
+import { OfferLimitError, createOffer, deleteOffer, getPlaceBySlug, getPlaceMenus, getPlaceOffers } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
-import type { OfferKind, PlaceOffer, PriceInput, PriceItem } from '@/lib/types';
-
-const MAX_PRICE = 100_000;
+import type { OfferKind, PlaceMenu, PlaceOffer } from '@/lib/types';
 
 interface OfferDraft {
   kind: OfferKind;
@@ -38,11 +27,6 @@ interface OfferDraft {
 const EMPTY_OFFER: OfferDraft = { kind: 'referral', title: '', details: '', url: '', code: '', expires: '' };
 
 type OfferField = 'title' | 'url' | 'expires' | 'form';
-
-function parseAmount(raw: string): number | null {
-  const n = Number(raw.trim().replace(',', '.'));
-  return Number.isFinite(n) && n >= 0 && n <= MAX_PRICE ? Math.round(n * 100) / 100 : null;
-}
 
 function isFutureDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -65,63 +49,19 @@ function CostsScreen({ slug }: { slug: string }) {
   const placeQuery = useQuery(`place:${slug}`, () => getPlaceBySlug(slug));
   const place = placeQuery.data ?? null;
   const ready = Boolean(place && user);
-  const myPricesQuery = useQuery(`my-prices:${place?.id}:${user?.id}`, () => getMyPrices(user!.id, place!.id), ready);
-  const pricesQuery = useQuery(`prices:${place?.id}`, () => getPlacePrices(place!.id), Boolean(place));
   const offersQuery = useQuery(`offers:${place?.id}:${user?.id}`, () => getPlaceOffers(place!.id), ready);
-
-  const [amounts, setAmounts] = useState<Partial<Record<PriceItem, string>>>({});
-  const [currency, setCurrency] = useState('');
-  const [hydrated, setHydrated] = useState(false);
-  const [priceError, setPriceError] = useState<{ key: PriceItem | 'currency' | 'form'; message: string } | null>(null);
-  const [pricesBusy, setPricesBusy] = useState(false);
-  const [pricesSaved, setPricesSaved] = useState(false);
+  const menusQuery = useQuery(`menus:${place?.id}:${user?.id}`, () => getPlaceMenus(place!.id), ready);
 
   const [offer, setOffer] = useState<OfferDraft>(EMPTY_OFFER);
   const [offerError, setOfferError] = useState<{ key: OfferField; message: string } | null>(null);
   const [offerBusy, setOfferBusy] = useState(false);
   const [offerSaved, setOfferSaved] = useState(false);
 
-  // Prefill from the member's saved prices once they have loaded (state adjustment during render, no effect).
-  if (!hydrated && place && myPricesQuery.data !== undefined) {
-    const mine = myPricesQuery.data;
-    setAmounts(Object.fromEntries(Object.entries(mine).map(([k, v]) => [k, String(v.amount)])));
-    setCurrency(Object.values(mine)[0]?.currency ?? defaultCurrency(place.web_facts ?? {}, place.city.country_code));
-    setHydrated(true);
-  }
+  const [menuBusy, setMenuBusy] = useState<string | null>(null);
+  const [menuError, setMenuError] = useState<string | null>(null);
+  const [menuSaved, setMenuSaved] = useState(0);
 
   const back = () => (router.canGoBack() ? router.back() : router.replace(`/place/${slug}`));
-
-  const savePrices = async () => {
-    if (!place) return;
-    const cur = currency.trim().toUpperCase();
-    if (!/^[A-Z]{3}$/.test(cur)) {
-      setPriceError({ key: 'currency', message: strings.costs.invalidCurrency });
-      return;
-    }
-    const input: PriceInput = {};
-    for (const [item, raw] of Object.entries(amounts) as [PriceItem, string][]) {
-      if (!raw.trim()) continue;
-      const amount = parseAmount(raw);
-      if (amount === null) {
-        setPriceError({ key: item, message: strings.costs.invalidPrice });
-        return;
-      }
-      input[item] = { amount, currency: cur };
-    }
-    setPriceError(null);
-    setPricesBusy(true);
-    setPricesSaved(false);
-    try {
-      await savePlacePrices(place.id, input);
-      setPricesSaved(true);
-      void pricesQuery.refetch(true);
-      void myPricesQuery.refetch(true);
-    } catch (e) {
-      setPriceError({ key: 'form', message: e instanceof Error ? e.message : strings.common.somethingWentWrong });
-    } finally {
-      setPricesBusy(false);
-    }
-  };
 
   const submitOffer = async () => {
     if (!user || !place) return;
@@ -180,6 +120,39 @@ function CostsScreen({ slug }: { slug: string }) {
     }
   };
 
+  const uploadMenus = async () => {
+    if (!user || !place) return;
+    setMenuError(null);
+    setMenuSaved(0);
+    let done = 0;
+    try {
+      const uris = await pickImages(MAX_MENU_PHOTOS_PER_UPLOAD);
+      if (uris.length === 0) return;
+      for (const uri of uris) {
+        setMenuBusy(strings.costs.menuUploading(done + 1, uris.length));
+        await uploadPlaceMenu(place.id, user.id, uri);
+        done += 1;
+      }
+    } catch (e) {
+      const message = e instanceof MenuLimitError ? strings.costs.menuLimit : e instanceof Error ? e.message : strings.common.somethingWentWrong;
+      setMenuError(message);
+    } finally {
+      setMenuBusy(null);
+      setMenuSaved(done);
+      if (done > 0) void menusQuery.refetch(true);
+    }
+  };
+
+  const removeMenu = async (m: PlaceMenu) => {
+    setMenuError(null);
+    try {
+      await deletePlaceMenu(m);
+      void menusQuery.refetch(true);
+    } catch (e) {
+      setMenuError(e instanceof Error ? e.message : strings.common.somethingWentWrong);
+    }
+  };
+
   if (placeQuery.loading) {
     return (
       <Screen>
@@ -199,12 +172,8 @@ function CostsScreen({ slug }: { slug: string }) {
   }
 
   const c = strings.costs;
-  const summaries = summarizePrices(pricesQuery.data ?? []);
-  const items = PRICE_ITEMS.filter(
-    (i) => priceAppliesTo(i, place.category) || summaries.some((s) => s.item === i) || amounts[i] !== undefined,
-  );
-  const cur = currency.trim().toUpperCase() || 'EUR';
   const myOffers = (offersQuery.data ?? []).filter((o) => o.is_own);
+  const myMenus = (menusQuery.data ?? []).filter((m) => m.is_own && m.kind !== 'hours');
   const setOfferField = <K extends keyof OfferDraft>(key: K, value: OfferDraft[K]) => {
     setOffer((o) => ({ ...o, [key]: value }));
     setOfferSaved(false);
@@ -224,49 +193,27 @@ function CostsScreen({ slug }: { slug: string }) {
 
       <View style={styles.card}>
         <View style={styles.block}>
-          <Text variant="bodyStrong">{c.pricesTitle}</Text>
+          <Text variant="bodyStrong">{c.menuTitle}</Text>
           <Text variant="caption" tone="muted">
-            {c.pricesHint}
+            {c.menuIntro}
           </Text>
         </View>
-        <Input
-          label={c.currency}
-          value={currency}
-          onChangeText={(v) => setCurrency(v.toUpperCase())}
-          autoCapitalize="characters"
-          autoCorrect={false}
-          maxLength={3}
-          hint={c.currencyHint}
-          error={priceError?.key === 'currency' ? priceError.message : null}
-          style={styles.currency}
-        />
-        {items.map((item) => {
-          const current = summaries.find((s) => s.item === item);
-          return (
-            <Input
-              key={item}
-              label={`${c.items[item]} (${cur})`}
-              value={amounts[item] ?? ''}
-              onChangeText={(v) => {
-                setAmounts((a) => ({ ...a, [item]: v }));
-                setPricesSaved(false);
-              }}
-              placeholder={c.pricePlaceholder(cur)}
-              keyboardType="decimal-pad"
-              maxLength={10}
-              hint={current ? c.currently(formatMoney(current.amount, current.currency)) : undefined}
-              error={priceError?.key === item ? priceError.message : null}
-            />
-          );
-        })}
-        {priceError?.key === 'form' ? <Notice tone="danger" body={priceError.message} /> : null}
-        {pricesSaved ? <Notice tone="success" body={c.pricesSaved} /> : null}
+        {myMenus.length > 0 ? (
+          <View style={styles.block}>
+            <Text variant="smallStrong">{c.yourMenus}</Text>
+            <MenuGallery menus={myMenus} onDelete={removeMenu} canDelete={() => true} />
+          </View>
+        ) : null}
+        {menuError ? <Notice tone="danger" body={menuError} /> : null}
+        {menuSaved > 0 ? <Notice tone="success" body={c.menuSaved(menuSaved)} /> : null}
         <Button
-          title={c.savePrices}
+          title={menuBusy ?? c.chooseMenu}
+          icon="camera"
+          variant="secondary"
           fullWidth
-          loading={pricesBusy}
-          disabled={!hydrated}
-          onPress={savePrices}
+          loading={menuBusy !== null}
+          disabled={menuBusy !== null}
+          onPress={uploadMenus}
         />
       </View>
 
@@ -379,9 +326,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgSubtle,
     borderWidth: 1,
     borderColor: colors.border,
-  },
-  currency: {
-    maxWidth: 120,
   },
   chips: {
     flexDirection: 'row',

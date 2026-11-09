@@ -9,8 +9,7 @@ import { Button, Card, Notice, Skeleton, Text } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
 import { formatDateTime } from '@/lib/format';
-import { deletePlacePhoto } from '@/lib/photoUpload';
-import { adminApprovePhoto, adminGetPendingPhotos, type PendingPhoto } from '@/lib/queries';
+import { adminApprovePhoto, adminGetPendingPhotos, moderateContribution, type PendingPhoto } from '@/lib/queries';
 import { signedPhotoUrls } from '@/lib/storage';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
@@ -33,7 +32,7 @@ export default function AdminPhotos() {
     setError(null);
     try {
       if (decision === 'approve') await adminApprovePhoto(photo.id);
-      else await deletePlacePhoto(photo);
+      else await moderateContribution({ kind: 'photo', decision: 'reject', id: photo.id });
       await photos.refetch();
     } catch (e) {
       setError(e instanceof Error ? e.message : strings.common.somethingWentWrong);

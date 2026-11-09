@@ -9,13 +9,15 @@ import { AddPhotos } from '@/components/place/AddPhotos';
 import {
   DetailRatings,
   FactTable,
+  MenuGallery,
   OfferList,
-  PriceList,
   RatingDistribution,
   ScoreBreakdownCard,
   SpeedTestHistory,
   VenueFactsList,
+  WifiNoteList,
   hardFacts,
+  wifiFacts,
 } from '@/components/place/PlaceSections';
 import { PlusUpsell } from '@/components/PlusUpsell';
 import { ReviewItem, Stars } from '@/components/Reviews';
@@ -35,26 +37,27 @@ import { summarizeFacts } from '@/lib/facts';
 import { formatDate, formatRating, hostFromUrl, liveWebsite } from '@/lib/format';
 import { canShowInterstitial, markInterstitialShown, dismissInterstitial, recordPlaceView, signUpHref } from '@/lib/funnel';
 import { openDirections } from '@/lib/geo';
-import { summarizePrices } from '@/lib/prices';
+import { deletePlaceMenu, deleteWifiNote } from '@/lib/photoUpload';
 import {
   deleteOffer,
   getCityRanking,
   getPlaceBySlug,
   getPlaceFacts,
+  getPlaceMenus,
   getPlaceOffers,
   getPlacePhotos,
-  getPlacePrices,
   getPlaceRank,
   getPlaceRatingStats,
   getPlaceReviews,
   getPlaceSpeedTests,
+  getPlaceWifiNotes,
   getReviewUnlockQuota,
   unlockReview,
   UnlockLimitError,
 } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, layout, radius, spacing } from '@/lib/theme';
-import { defaultRankingFilters, type PlaceOffer } from '@/lib/types';
+import { defaultRankingFilters, type PlaceMenu, type PlaceOffer, type PlaceWifiNote } from '@/lib/types';
 
 const INTERSTITIAL_AFTER_VIEWS = 2;
 const INTERSTITIAL_DELAY_MS = 4_000;
@@ -69,6 +72,7 @@ export default function PlaceScreen() {
   const [unlocking, setUnlocking] = useState<string | null>(null);
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [offerError, setOfferError] = useState<string | null>(null);
+  const [wifiError, setWifiError] = useState<string | null>(null);
 
   const placeQuery = useQuery(`place:${slug}`, () => getPlaceBySlug(slug!), Boolean(slug) && isSupabaseConfigured);
   const place = placeQuery.data ?? null;
@@ -78,8 +82,9 @@ export default function PlaceScreen() {
   const photosQuery = useQuery(`photos:${place?.id}:${gateKey}`, () => getPlacePhotos(place!.id), enabled);
   const reviewsQuery = useQuery(`reviews:${place?.id}:${gateKey}`, () => getPlaceReviews(place!.id), enabled);
   const factsQuery = useQuery(`facts:${place?.id}:${gateKey}`, () => getPlaceFacts(place!.id), enabled);
-  const pricesQuery = useQuery(`prices:${place?.id}:${gateKey}`, () => getPlacePrices(place!.id), enabled);
   const offersQuery = useQuery(`offers:${place?.id}:${gateKey}`, () => getPlaceOffers(place!.id), enabled);
+  const menusQuery = useQuery(`menus:${place?.id}:${gateKey}`, () => getPlaceMenus(place!.id), enabled);
+  const wifiNotesQuery = useQuery(`wifi-notes:${place?.id}:${gateKey}`, () => getPlaceWifiNotes(place!.id), enabled);
   const statsQuery = useQuery(`stats:${place?.id}:${gateKey}`, () => getPlaceRatingStats(place!.id), enabled && Boolean(user));
   const testsQuery = useQuery(`tests:${place?.id}:${gateKey}`, () => getPlaceSpeedTests(place!.id), enabled && Boolean(user));
   const quotaQuery = useQuery(`unlock-quota:${gateKey}`, getReviewUnlockQuota, Boolean(user));
@@ -92,14 +97,16 @@ export default function PlaceScreen() {
     enabled,
   );
 
-  const refetchPrices = pricesQuery.refetch;
   const refetchOffers = offersQuery.refetch;
+  const refetchMenus = menusQuery.refetch;
+  const refetchWifiNotes = wifiNotesQuery.refetch;
   useFocusEffect(
     useCallback(() => {
       if (!placeId) return;
-      void refetchPrices(true);
       void refetchOffers(true);
-    }, [placeId, refetchPrices, refetchOffers]),
+      void refetchMenus(true);
+      void refetchWifiNotes(true);
+    }, [placeId, refetchOffers, refetchMenus, refetchWifiNotes]),
   );
 
   useEffect(() => {
@@ -215,9 +222,13 @@ export default function PlaceScreen() {
   const cityHref = `/${place.city.slug}` as const;
   const reviewHref = `/place/${slug}/review` as const;
   const costsHref = `/place/${slug}/costs` as const;
-  const prices = summarizePrices(pricesQuery.data ?? []);
+  const wifiHref = `/place/${slug}/wifi` as const;
+  const wifiNotes = wifiNotesQuery.data ?? [];
+  const lockedWifiNotes = wifiNotes.filter((n) => n.is_locked).length;
   const offers = offersQuery.data ?? [];
   const lockedOffers = offers.filter((o) => o.is_locked).length;
+  const menus = (menusQuery.data ?? []).filter((m) => m.kind !== 'hours');
+  const hoursPhotos = (menusQuery.data ?? []).filter((m) => m.kind === 'hours');
   const rank = rankQuery.data ?? null;
   const more = (moreQuery.data?.items ?? []).filter((p) => p.id !== place.id).slice(0, 5);
   const webFacts = place.web_facts ?? {};
@@ -234,6 +245,10 @@ export default function PlaceScreen() {
     if (requireUser(costsHref)) router.push(costsHref);
   };
 
+  const goWifi = () => {
+    if (requireUser(wifiHref)) router.push(wifiHref);
+  };
+
   const removeOffer = async (offer: PlaceOffer) => {
     setOfferError(null);
     try {
@@ -241,6 +256,26 @@ export default function PlaceScreen() {
       await offersQuery.refetch(true);
     } catch (e) {
       setOfferError(e instanceof Error ? e.message : strings.common.somethingWentWrong);
+    }
+  };
+
+  const removeMenu = async (menu: PlaceMenu) => {
+    setOfferError(null);
+    try {
+      await deletePlaceMenu(menu);
+      await menusQuery.refetch(true);
+    } catch (e) {
+      setOfferError(e instanceof Error ? e.message : strings.common.somethingWentWrong);
+    }
+  };
+
+  const removeWifiNote = async (note: PlaceWifiNote) => {
+    setWifiError(null);
+    try {
+      await deleteWifiNote(note);
+      await wifiNotesQuery.refetch(true);
+    } catch (e) {
+      setWifiError(e instanceof Error ? e.message : strings.common.somethingWentWrong);
     }
   };
 
@@ -416,7 +451,54 @@ export default function PlaceScreen() {
               {!wide ? scoreCard : null}
 
               <Section title={strings.place.hardFacts}>
-                <FactTable lines={hardFacts(place, venueFacts)} onHelp={canReview ? goReview : undefined} />
+                <FactTable lines={hardFacts(place, venueFacts, hoursPhotos.length > 0)} onHelp={canReview ? goReview : undefined} />
+                {hoursPhotos.length > 0 ? (
+                  <View style={styles.hoursPhotos}>
+                    <Text variant="smallStrong">{strings.place.hoursPhotos}</Text>
+                    <MenuGallery kind="hours" menus={hoursPhotos} onDelete={removeMenu} canDelete={(m) => m.is_own || isAdmin} />
+                  </View>
+                ) : null}
+              </Section>
+
+              <Section
+                title={strings.wifi.title}
+                right={
+                  canReview ? (
+                    <Button title={strings.wifi.addNote} size="sm" variant="secondary" icon="camera" onPress={goWifi} />
+                  ) : undefined
+                }
+              >
+                <FactTable lines={wifiFacts(place, venueFacts)} onHelp={canReview ? goReview : undefined} />
+                <View style={styles.wifiBlock}>
+                  <Text variant="smallStrong">{strings.wifi.notes}</Text>
+                  {!user && lockedWifiNotes > 0 ? (
+                    <SignupGate compact title={strings.wifi.lockedTitle(lockedWifiNotes)} body={strings.funnel.gateBody} />
+                  ) : wifiNotes.length > 0 ? (
+                    <>
+                      {wifiError ? <Notice tone="danger" body={wifiError} /> : null}
+                      <WifiNoteList notes={wifiNotes} onDelete={removeWifiNote} canDelete={(n) => n.is_own || isAdmin} />
+                    </>
+                  ) : (
+                    <Text tone="muted">{strings.wifi.noNotes}</Text>
+                  )}
+                </View>
+                {!wide ? speedTest : null}
+                <View style={styles.wifiBlock}>
+                  <Text variant="smallStrong">{strings.wifi.speedTests}</Text>
+                  {!user ? (
+                    place.speed_test_count > 0 ? (
+                      <SignupGate compact title={strings.funnel.lockedSpeedTitle} body={strings.funnel.gateBody} />
+                    ) : (
+                      <Text tone="muted">{strings.place.speedTestsEmpty}</Text>
+                    )
+                  ) : testsQuery.loading && !testsQuery.data ? (
+                    <Skeleton height={80} />
+                  ) : (testsQuery.data ?? []).length === 0 ? (
+                    <Text tone="muted">{strings.place.speedTestsEmpty}</Text>
+                  ) : (
+                    <SpeedTestHistory tests={testsQuery.data!} />
+                  )}
+                </View>
               </Section>
 
               {venueFacts.length > 0 || canReview ? (
@@ -429,23 +511,37 @@ export default function PlaceScreen() {
                   }
                 >
                   {venueFacts.length > 0 ? (
-                    <VenueFactsList facts={venueFacts} web={webFacts} />
+                    <VenueFactsList
+                      facts={venueFacts}
+                      web={webFacts}
+                      pendingNote={
+                        (factsQuery.data ?? []).some(
+                          (f) => f.is_own && (f.status === 'pending' || f.status === 'rejected' || f.pending_value != null || f.pending_delete),
+                        )
+                          ? strings.place.factsPending
+                          : null
+                      }
+                    />
                   ) : (
                     <Text tone="muted">{strings.place.noVenueFacts}</Text>
                   )}
                 </Section>
               ) : null}
 
-              {prices.length > 0 || canReview ? (
+              {menus.length > 0 || canReview ? (
                 <Section
-                  title={strings.costs.title}
+                  title={strings.costs.menu}
                   right={
                     canReview ? (
-                      <Button title={strings.costs.edit} size="sm" variant="secondary" icon="edit-3" onPress={goCosts} />
+                      <Button title={strings.costs.addMenu} size="sm" variant="secondary" icon="camera" onPress={goCosts} />
                     ) : undefined
                   }
                 >
-                  {prices.length > 0 ? <PriceList prices={prices} /> : <Text tone="muted">{strings.costs.empty}</Text>}
+                  {menus.length > 0 ? (
+                    <MenuGallery menus={menus} onDelete={removeMenu} canDelete={(m) => m.is_own || isAdmin} />
+                  ) : (
+                    <Text tone="muted">{strings.costs.noMenu}</Text>
+                  )}
                 </Section>
               ) : null}
 
@@ -518,7 +614,7 @@ export default function PlaceScreen() {
                   </View>
                 ) : (
                   <View style={styles.reviews}>
-                    <RatingDistribution reviews={reviews} avg={place.rating_avg} />
+                    <RatingDistribution reviews={reviews.filter((r) => r.status === 'visible')} avg={place.rating_avg} />
                     {!user && lockedTexts > 0 ? (
                       <SignupGate
                         title={strings.funnel.lockedReviewsTitle(lockedTexts)}
@@ -560,23 +656,6 @@ export default function PlaceScreen() {
                   )}
                 </Section>
               ) : null}
-
-              <Section title={strings.place.speedTests}>
-                {!wide ? speedTest : null}
-                {!user ? (
-                  place.speed_test_count > 0 ? (
-                    <SignupGate compact title={strings.funnel.lockedSpeedTitle} body={strings.funnel.gateBody} />
-                  ) : (
-                    <Text tone="muted">{strings.place.speedTestsEmpty}</Text>
-                  )
-                ) : testsQuery.loading && !testsQuery.data ? (
-                  <Skeleton height={80} />
-                ) : (testsQuery.data ?? []).length === 0 ? (
-                  <Text tone="muted">{strings.place.speedTestsEmpty}</Text>
-                ) : (
-                  <SpeedTestHistory tests={testsQuery.data!} />
-                )}
-              </Section>
 
               {more.length > 0 ? (
                 <Section title={(coliving ? strings.place.alsoInColiving : strings.place.alsoIn)(place.city.name)}>
@@ -764,6 +843,12 @@ const styles = StyleSheet.create({
   },
   selfStart: {
     alignSelf: 'flex-start',
+  },
+  hoursPhotos: {
+    gap: spacing.sm,
+  },
+  wifiBlock: {
+    gap: spacing.sm,
   },
   footerLinks: {
     gap: spacing.sm,

@@ -1,20 +1,23 @@
+import { Image } from 'expo-image';
 import { useState } from 'react';
-import { Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Stars } from '@/components/Reviews';
 import { Badge, Icon, type IconName, Text } from '@/components/ui';
 import { communityFact, formatFactValue, type FactSummary } from '@/lib/facts';
-import { dayPassLabel, formatDate, formatMbps, formatMoney, hostFromUrl, liveWebsite } from '@/lib/format';
-import type { PriceSummary } from '@/lib/prices';
+import { dayPassLabel, formatDate, formatMbps, hostFromUrl, liveWebsite } from '@/lib/format';
+import { menuUrl } from '@/lib/storage';
 import { strings } from '@/lib/strings';
 import { colors, radius, scoreColor, spacing } from '@/lib/theme';
 import type {
   FactKey,
+  MenuKind,
   Place,
+  PlaceMenu,
   PlaceOffer,
   PlaceRatingStats,
   PlaceReview,
-  PriceItem,
+  PlaceWifiNote,
   SpeedTest,
   WebFacts,
 } from '@/lib/types';
@@ -95,7 +98,7 @@ function pick<T extends string>(value: T, map: Partial<Record<T, [string, Tone]>
 }
 
 /** Member answers (see VenueFactsList) take precedence over imported data. */
-export function hardFacts(place: Place, facts: FactSummary[] = []): FactLine[] {
+export function hardFacts(place: Place, facts: FactSummary[] = [], hasHoursPhotos = false): FactLine[] {
   const s = strings.place;
   const wf = place.web_facts ?? {};
   const lines: FactLine[] = [];
@@ -120,40 +123,6 @@ export function hardFacts(place: Place, facts: FactSummary[] = []): FactLine[] {
     });
     if (place.min_stay) lines.push({ icon: 'moon', label: s.minStay, value: place.min_stay, tone: 'neutral' });
   }
-
-  if (place.download_median_mbps !== null) {
-    const down = Number(place.download_median_mbps);
-    lines.push({
-      icon: 'activity',
-      label: s.wifiSpeed,
-      value: s.wifiMeasured(down, place.upload_median_mbps === null ? null : Number(place.upload_median_mbps), place.speed_test_count),
-      tone: down >= 25 ? 'good' : down >= 10 ? 'okay' : 'bad',
-    });
-  } else {
-    lines.push({
-      icon: 'activity',
-      label: s.wifiSpeed,
-      value: null,
-      tone: 'unknown',
-      empty: s.wifiNotMeasured,
-      hint: wf.advertised_mbps ? s.advertisedMbps(wf.advertised_mbps.value) : undefined,
-    });
-  }
-
-  const wifiFact = community('wifi');
-  if (wifiFact) {
-    lines.push({ icon: 'wifi', label: s.wifi, value: wifiFact.value ? s.wifi_yes : s.wifi_no, tone: wifiFact.value ? 'good' : 'bad' });
-  } else {
-    const [wifi, wifiTone] = pick(place.wifi, { yes: [s.wifi_yes, 'good'], no: [s.wifi_no, 'bad'] });
-    lines.push({ icon: 'wifi', label: s.wifi, value: wifi ?? (wf.wifi_mentioned ? s.wifi_yes : null), tone: wifi ? wifiTone : wf.wifi_mentioned ? 'good' : 'unknown' });
-  }
-
-  const [fee, feeTone] = pick(place.internet_fee, {
-    no: [s.internetFee_no, 'good'],
-    customers: [s.internetFee_customers, 'good'],
-    yes: [s.internetFee_yes, 'okay'],
-  });
-  lines.push({ icon: 'credit-card', label: s.internetFee, value: fee, tone: feeTone });
 
   const [power, powerTone] = pick(place.power_outlets, {
     plenty: [s.power_plenty, 'good'],
@@ -188,7 +157,16 @@ export function hardFacts(place: Place, facts: FactSummary[] = []): FactLine[] {
   }
 
   const hours = community('opening_hours')?.display ?? place.opening_hours ?? wf.opening_hours?.value ?? null;
-  if (!coliving || hours) lines.push({ icon: 'clock', label: s.openingHours, value: hours, tone: hours ? 'neutral' : 'unknown' });
+  if (!coliving || hours || hasHoursPhotos) {
+    lines.push({
+      icon: 'clock',
+      label: s.openingHours,
+      value: hours,
+      tone: hours ? 'neutral' : 'unknown',
+      hint: hours && hasHoursPhotos ? s.hoursSeePhoto : undefined,
+      empty: hasHoursPhotos ? s.hoursSeePhoto : undefined,
+    });
+  }
 
   const laptopsFact = community('laptops');
   const laptops =
@@ -222,6 +200,48 @@ export function hardFacts(place: Place, facts: FactSummary[] = []): FactLine[] {
   if (website) {
     lines.push({ icon: 'globe', label: s.website, value: hostFromUrl(website), tone: 'neutral', onPress: () => void Linking.openURL(website) });
   }
+  return lines;
+}
+
+/** Speed, availability and fee; shown in the Wi-Fi section. */
+export function wifiFacts(place: Place, facts: FactSummary[] = []): FactLine[] {
+  const s = strings.place;
+  const wf = place.web_facts ?? {};
+  const lines: FactLine[] = [];
+
+  if (place.download_median_mbps !== null) {
+    const down = Number(place.download_median_mbps);
+    lines.push({
+      icon: 'activity',
+      label: s.wifiSpeed,
+      value: s.wifiMeasured(down, place.upload_median_mbps === null ? null : Number(place.upload_median_mbps), place.speed_test_count),
+      tone: down >= 25 ? 'good' : down >= 10 ? 'okay' : 'bad',
+    });
+  } else {
+    lines.push({
+      icon: 'activity',
+      label: s.wifiSpeed,
+      value: null,
+      tone: 'unknown',
+      empty: s.wifiNotMeasured,
+      hint: wf.advertised_mbps ? s.advertisedMbps(wf.advertised_mbps.value) : undefined,
+    });
+  }
+
+  const wifiFact = communityFact(facts, 'wifi');
+  if (wifiFact) {
+    lines.push({ icon: 'wifi', label: s.wifi, value: wifiFact.value ? s.wifi_yes : s.wifi_no, tone: wifiFact.value ? 'good' : 'bad' });
+  } else {
+    const [wifi, wifiTone] = pick(place.wifi, { yes: [s.wifi_yes, 'good'], no: [s.wifi_no, 'bad'] });
+    lines.push({ icon: 'wifi', label: s.wifi, value: wifi ?? (wf.wifi_mentioned ? s.wifi_yes : null), tone: wifi ? wifiTone : wf.wifi_mentioned ? 'good' : 'unknown' });
+  }
+
+  const [fee, feeTone] = pick(place.internet_fee, {
+    no: [s.internetFee_no, 'good'],
+    customers: [s.internetFee_customers, 'good'],
+    yes: [s.internetFee_yes, 'okay'],
+  });
+  lines.push({ icon: 'credit-card', label: s.internetFee, value: fee, tone: feeTone });
   return lines;
 }
 
@@ -295,13 +315,18 @@ function factCaption(f: FactSummary): string {
   return f.method === 'average' ? s.factAverage(f.agreeing) : s.factAgree(f.agreeing, total);
 }
 
-export function VenueFactsList({ facts, web }: { facts: FactSummary[]; web: WebFacts }) {
+export function VenueFactsList({ facts, web, pendingNote }: { facts: FactSummary[]; web: WebFacts; pendingNote?: string | null }) {
   const [open, setOpen] = useState<FactKey | null>(null);
   return (
     <View style={styles.box}>
       <Text variant="caption" tone="muted">
         {strings.place.venueFactsHint}
       </Text>
+      {pendingNote ? (
+        <Text variant="caption" tone="muted">
+          {pendingNote}
+        </Text>
+      ) : null}
       <View style={styles.table}>
         {facts.map((f, i) => {
           const expanded = open === f.key;
@@ -369,67 +394,8 @@ export function VenueFactsList({ facts, web }: { facts: FactSummary[]; web: WebF
 }
 
 // ---------------------------------------------------------------------------
-// Costs: member prices and offers
+// Offers
 // ---------------------------------------------------------------------------
-
-export function PriceList({ prices }: { prices: PriceSummary[] }) {
-  const [open, setOpen] = useState<PriceItem | null>(null);
-  const c = strings.costs;
-  return (
-    <View style={styles.box}>
-      <Text variant="caption" tone="muted">
-        {c.hint}
-      </Text>
-      <View style={styles.table}>
-        {prices.map((p, i) => {
-          const expanded = open === p.item;
-          const range = p.min !== p.max ? ` · ${c.range(formatMoney(p.min, p.currency), formatMoney(p.max, p.currency))}` : '';
-          return (
-            <View key={p.item} style={[styles.venueFact, i === prices.length - 1 && styles.factRowLast]}>
-              <Pressable
-                onPress={() => setOpen(expanded ? null : p.item)}
-                accessibilityRole="button"
-                accessibilityState={{ expanded }}
-                style={styles.venueFactHead}
-              >
-                <Text variant="small" tone="muted" style={styles.venueFactLabel}>
-                  {c.items[p.item]}
-                </Text>
-                <View style={styles.factValue}>
-                  <Text variant="smallStrong" align="right">
-                    {formatMoney(p.amount, p.currency)}
-                  </Text>
-                  <Text variant="caption" tone="faint" align="right">
-                    {(p.count === 1 ? c.oneEntry : c.entries(p.count)) + range}
-                  </Text>
-                </View>
-                <Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={colors.textFaint} />
-              </Pressable>
-              {expanded ? (
-                <View style={styles.sources}>
-                  {p.entries.map((e, k) => (
-                    <View key={k} style={styles.source}>
-                      <View style={styles.sourceHead}>
-                        <Icon name="user" size={13} color={colors.textMuted} />
-                        <Text variant="small" style={styles.sourceName}>
-                          {`${e.author_name ?? strings.place.factAuthorHidden}${e.is_own ? ' (you)' : ''}`}
-                        </Text>
-                        <Text variant="smallStrong">{formatMoney(e.amount, e.currency)}</Text>
-                      </View>
-                      <Text variant="caption" tone="faint" style={styles.sourceMeta}>
-                        {formatDate(e.updated_at)}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
-            </View>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
 
 async function copyText(text: string): Promise<boolean> {
   const nav = typeof navigator !== 'undefined' ? navigator : null;
@@ -510,6 +476,11 @@ function OfferCard({ offer, onDelete }: { offer: PlaceOffer; onDelete?: () => vo
           {`${c.sharedBy(offer.author_name)}${offer.is_own ? ' (you)' : ''} · ${formatDate(offer.created_at)}`}
         </Text>
       ) : null}
+      {offer.is_own && offer.status === 'pending' ? (
+        <Text variant="caption" tone="muted">
+          {strings.account.underReview}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -531,6 +502,143 @@ export function OfferList({
       {offers.map((o) => (
         <OfferCard key={o.id} offer={o} onDelete={onDelete && canDelete?.(o) ? () => onDelete(o) : undefined} />
       ))}
+    </View>
+  );
+}
+
+const GALLERY_LABELS: Record<MenuKind, { hint: string; open: string; delete: string }> = {
+  menu: { hint: strings.costs.menuHint, open: strings.costs.openMenu, delete: strings.costs.deleteMenu },
+  hours: { hint: strings.place.hoursPhotosHint, open: strings.place.openHoursPhoto, delete: strings.place.deleteHoursPhoto },
+};
+
+export function MenuGallery({
+  menus,
+  kind = 'menu',
+  showHint = true,
+  onDelete,
+  canDelete,
+}: {
+  menus: PlaceMenu[];
+  kind?: MenuKind;
+  showHint?: boolean;
+  onDelete?: (menu: PlaceMenu) => void;
+  canDelete?: (menu: PlaceMenu) => boolean;
+}) {
+  const c = strings.costs;
+  const labels = GALLERY_LABELS[kind];
+  const [open, setOpen] = useState<PlaceMenu | null>(null);
+  return (
+    <View style={styles.box}>
+      {showHint ? (
+        <Text variant="caption" tone="muted">
+          {labels.hint}
+        </Text>
+      ) : null}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.menuRow}>
+        {menus.map((m) => (
+          <View key={m.id} style={styles.menuItem}>
+            <Pressable onPress={() => setOpen(m)} accessibilityRole="imagebutton" accessibilityLabel={labels.open}>
+              <Image source={{ uri: menuUrl(m.path) }} style={styles.menuThumb} contentFit="cover" transition={150} />
+            </Pressable>
+            <View style={styles.menuMeta}>
+              <View style={styles.flex}>
+                <Text variant="caption" tone="muted">
+                  {formatDate(m.created_at)}
+                </Text>
+                {m.author_name ? (
+                  <Text variant="caption" tone="faint" numberOfLines={1}>
+                    {`${c.menuBy(m.author_name)}${m.is_own ? ' (you)' : ''}`}
+                  </Text>
+                ) : null}
+                {m.is_own && m.status === 'pending' ? (
+                  <Text variant="caption" tone="muted">
+                    {strings.account.underReview}
+                  </Text>
+                ) : null}
+              </View>
+              {onDelete && canDelete?.(m) ? (
+                <Pressable onPress={() => onDelete(m)} accessibilityRole="button" accessibilityLabel={labels.delete} hitSlop={8}>
+                  <Icon name="trash-2" size={14} color={colors.textMuted} />
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+        ))}
+      </ScrollView>
+      <ImageViewer uri={open ? menuUrl(open.path) : null} onClose={() => setOpen(null)} />
+    </View>
+  );
+}
+
+function ImageViewer({ uri, onClose }: { uri: string | null; onClose: () => void }) {
+  return (
+    <Modal visible={uri !== null} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.viewer}>
+        {uri ? <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="contain" /> : null}
+        <Pressable
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel={strings.costs.closeMenu}
+          hitSlop={12}
+          style={styles.viewerClose}
+        >
+          <Icon name="x" size={22} color="#fff" />
+        </Pressable>
+      </View>
+    </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Wi-Fi notes (members only)
+// ---------------------------------------------------------------------------
+
+export function WifiNoteList({
+  notes,
+  showHint = true,
+  onDelete,
+  canDelete,
+}: {
+  notes: PlaceWifiNote[];
+  showHint?: boolean;
+  onDelete?: (note: PlaceWifiNote) => void;
+  canDelete?: (note: PlaceWifiNote) => boolean;
+}) {
+  const w = strings.wifi;
+  const [open, setOpen] = useState<string | null>(null);
+  return (
+    <View style={styles.box}>
+      {showHint ? (
+        <Text variant="caption" tone="muted">
+          {w.notesHint}
+        </Text>
+      ) : null}
+      {notes.map((n) => (
+        <View key={n.id} style={styles.offer}>
+          <View style={styles.offerHead}>
+            <Icon name="user" size={13} color={colors.textMuted} />
+            <Text variant="caption" tone="muted" style={styles.flex} numberOfLines={1}>
+              {`${n.author_name ?? strings.place.factAuthorHidden}${n.is_own ? ' (you)' : ''} · ${formatDate(n.created_at)}`}
+            </Text>
+            {onDelete && canDelete?.(n) ? (
+              <Pressable onPress={() => onDelete(n)} accessibilityRole="button" accessibilityLabel={w.deleteNote} hitSlop={8}>
+                <Icon name="trash-2" size={15} color={colors.textMuted} />
+              </Pressable>
+            ) : null}
+          </View>
+          {n.body ? (
+            <Text variant="small" selectable>
+              {n.body}
+            </Text>
+          ) : null}
+          {n.photo_url ? (
+            <Pressable onPress={() => setOpen(n.photo_url)} accessibilityRole="imagebutton" accessibilityLabel={w.openPhoto}>
+              <Image source={{ uri: n.photo_url }} style={styles.wifiThumb} contentFit="cover" transition={150} />
+            </Pressable>
+          ) : null}
+        </View>
+      ))}
+      <ImageViewer uri={open} onClose={() => setOpen(null)} />
     </View>
   );
 }
@@ -617,28 +725,38 @@ export function SpeedTestHistory({ tests }: { tests: SpeedTest[] }) {
   return (
     <View style={styles.table}>
       {tests.map((t, i) => (
-        <View key={t.id} style={[styles.factRow, i === tests.length - 1 && styles.factRowLast]}>
-          <View style={styles.factLabel}>
-            <Icon name={t.on_site ? 'map-pin' : 'help-circle'} size={14} color={t.on_site ? colors.success : colors.textFaint} />
-            <View>
-              <Text variant="small">
-                {t.author_name ?? 'Cosurfer'}
-                {t.is_own ? ' (you)' : ''}
+        <View key={t.id} style={[styles.testRow, i === tests.length - 1 && styles.factRowLast]}>
+          <View style={styles.testMain}>
+            <View style={styles.factLabel}>
+              <Icon name={t.on_site ? 'map-pin' : 'help-circle'} size={14} color={t.on_site ? colors.success : colors.textFaint} />
+              <View>
+                <Text variant="small">
+                  {t.author_name ?? 'Cosurfer'}
+                  {t.is_own ? ' (you)' : ''}
+                </Text>
+                <Text variant="caption" tone="faint">
+                  {formatDate(t.created_at)} · {t.on_site ? strings.place.onSite : strings.place.notOnSite}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.factValue}>
+              <Text variant="smallStrong" align="right">
+                ↓ {formatMbps(Number(t.download_mbps))}
               </Text>
-              <Text variant="caption" tone="faint">
-                {formatDate(t.created_at)} · {t.on_site ? strings.place.onSite : strings.place.notOnSite}
+              <Text variant="caption" tone="muted" align="right">
+                {t.upload_mbps !== null ? `↑ ${formatMbps(Number(t.upload_mbps))}` : ''}
+                {t.ping_ms !== null ? ` · ${t.ping_ms} ms` : ''}
               </Text>
             </View>
           </View>
-          <View style={styles.factValue}>
-            <Text variant="smallStrong" align="right">
-              ↓ {formatMbps(Number(t.download_mbps))}
-            </Text>
-            <Text variant="caption" tone="muted" align="right">
-              {t.upload_mbps !== null ? `↑ ${formatMbps(Number(t.upload_mbps))}` : ''}
-              {t.ping_ms !== null ? ` · ${t.ping_ms} ms` : ''}
-            </Text>
-          </View>
+          {t.note ? (
+            <View style={styles.testNote}>
+              <Icon name="message-square" size={13} color={colors.textMuted} />
+              <Text variant="small" tone="muted" style={styles.flex} selectable>
+                {t.note}
+              </Text>
+            </View>
+          ) : null}
         </View>
       ))}
     </View>
@@ -689,6 +807,24 @@ const styles = StyleSheet.create({
   },
   factRowLast: {
     borderBottomWidth: 0,
+  },
+  testRow: {
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  testMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  testNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    paddingLeft: 22,
   },
   factLabel: {
     flexDirection: 'row',
@@ -781,6 +917,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     alignSelf: 'flex-start',
+  },
+  menuRow: {
+    gap: spacing.md,
+  },
+  menuItem: {
+    width: 132,
+    gap: spacing.xs,
+  },
+  menuThumb: {
+    width: 132,
+    height: 176,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bgMuted,
+  },
+  wifiThumb: {
+    width: 160,
+    height: 160,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bgMuted,
+  },
+  menuMeta: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+  },
+  viewer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+  },
+  viewerClose: {
+    position: 'absolute',
+    top: spacing.xl,
+    right: spacing.lg,
+    padding: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   distribution: {
     flexDirection: 'row',

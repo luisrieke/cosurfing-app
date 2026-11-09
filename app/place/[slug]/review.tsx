@@ -5,26 +5,36 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { RequireAuth } from '@/components/RequireAuth';
+import { MenuGallery } from '@/components/place/PlaceSections';
 import { Stars } from '@/components/Reviews';
 import { ScoreBadge } from '@/components/ScoreBadge';
 import { Button, CategoryBadge, Chip, EmptyState, Icon, Input, Notice, Screen, Skeleton, Text, TopBar } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
 import { FACT_KEYS, dayPassCurrency, factAppliesTo, formatFactValue, summarizeFacts } from '@/lib/facts';
-import { MAX_USER_PHOTOS_PER_UPLOAD, pickImages, uploadPlacePhoto } from '@/lib/photoUpload';
+import {
+  MAX_MENU_PHOTOS_PER_UPLOAD,
+  MAX_USER_PHOTOS_PER_UPLOAD,
+  MenuLimitError,
+  deletePlaceMenu,
+  pickImages,
+  uploadPlaceMenu,
+  uploadPlacePhoto,
+} from '@/lib/photoUpload';
 import {
   deleteReview,
   getMyFacts,
   getMyReview,
   getPlaceBySlug,
   getPlaceFacts,
+  getPlaceMenus,
   getPlacesToRate,
   savePlaceFacts,
   upsertReview,
 } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
-import type { FactInput, FactKey, FactValue, ReviewInput, WebFacts } from '@/lib/types';
+import type { FactInput, FactKey, FactValue, PlaceMenu, ReviewInput, WebFacts } from '@/lib/types';
 
 type DetailKey = 'wifi_rating' | 'power_rating' | 'quiet_rating' | 'comfort_rating' | 'value_rating';
 
@@ -97,7 +107,8 @@ export default function ReviewRoute() {
 
 function ReviewScreen({ slug }: { slug: string }) {
   const router = useRouter();
-  const { user, refresh } = useAuth();
+  const { user, refresh, isAdmin, isLocalGuide } = useAuth();
+  const photosGoLive = isAdmin || isLocalGuide;
   const placeQuery = useQuery(`place:${slug}`, () => getPlaceBySlug(slug));
   const place = placeQuery.data ?? null;
   const mineQuery = useQuery(`my-review:${place?.id}:${user?.id}`, () => getMyReview(user!.id, place!.id), Boolean(place && user));
@@ -117,6 +128,10 @@ function ReviewScreen({ slug }: { slug: string }) {
   const [facts, setFacts] = useState<FactDraft>(() => toDraft({}));
   const [factError, setFactError] = useState<{ key: FactKey; message: string } | null>(null);
   const [factsHydrated, setFactsHydrated] = useState(false);
+  const menusQuery = useQuery(`menus:${place?.id}:${user?.id}`, () => getPlaceMenus(place!.id), Boolean(place && user));
+  const [hoursBusy, setHoursBusy] = useState<string | null>(null);
+  const [hoursError, setHoursError] = useState<string | null>(null);
+  const [hoursSaved, setHoursSaved] = useState(0);
 
   // Prefill from the existing review once it has loaded (state adjustment during render, no effect).
   if (!hydrated && mineQuery.data !== undefined) {
@@ -205,6 +220,39 @@ function ReviewScreen({ slug }: { slug: string }) {
     }
   };
 
+  const uploadHours = async () => {
+    if (!user || !place) return;
+    setHoursError(null);
+    setHoursSaved(0);
+    let done = 0;
+    try {
+      const uris = await pickImages(MAX_MENU_PHOTOS_PER_UPLOAD);
+      if (uris.length === 0) return;
+      for (const uri of uris) {
+        setHoursBusy(strings.review.hoursUploading(done + 1, uris.length));
+        await uploadPlaceMenu(place.id, user.id, uri, 'hours');
+        done += 1;
+      }
+    } catch (e) {
+      const message = e instanceof MenuLimitError ? strings.review.hoursLimit : e instanceof Error ? e.message : strings.common.somethingWentWrong;
+      setHoursError(message);
+    } finally {
+      setHoursBusy(null);
+      setHoursSaved(done);
+      if (done > 0) void menusQuery.refetch(true);
+    }
+  };
+
+  const removeHours = async (m: PlaceMenu) => {
+    setHoursError(null);
+    try {
+      await deletePlaceMenu(m);
+      void menusQuery.refetch(true);
+    } catch (e) {
+      setHoursError(e instanceof Error ? e.message : strings.common.somethingWentWrong);
+    }
+  };
+
   const remove = async () => {
     if (!user || !place) return;
     setBusy(true);
@@ -245,7 +293,9 @@ function ReviewScreen({ slug }: { slug: string }) {
         </Head>
         <TopBar title={place.name} onBack={() => router.replace(`/place/${slug}`)} />
         <View style={styles.thanks}>
-          <Text variant="title">{strings.review.saved}</Text>
+          <Text variant="title">
+          {photosGoLive ? strings.review.saved : done.isNew ? strings.review.savedPending : strings.review.editPendingNote}
+        </Text>
           {done.isNew ? (
             <View style={styles.points}>
               <Text variant="bodyStrong" tone="inverse">
@@ -254,7 +304,7 @@ function ReviewScreen({ slug }: { slug: string }) {
             </View>
           ) : null}
         </View>
-        {done.photosSent > 0 ? <Notice tone="success" body={strings.photos.thanks(done.photosSent)} /> : null}
+        {done.photosSent > 0 ? <Notice tone="success" body={photosGoLive ? strings.photos.thanksLive(done.photosSent) : strings.photos.thanks(done.photosSent)} /> : null}
         {done.photosFailed > 0 ? <Notice tone="danger" body={strings.review.photosFailed(done.photosFailed)} /> : null}
 
         <View style={styles.block}>
@@ -382,7 +432,7 @@ function ReviewScreen({ slug }: { slug: string }) {
           if (key === 'opening_hours' || key === 'day_pass') {
             const isHours = key === 'opening_hours';
             const currency = dayPassCurrency(web);
-            return (
+            const input = (
               <Input
                 key={key}
                 label={isHours ? label : `${label} (${currency})`}
@@ -394,6 +444,36 @@ function ReviewScreen({ slug }: { slug: string }) {
                 error={factError?.key === key ? factError.message : null}
                 hint={currently}
               />
+            );
+            if (!isHours) return input;
+            const myHoursPhotos = (menusQuery.data ?? []).filter((m) => m.kind === 'hours' && m.is_own);
+            return (
+              <View key={key} style={styles.block}>
+                {input}
+                <Text variant="caption" tone="muted">
+                  {strings.review.hoursPhotosHint}
+                </Text>
+                {myHoursPhotos.length > 0 ? (
+                  <MenuGallery kind="hours" showHint={false} menus={myHoursPhotos} onDelete={removeHours} canDelete={() => true} />
+                ) : null}
+                {hoursError ? <Notice tone="danger" body={hoursError} /> : null}
+                {hoursSaved > 0 ? (
+                  <Notice
+                    tone="success"
+                    body={photosGoLive ? strings.review.hoursSaved(hoursSaved) : strings.review.hoursSavedPending(hoursSaved)}
+                  />
+                ) : null}
+                <Button
+                  title={hoursBusy ?? strings.review.addHoursPhotos}
+                  icon="camera"
+                  variant="secondary"
+                  size="sm"
+                  loading={hoursBusy !== null}
+                  disabled={hoursBusy !== null}
+                  onPress={uploadHours}
+                  style={styles.selfStart}
+                />
+              </View>
             );
           }
           return (
@@ -470,6 +550,7 @@ function ReviewScreen({ slug }: { slug: string }) {
         {photos.length > 0 ? (
           <Text variant="caption" tone="muted">
             {strings.photos.rules}
+            {photosGoLive ? '' : ` ${strings.photos.reviewNote}`}
           </Text>
         ) : null}
         {photoError ? <Notice tone="danger" body={photoError} /> : null}

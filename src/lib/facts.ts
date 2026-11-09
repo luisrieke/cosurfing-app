@@ -133,7 +133,7 @@ export function summarizeFacts(web: WebFacts, entries: PlaceFactEntry[]): FactSu
   const out: FactSummary[] = [];
   for (const key of FACT_KEYS) {
     const sources: FactSource[] = entries
-      .filter((e) => e.key === key)
+      .filter((e) => e.key === key && (e.status == null || e.status === 'approved'))
       .map((e, i) => ({
         id: `user-${i}`,
         from: 'user' as const,

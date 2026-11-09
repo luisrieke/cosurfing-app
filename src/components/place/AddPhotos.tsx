@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Button, Notice, Text } from '@/components/ui';
+import { useAuth } from '@/lib/auth';
 import { MAX_USER_PHOTOS_PER_UPLOAD, pickImages, uploadPlacePhoto } from '@/lib/photoUpload';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
@@ -13,8 +14,13 @@ interface AddPhotosProps {
   onSignIn: () => void;
 }
 
-/** "Add photos" for signed-in users: pick, upload as pending. Usage rights are covered by the Terms accepted at sign-up. */
+/**
+ * "Add photos" for signed-in users: pick, upload as pending (admins and local guides go live right away).
+ * Usage rights are covered by the Terms accepted at sign-up.
+ */
 export function AddPhotos({ placeId, userId, onSignIn }: AddPhotosProps) {
+  const { isAdmin, isLocalGuide } = useAuth();
+  const goesLive = isAdmin || isLocalGuide;
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
@@ -58,7 +64,7 @@ export function AddPhotos({ placeId, userId, onSignIn }: AddPhotosProps) {
   if (!open) {
     return (
       <View style={styles.wrap}>
-        {sent > 0 ? <Notice tone="success" body={strings.photos.thanks(sent)} /> : null}
+        {sent > 0 ? <Notice tone="success" body={goesLive ? strings.photos.thanksLive(sent) : strings.photos.thanks(sent)} /> : null}
         <Button title={strings.photos.add} icon="camera" variant="secondary" size="sm" onPress={start} style={styles.selfStart} />
       </View>
     );
@@ -69,6 +75,7 @@ export function AddPhotos({ placeId, userId, onSignIn }: AddPhotosProps) {
       <Text variant="bodyStrong">{strings.photos.title}</Text>
       <Text variant="small" tone="muted">
         {strings.photos.rules}
+        {goesLive ? '' : ` ${strings.photos.reviewNote}`}
       </Text>
       {error ? <Notice tone="danger" body={error} /> : null}
       <View style={styles.actions}>

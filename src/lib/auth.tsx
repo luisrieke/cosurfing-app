@@ -22,6 +22,8 @@ interface AuthState {
   entitlement: Entitlement | null;
   isPlus: boolean;
   isAdmin: boolean;
+  /** Trusted contributor: new changes go live without admin review. */
+  isLocalGuide: boolean;
   favoriteIds: Set<string>;
   refresh: () => Promise<void>;
   toggleFavorite: (placeId: string) => Promise<void>;
@@ -38,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [entitlement, setEntitlement] = useState<Entitlement | null>(null);
   const [isPlus, setIsPlus] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isLocalGuide, setIsLocalGuide] = useState(false);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const loadId = useRef(0);
 
@@ -48,14 +51,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setEntitlement(null);
       setIsPlus(false);
       setIsAdmin(false);
+      setIsLocalGuide(false);
       setFavoriteIds(new Set());
       return;
     }
-    const [profileRes, entitlementRes, plusRes, adminRes, favRes] = await Promise.allSettled([
+    const [profileRes, entitlementRes, plusRes, adminRes, guideRes, favRes] = await Promise.allSettled([
       getProfile(user.id),
       getEntitlement(user.id),
       supabase.rpc('is_plus'),
       supabase.rpc('is_admin'),
+      supabase.rpc('is_local_guide'),
       getFavoriteIds(user.id),
     ]);
     if (id !== loadId.current) return;
@@ -63,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setEntitlement(entitlementRes.status === 'fulfilled' ? entitlementRes.value : null);
     setIsPlus(plusRes.status === 'fulfilled' ? Boolean(plusRes.value.data) : false);
     setIsAdmin(adminRes.status === 'fulfilled' ? Boolean(adminRes.value.data) : false);
+    setIsLocalGuide(guideRes.status === 'fulfilled' ? Boolean(guideRes.value.data) : false);
     setFavoriteIds(favRes.status === 'fulfilled' ? favRes.value : new Set());
   }, []);
 
@@ -134,12 +140,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       entitlement,
       isPlus,
       isAdmin,
+      isLocalGuide,
       favoriteIds,
       refresh,
       toggleFavorite,
       signOut,
     }),
-    [ready, session, profile, entitlement, isPlus, isAdmin, favoriteIds, refresh, toggleFavorite, signOut],
+    [ready, session, profile, entitlement, isPlus, isAdmin, isLocalGuide, favoriteIds, refresh, toggleFavorite, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

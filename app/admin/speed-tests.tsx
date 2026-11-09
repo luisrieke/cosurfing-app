@@ -37,6 +37,7 @@ function subtitle(t: AdminSpeedTest): string {
     parts.push(`${Math.round(Number(t.distance_m))} m away${accuracy}`);
   }
   if (t.network_type !== 'unknown') parts.push(t.network_type);
+  if (t.note) parts.push(`“${t.note}”`);
   return parts.join(' · ');
 }
 

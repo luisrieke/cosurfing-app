@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { LevelMark, ProfileLink, UserAvatar } from '@/components/UserBadge';
 import { Button, Icon, Text } from '@/components/ui';
 import { formatDate } from '@/lib/format';
-import { levelFor } from '@/lib/levels';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
 import type { PlaceReview } from '@/lib/types';
@@ -98,35 +98,34 @@ export function ReviewItem({ review, onUnlock, unlocking }: ReviewItemProps) {
     { label: parts.value, value: review.value_rating },
   ];
   const shown = details.filter((d) => d.value !== null);
+  const name = review.author_name ?? 'Cosurfer';
   return (
     <View style={styles.item}>
       <View style={styles.itemHeader}>
-        <View style={styles.avatar}>
-          <Text variant="smallStrong" tone="accent">
-            {(review.author_name ?? 'C').charAt(0).toUpperCase()}
-          </Text>
-        </View>
-        <View style={styles.itemHeaderText}>
-          <Text variant="smallStrong">
-            {review.author_name ?? 'Cosurfer'}
-            {review.is_own ? (
-              <Text variant="small" tone="muted">
-                {'  '}(you)
-              </Text>
-            ) : null}
-          </Text>
-          <Stars value={review.rating} size={14} />
-        </View>
-        <View style={styles.itemMeta}>
-          <Text variant="caption" tone="faint">
-            {formatDate(review.created_at)}
-          </Text>
-          {review.author_points !== null ? (
-            <Text variant="caption" tone="muted">
-              {levelFor(review.author_points).name}
+        <ProfileLink userId={review.author_id}>
+          <UserAvatar name={name} path={review.author_avatar_path} />
+          <View style={styles.itemHeaderText}>
+            <Text variant="smallStrong">
+              {name}
+              {review.is_own ? (
+                <Text variant="small" tone="muted">
+                  {'  '}(you)
+                </Text>
+              ) : null}
             </Text>
-          ) : null}
-        </View>
+            {review.author_points !== null ? (
+              <LevelMark
+                points={review.author_points}
+                pending={review.author_points_pending ?? 0}
+                guide={review.author_is_guide}
+              />
+            ) : null}
+            <Stars value={review.rating} size={14} />
+          </View>
+        </ProfileLink>
+        <Text variant="caption" tone="faint">
+          {formatDate(review.created_at)}
+        </Text>
       </View>
       {shown.length > 0 || review.calls_ok !== null ? (
         <View style={styles.details}>
@@ -156,6 +155,26 @@ export function ReviewItem({ review, onUnlock, unlocking }: ReviewItemProps) {
           {strings.review.hiddenNote}
         </Text>
       ) : null}
+      {review.status === 'pending' ? (
+        <Text variant="caption" tone="muted">
+          {strings.review.pendingNote}
+        </Text>
+      ) : null}
+      {review.status === 'rejected' ? (
+        <Text variant="caption" tone="danger">
+          {strings.review.rejectedNote}
+        </Text>
+      ) : null}
+      {review.edit_status === 'pending' ? (
+        <Text variant="caption" tone="muted">
+          {strings.review.editPendingNote}
+        </Text>
+      ) : null}
+      {review.edit_status === 'rejected' ? (
+        <Text variant="caption" tone="danger">
+          {strings.review.editRejectedNote}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -179,10 +198,7 @@ const styles = StyleSheet.create({
   itemHeaderText: {
     flex: 1,
     gap: 2,
-  },
-  itemMeta: {
-    alignItems: 'flex-end',
-    gap: 2,
+    minWidth: 0,
   },
   details: {
     flexDirection: 'row',

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { SignupGate } from '@/components/SignupGate';
-import { Button, Icon, Notice, Text } from '@/components/ui';
+import { Button, Icon, Input, Notice, Text } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { stashSpeedTest, takeStashedSpeedTest } from '@/lib/funnel';
 import { saveSpeedTest } from '@/lib/queries';
@@ -20,6 +20,7 @@ export function SpeedTestPanel({ placeId, onSaved }: { placeId: string; onSaved:
   const { user, refresh } = useAuth();
   const [state, setState] = useState<State>({ kind: 'idle' });
   const [saving, setSaving] = useState(false);
+  const [note, setNote] = useState('');
   const [message, setMessage] = useState<{ tone: 'success' | 'danger' | 'warning'; text: string } | null>(null);
 
   // A result measured before signing up comes back here after the sign-in redirect.
@@ -76,12 +77,14 @@ export function SpeedTestPanel({ placeId, onSaved }: { placeId: string; onSaved:
         uploadMbps: state.result.uploadMbps,
         pingMs: state.result.pingMs,
         ...state.context,
+        note: note.trim() || null,
       });
       setMessage({
         tone: verification === 'verified' ? 'success' : 'warning',
         text: strings.speedtest.verification[verification],
       });
       setState({ kind: 'idle' });
+      setNote('');
       onSaved();
       void refresh();
     } catch (e) {
@@ -129,10 +132,23 @@ export function SpeedTestPanel({ placeId, onSaved }: { placeId: string; onSaved:
 
       {state.kind === 'done' ? (
         user ? (
-          <View style={styles.actions}>
-            <Button title={strings.speedtest.save} icon="check" onPress={() => void save()} loading={saving} />
-            <Button title={strings.speedtest.again} variant="ghost" onPress={() => void start()} disabled={saving} />
-          </View>
+          <>
+            <Input
+              label={strings.speedtest.noteLabel}
+              optional
+              value={note}
+              onChangeText={setNote}
+              placeholder={strings.speedtest.notePlaceholder}
+              hint={strings.speedtest.noteHint}
+              maxLength={280}
+              multiline
+              style={styles.note}
+            />
+            <View style={styles.actions}>
+              <Button title={strings.speedtest.save} icon="check" onPress={() => void save()} loading={saving} />
+              <Button title={strings.speedtest.again} variant="ghost" onPress={() => void start()} disabled={saving} />
+            </View>
+          </>
         ) : (
           <SignupGate compact title={strings.speedtest.signUpToSave} />
         )
@@ -211,6 +227,9 @@ const styles = StyleSheet.create({
   },
   meterActive: {
     borderColor: colors.accent,
+  },
+  note: {
+    minHeight: 72,
   },
   actions: {
     flexDirection: 'row',

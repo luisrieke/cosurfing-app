@@ -34,7 +34,7 @@ import { useUserLocation } from '@/hooks/useUserLocation';
 import { useAuth } from '@/lib/auth';
 import { formatMbps } from '@/lib/format';
 import { canShowInterstitial, dismissInterstitial, markInterstitialShown, signUpHref } from '@/lib/funnel';
-import { levelFor } from '@/lib/levels';
+import { LevelMark, UserAvatar } from '@/components/UserBadge';
 import { getCityContributors, getCityRanking, getPlacesToRate, requestCityCrawl } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, layout, radius, spacing } from '@/lib/theme';
@@ -214,24 +214,26 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
           </Text>
         ) : (
           contributors.data.map((c) => (
-            <View key={c.rank} style={styles.contributor}>
-              <View style={styles.avatar}>
-                <Text variant="smallStrong" tone="accent">
-                  {(c.display_name ?? 'C').charAt(0).toUpperCase()}
-                </Text>
-              </View>
+            <Pressable
+              key={c.user_id}
+              style={styles.contributor}
+              onPress={() => router.push(`/u/${c.user_id}`)}
+              accessibilityRole="link"
+            >
+              <UserAvatar name={c.display_name ?? 'Cosurfer'} path={c.avatar_path} size={32} />
               <View style={styles.contributorText}>
                 <Text variant="smallStrong" numberOfLines={1}>
                   {c.display_name ?? 'Cosurfer'}
                 </Text>
+                <LevelMark points={c.points} pending={c.points_pending} guide={c.is_guide} />
                 <Text variant="caption" tone="muted">
-                  {levelFor(c.points).name} · {strings.city.contributorReviews(c.city_reviews)}
+                  {strings.city.contributorReviews(c.city_reviews)}
                 </Text>
               </View>
               <Text variant="caption" tone="faint">
                 {c.points} pts
               </Text>
-            </View>
+            </Pressable>
           ))
         )}
       </Glass>
@@ -636,14 +638,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-  },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   contributorText: {
     flex: 1,

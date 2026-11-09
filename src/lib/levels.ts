@@ -3,6 +3,14 @@ import { strings } from './strings';
 /** Points needed for each level, aligned with strings.levels.names. */
 const THRESHOLDS = [0, 10, 50, 150, 400, 1000] as const;
 
+/** Confirmed points at which a clean record becomes a Local Guide. */
+export const GUIDE_POINTS = 400;
+
+/** Level uses confirmed points. The public score also includes contributions still under review. */
+export function confirmedPoints(points: number, pending = 0): number {
+  return Math.max(0, points - Math.max(0, pending));
+}
+
 export interface Level {
   index: number;
   name: string;

@@ -8,7 +8,7 @@ import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
 import { signUpHref } from '@/lib/funnel';
-import { levelFor } from '@/lib/levels';
+import { confirmedPoints, levelFor } from '@/lib/levels';
 import { adminGetCounts } from '@/lib/queries';
 import { avatarUrl } from '@/lib/storage';
 import { strings } from '@/lib/strings';
@@ -41,11 +41,8 @@ export function SiteHeader({ back }: { back?: boolean }) {
   const counts = useQuery(`header-admin-counts:${user?.id}`, adminGetCounts, isAdmin);
   const narrow = width < 420;
   const points = profile?.points ?? 0;
-  const openAdmin =
-    (counts.data?.suggestions ?? 0) +
-    (counts.data?.reports ?? 0) +
-    (counts.data?.toVerify ?? 0) +
-    (counts.data?.pendingPhotos ?? 0);
+  const pending = profile?.points_pending ?? 0;
+  const openAdmin = (counts.data?.reports ?? 0) + (counts.data?.toVerify ?? 0) + (counts.data?.contributions ?? 0);
 
   const goBack = () => {
     if (router.canGoBack()) router.back();
@@ -107,16 +104,20 @@ export function SiteHeader({ back }: { back?: boolean }) {
               onPress={() => router.push('/admin')}
               accessibilityRole="button"
               accessibilityLabel={strings.nav.admin}
-              style={({ pressed }) => [styles.adminPill, pressed && { opacity: 0.85 }]}
+              style={({ pressed }) => [
+                styles.adminPill,
+                !isDesktop && styles.adminPillCompact,
+                pressed && { opacity: 0.85 },
+              ]}
             >
-              <Icon name="shield" size={14} color={colors.onAccent} />
-              {!narrow ? (
+              <Icon name="shield" size={isDesktop ? 14 : 16} color={colors.onAccent} />
+              {isDesktop ? (
                 <Text variant="smallStrong" tone="inverse">
                   {strings.nav.admin}
                 </Text>
               ) : null}
               {openAdmin > 0 ? (
-                <View style={styles.adminCount}>
+                <View style={[styles.adminCount, !isDesktop && styles.adminCountBadge]}>
                   <Text variant="caption" style={{ color: colors.accent }}>
                     {openAdmin > 99 ? '99+' : openAdmin}
                   </Text>
@@ -135,7 +136,7 @@ export function SiteHeader({ back }: { back?: boolean }) {
               <Text variant="smallStrong">{points}</Text>
               {isDesktop ? (
                 <Text variant="small" tone="muted">
-                  {levelFor(points).name}
+                  {levelFor(confirmedPoints(points, pending)).name}
                 </Text>
               ) : null}
               <View style={styles.avatar}>
@@ -260,6 +261,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.onAccent,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  adminPillCompact: {
+    width: 36,
+    paddingLeft: 0,
+    paddingRight: 0,
+    justifyContent: 'center',
+  },
+  adminCountBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    borderWidth: 1.5,
+    borderColor: colors.accent,
   },
   accountPill: {
     flexDirection: 'row',

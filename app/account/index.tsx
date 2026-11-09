@@ -10,7 +10,7 @@ import { Badge, Button, Card, CategoryBadge, Icon, Input, Notice, Screen, Sectio
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
 import { formatDate } from '@/lib/format';
-import { levelFor } from '@/lib/levels';
+import { confirmedPoints, GUIDE_POINTS, levelFor } from '@/lib/levels';
 import { adminGetCounts, getCityById, getFavoritePlaces, getMyReviews, updateDisplayName } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
@@ -35,7 +35,10 @@ function AccountScreen() {
   const reviews = useQuery(`my-reviews:${user?.id}`, () => getMyReviews(user!.id), Boolean(user));
   const homeCity = useQuery(`home-city:${profile?.home_city_id}`, () => getCityById(profile!.home_city_id!), Boolean(profile?.home_city_id));
   const points = profile?.points ?? 0;
-  const level = levelFor(points);
+  const pending = profile?.points_pending ?? 0;
+  const confirmed = confirmedPoints(points, pending);
+  const level = levelFor(confirmed);
+  const guide = Boolean(profile?.is_guide);
 
   // Re-sync the input when the profile (re)loads, without an effect.
   const profileName = profile?.display_name ?? null;
@@ -79,6 +82,7 @@ function AccountScreen() {
               <Text variant="bodyStrong">
                 {level.name} · {strings.levels.points(points)}
               </Text>
+              {guide ? <Badge label={strings.levels.localGuide} icon="award" tone="accent" /> : null}
               {isAdmin ? <Badge label={strings.nav.admin} icon="shield" tone="accent" /> : null}
             </View>
           </View>
@@ -87,7 +91,11 @@ function AccountScreen() {
           <View style={[styles.progressFill, { width: `${level.progress * 100}%` }]} />
         </View>
         <Text variant="caption" tone="muted">
-          {level.nextAt !== null && level.nextName ? `${strings.levels.nextLevel(level.nextAt - points, level.nextName)} · ` : ''}
+          {pending > 0 ? `${strings.levels.underReview(pending)}. ` : ''}
+          {level.nextAt !== null && level.nextName ? `${strings.levels.nextLevel(level.nextAt - confirmed, level.nextName)}. ` : ''}
+          {guide ? strings.levels.guideLive : confirmed >= GUIDE_POINTS ? strings.levels.guideHeld : strings.levels.toGuide(GUIDE_POINTS - confirmed)}
+        </Text>
+        <Text variant="caption" tone="faint">
           {strings.levels.howToEarn}
         </Text>
         {homeCity.data ? (
@@ -100,12 +108,29 @@ function AccountScreen() {
             style={styles.selfStart}
           />
         ) : null}
+        {user ? (
+          <Button
+            title={strings.account.viewProfile}
+            icon="user"
+            variant="ghost"
+            size="sm"
+            onPress={() => router.push(`/u/${user.id}`)}
+            style={styles.selfStart}
+          />
+        ) : null}
       </Card>
 
       {isAdmin ? (
         <Section title={strings.account.admin}>
           <Text tone="muted">{strings.account.adminHint}</Text>
           <AdminList>
+            <AdminRow
+              icon="inbox"
+              title={strings.admin.contributions}
+              subtitle={strings.admin.contributionsHint}
+              meta={counts.data && counts.data.contributions > 0 ? <Badge label={`${counts.data.contributions} ${strings.admin.pending}`} tone="accent" /> : null}
+              onPress={() => router.push('/admin/contributions')}
+            />
             <AdminRow
               icon="inbox"
               title={strings.admin.suggestions}
@@ -224,6 +249,9 @@ function AccountScreen() {
                       {formatDate(r.updated_at)}
                     </Text>
                     {r.status === 'hidden' ? <Badge label="Hidden" tone="danger" /> : null}
+                    {r.status === 'pending' ? <Badge label={strings.account.underReview} tone="warning" /> : null}
+                    {r.status === 'rejected' ? <Badge label={strings.account.notAccepted} tone="danger" /> : null}
+                    {r.edit_status === 'pending' ? <Badge label={strings.account.underReview} tone="warning" /> : null}
                   </View>
                 </View>
                 <Icon name="edit-3" size={16} color={colors.textMuted} />

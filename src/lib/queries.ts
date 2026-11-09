@@ -1,4 +1,4 @@
-import { previewUrl, signedPhotoUrls } from './storage';
+import { previewUrl, signedPhotoUrls, signedWifiUrls } from './storage';
 import { requireSupabase } from './supabase';
 import { TERMS_VERSION } from './terms';
 import type {
@@ -15,8 +15,8 @@ import type {
   OfferInput,
   Place,
   PlaceFactEntry,
+  PlaceMenu,
   PlaceOffer,
-  PlacePriceEntry,
   PlaceStatus,
   PlaceCategory,
   PlacePhoto,
@@ -25,8 +25,13 @@ import type {
   PlaceReview,
   PlaceSuggestion,
   PlaceToRate,
-  PriceInput,
+  PlaceWifiNote,
   Profile,
+  ProfilePhotoRow,
+  ProfilePlace,
+  ProfileReviewRow,
+  PublicProfile,
+  PendingContribution,
   RankedPlace,
   RankingFilters,
   ReviewInput,
@@ -106,7 +111,13 @@ export async function getCityRanking(
 export async function getCityContributors(cityId: string, limit = 5): Promise<CityContributor[]> {
   const { data, error } = await requireSupabase().rpc('get_city_contributors', { p_city_id: cityId, p_limit: limit });
   throwIf(error);
-  return ((data ?? []) as CityContributor[]).map((c) => ({ ...c, city_reviews: Number(c.city_reviews) }));
+  return ((data ?? []) as CityContributor[]).map((c) => ({
+    ...c,
+    city_reviews: Number(c.city_reviews),
+    points: Number(c.points),
+    points_pending: Number(c.points_pending ?? 0),
+    is_guide: Boolean(c.is_guide),
+  }));
 }
 
 export async function requestCityCrawl(cityId: string): Promise<void> {
@@ -142,6 +153,7 @@ export async function saveSpeedTest(input: {
   lng: number | null;
   accuracyM: number | null;
   networkType: NetworkType;
+  note: string | null;
 }): Promise<{ verification: SpeedTestVerification; distanceM: number | null }> {
   const { data, error } = await requireSupabase().rpc('submit_speed_test', {
     p_place_id: input.placeId,
@@ -152,6 +164,7 @@ export async function saveSpeedTest(input: {
     p_lng: input.lng,
     p_accuracy_m: input.accuracyM,
     p_network_type: input.networkType,
+    p_note: input.note,
   });
   if (error?.message.includes('speed_test_rate_limited')) throw new Error('speed_test_rate_limited');
   throwIf(error);
@@ -337,18 +350,27 @@ export async function getPlaceFacts(placeId: string): Promise<PlaceFactEntry[]> 
   return (data ?? []) as PlaceFactEntry[];
 }
 
-/** Prices members entered for a place; author names stay hidden from visitors without an account. */
-export async function getPlacePrices(placeId: string): Promise<PlacePriceEntry[]> {
-  const { data, error } = await requireSupabase().rpc('get_place_prices', { p_place_id: placeId });
-  throwIf(error);
-  return ((data ?? []) as PlacePriceEntry[]).map((p) => ({ ...p, amount: Number(p.amount) }));
-}
-
 /** Offers that have not expired; links and codes are only returned to signed-in users. */
 export async function getPlaceOffers(placeId: string): Promise<PlaceOffer[]> {
   const { data, error } = await requireSupabase().rpc('get_place_offers', { p_place_id: placeId });
   throwIf(error);
   return (data ?? []) as PlaceOffer[];
+}
+
+/** Menu photos, newest first; author names stay hidden from visitors without an account. */
+export async function getPlaceMenus(placeId: string): Promise<PlaceMenu[]> {
+  const { data, error } = await requireSupabase().rpc('get_place_menus', { p_place_id: placeId });
+  throwIf(error);
+  return (data ?? []) as PlaceMenu[];
+}
+
+/** Wi-Fi notes, newest first; content stays hidden from visitors without an account. */
+export async function getPlaceWifiNotes(placeId: string): Promise<PlaceWifiNote[]> {
+  const { data, error } = await requireSupabase().rpc('get_place_wifi_notes', { p_place_id: placeId });
+  throwIf(error);
+  const notes = (data ?? []) as Omit<PlaceWifiNote, 'photo_url'>[];
+  const urls = await signedWifiUrls(notes.flatMap((n) => (n.photo_path ? [n.photo_path] : [])));
+  return notes.map((n) => ({ ...n, photo_url: n.photo_path ? (urls.get(n.photo_path) ?? null) : null }));
 }
 
 // ---------------------------------------------------------------------------
@@ -359,6 +381,70 @@ export async function getProfile(userId: string): Promise<Profile | null> {
   const { data, error } = await requireSupabase().from('profiles').select('*').eq('id', userId).maybeSingle();
   throwIf(error);
   return (data as Profile | null) ?? null;
+}
+
+export async function getPublicProfile(userId: string): Promise<PublicProfile | null> {
+  const { data, error } = await requireSupabase().rpc('get_public_profile', { p_user: userId });
+  throwIf(error);
+  const row = ((data ?? []) as PublicProfile[])[0];
+  if (!row) return null;
+  return {
+    ...row,
+    points: Number(row.points),
+    points_pending: Number(row.points_pending),
+    review_count: Number(row.review_count),
+    photo_count: Number(row.photo_count),
+    is_guide: Boolean(row.is_guide),
+    guide_revoked: Boolean(row.guide_revoked),
+  };
+}
+
+export async function getProfilePlaces(userId: string): Promise<ProfilePlace[]> {
+  const { data, error } = await requireSupabase().rpc('get_profile_places', { p_user: userId });
+  throwIf(error);
+  return (data ?? []) as ProfilePlace[];
+}
+
+export async function getProfileReviews(userId: string): Promise<ProfileReviewRow[]> {
+  const { data, error } = await requireSupabase().rpc('get_profile_reviews', { p_user: userId });
+  throwIf(error);
+  return (data ?? []) as ProfileReviewRow[];
+}
+
+export async function getProfilePhotos(userId: string): Promise<ProfilePhotoRow[]> {
+  const { data, error } = await requireSupabase().rpc('get_profile_photos', { p_user: userId });
+  throwIf(error);
+  return (data ?? []) as ProfilePhotoRow[];
+}
+
+export async function getPendingContributions(): Promise<PendingContribution[]> {
+  const { data, error } = await requireSupabase().rpc('get_pending_contributions');
+  throwIf(error);
+  return (data ?? []) as PendingContribution[];
+}
+
+export async function moderateContribution(input: {
+  kind: PendingContribution['kind'];
+  decision: 'approve' | 'reject';
+  id?: string | null;
+  placeId?: string | null;
+  userId?: string | null;
+  key?: string | null;
+}): Promise<void> {
+  const { error } = await requireSupabase().rpc('moderate_contribution', {
+    p_kind: input.kind,
+    p_decision: input.decision,
+    p_id: input.id ?? null,
+    p_place_id: input.placeId ?? null,
+    p_user_id: input.userId ?? null,
+    p_key: input.key ?? null,
+  });
+  throwIf(error);
+}
+
+export async function setGuideRevoked(userId: string, revoked: boolean): Promise<void> {
+  const { error } = await requireSupabase().rpc('set_guide_revoked', { p_user: userId, p_revoked: revoked });
+  throwIf(error);
 }
 
 export async function updateDisplayName(userId: string, displayName: string): Promise<void> {
@@ -435,49 +521,63 @@ export async function upsertReview(userId: string, placeId: string, input: Revie
 export async function getMyReview(userId: string, placeId: string): Promise<(ReviewInput & { id: string }) | null> {
   const { data, error } = await requireSupabase()
     .from('reviews')
-    .select('id, rating, body, wifi_rating, power_rating, quiet_rating, comfort_rating, value_rating, calls_ok')
+    .select(
+      'id, rating, body, wifi_rating, power_rating, quiet_rating, comfort_rating, value_rating, calls_ok, edit_status, pending_rating, pending_body, pending_wifi_rating, pending_power_rating, pending_quiet_rating, pending_comfort_rating, pending_value_rating, pending_calls_ok',
+    )
     .eq('user_id', userId)
     .eq('place_id', placeId)
     .maybeSingle();
   throwIf(error);
   if (!data) return null;
-  return { ...(data as ReviewInput & { id: string }), body: (data.body as string | null) ?? '' };
+  const row = data as ReviewInput & {
+    id: string;
+    edit_status: string | null;
+    pending_rating: number | null;
+    pending_body: string | null;
+    pending_wifi_rating: number | null;
+    pending_power_rating: number | null;
+    pending_quiet_rating: number | null;
+    pending_comfort_rating: number | null;
+    pending_value_rating: number | null;
+    pending_calls_ok: boolean | null;
+  };
+  const pending = row.edit_status === 'pending' && row.pending_rating != null;
+  return {
+    id: row.id,
+    rating: pending ? row.pending_rating! : row.rating,
+    body: (pending ? row.pending_body : row.body) ?? '',
+    wifi_rating: pending ? row.pending_wifi_rating : row.wifi_rating,
+    power_rating: pending ? row.pending_power_rating : row.power_rating,
+    quiet_rating: pending ? row.pending_quiet_rating : row.quiet_rating,
+    comfort_rating: pending ? row.pending_comfort_rating : row.comfort_rating,
+    value_rating: pending ? row.pending_value_rating : row.value_rating,
+    calls_ok: pending ? row.pending_calls_ok : row.calls_ok,
+  };
 }
 
 export async function getMyFacts(userId: string, placeId: string): Promise<FactInput> {
   const { data, error } = await requireSupabase()
     .from('place_facts')
-    .select('key, value')
+    .select('key, value, pending_value, status, pending_delete')
     .eq('user_id', userId)
     .eq('place_id', placeId);
   throwIf(error);
-  return Object.fromEntries(((data ?? []) as { key: string; value: unknown }[]).map((r) => [r.key, r.value])) as FactInput;
+  const facts: FactInput = {};
+  for (const row of (data ?? []) as {
+    key: string;
+    value: unknown;
+    pending_value: unknown | null;
+    pending_delete: boolean;
+  }[]) {
+    if (row.pending_delete) continue;
+    facts[row.key as keyof FactInput] = (row.pending_value ?? row.value) as FactInput[keyof FactInput];
+  }
+  return facts;
 }
 
 /** Replaces the user's facts for a place; facts left out are removed. */
 export async function savePlaceFacts(placeId: string, facts: FactInput): Promise<void> {
   const { error } = await requireSupabase().rpc('save_place_facts', { p_place_id: placeId, p_facts: facts });
-  throwIf(error);
-}
-
-export async function getMyPrices(userId: string, placeId: string): Promise<PriceInput> {
-  const { data, error } = await requireSupabase()
-    .from('place_prices')
-    .select('item, amount, currency')
-    .eq('user_id', userId)
-    .eq('place_id', placeId);
-  throwIf(error);
-  return Object.fromEntries(
-    ((data ?? []) as { item: string; amount: number; currency: string }[]).map((r) => [
-      r.item,
-      { amount: Number(r.amount), currency: r.currency },
-    ]),
-  ) as PriceInput;
-}
-
-/** Replaces the user's prices for a place; items left out are removed. */
-export async function savePlacePrices(placeId: string, prices: PriceInput): Promise<void> {
-  const { error } = await requireSupabase().rpc('save_place_prices', { p_place_id: placeId, p_prices: prices });
   throwIf(error);
 }
 
@@ -863,6 +963,7 @@ export interface AdminSpeedTest {
   network_type: NetworkType;
   verification: SpeedTestVerification | null;
   ip_hash: string | null;
+  note: string | null;
   status: 'visible' | 'hidden';
   created_at: string;
   place: Pick<Place, 'id' | 'name' | 'slug'> | null;
@@ -944,21 +1045,25 @@ export async function adminGetCounts(): Promise<{
   drafts: number;
   toVerify: number;
   pendingPhotos: number;
+  contributions: number;
 }> {
   const sb = requireSupabase();
-  const [s, r, d, v, p] = await Promise.all([
+  const [s, r, d, v, p, c] = await Promise.all([
     sb.from('place_suggestions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     sb.from('place_reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
     sb.from('places').select('id', { count: 'exact', head: true }).eq('status', 'draft'),
     sb.from('places').select('id', { count: 'exact', head: true }).eq('status', 'needs_review'),
     sb.from('place_photos').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    sb.rpc('pending_contribution_count'),
   ]);
   for (const res of [s, r, d, v, p]) throwIf(res.error);
+  throwIf(c.error);
   return {
     suggestions: s.count ?? 0,
     reports: r.count ?? 0,
     drafts: d.count ?? 0,
     toVerify: v.count ?? 0,
     pendingPhotos: p.count ?? 0,
+    contributions: Number(c.data ?? 0),
   };
 }

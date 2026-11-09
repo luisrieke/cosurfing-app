@@ -97,44 +97,41 @@ export type FactInput = Partial<Record<FactKey, FactValue>>;
 export interface PlaceFactEntry {
   key: FactKey;
   value: FactValue;
+  pending_value: FactValue | null;
+  status: 'pending' | 'approved' | 'rejected';
+  pending_delete: boolean;
   /** `null` for visitors without an account. */
   author_name: string | null;
   is_own: boolean;
   updated_at: string;
 }
 
-/** What members can price at a place (see place_prices). */
-export type PriceItem =
-  | 'espresso'
-  | 'americano'
-  | 'cappuccino'
-  | 'tea'
-  | 'lemonade'
-  | 'water_033'
-  | 'water_075'
-  | 'lunch'
-  | 'week_pass'
-  | 'flex_desk_month'
-  | 'fixed_desk_month'
-  | 'meeting_room_hour'
-  | 'membership_year';
+export type MenuKind = 'menu' | 'hours';
 
-export interface Money {
-  amount: number;
-  currency: string;
-}
-
-export type PriceInput = Partial<Record<PriceItem, Money>>;
-
-/** Row of `get_place_prices`. */
-export interface PlacePriceEntry {
-  item: PriceItem;
-  amount: number;
-  currency: string;
+/** Row of `get_place_menus`: a member's photo of the menu, price list or opening hours sign. */
+export interface PlaceMenu {
+  id: string;
+  path: string;
+  kind: MenuKind;
   /** `null` for visitors without an account. */
   author_name: string | null;
   is_own: boolean;
-  updated_at: string;
+  created_at: string;
+  status: 'pending' | 'approved' | 'rejected';
+}
+
+/** Row of `get_place_wifi_notes`; content and author are `null` for visitors without an account. */
+export interface PlaceWifiNote {
+  id: string;
+  body: string | null;
+  photo_path: string | null;
+  /** Signed URL of the photo, filled in client-side for members. */
+  photo_url: string | null;
+  has_photo: boolean;
+  is_locked: boolean;
+  author_name: string | null;
+  is_own: boolean;
+  created_at: string;
 }
 
 export type OfferKind = 'deal' | 'referral';
@@ -153,6 +150,7 @@ export interface PlaceOffer {
   author_name: string | null;
   is_own: boolean;
   created_at: string;
+  status: 'pending' | 'approved' | 'rejected';
 }
 
 export interface OfferInput {
@@ -342,12 +340,17 @@ export interface SpeedTest {
   created_at: string;
   is_own: boolean;
   author_name: string | null;
+  note: string | null;
 }
 
 export interface CityContributor {
   rank: number;
+  user_id: string;
   display_name: string | null;
+  avatar_path: string | null;
   points: number;
+  points_pending: number;
+  is_guide: boolean;
   city_reviews: number;
 }
 
@@ -378,6 +381,13 @@ export interface PlaceReview {
   body: string | null;
   author_name: string | null;
   author_points: number | null;
+  /** Set for signed-in viewers so the name can open a profile. */
+  author_id: string | null;
+  author_avatar_path: string | null;
+  author_points_pending: number | null;
+  author_is_guide: boolean;
+  /** The author's edit of an already live review, visible to them and admins. */
+  edit_status: 'pending' | 'rejected' | null;
   wifi_rating: number | null;
   power_rating: number | null;
   quiet_rating: number | null;
@@ -394,7 +404,7 @@ export interface PlaceReview {
   /** The review has text the caller has not unlocked yet. */
   body_locked: boolean;
   is_own: boolean;
-  status: 'visible' | 'hidden';
+  status: 'visible' | 'hidden' | 'pending' | 'rejected';
 }
 
 export interface ReviewUnlockQuota {
@@ -421,12 +431,82 @@ export interface Profile {
   display_name: string | null;
   created_at: string;
   points: number;
+  /** Points inside `points` that are not confirmed yet. */
+  points_pending: number;
+  /** Earned or manually granted Local Guide. */
+  is_guide: boolean;
   review_count: number;
   speed_test_count: number;
   home_city_id: string | null;
   city_ids: string[];
   avatar_path: string | null;
   onboarded_at: string | null;
+}
+
+export interface PublicProfile {
+  id: string;
+  display_name: string;
+  avatar_path: string | null;
+  points: number;
+  points_pending: number;
+  is_guide: boolean;
+  review_count: number;
+  photo_count: number;
+  /** Only true for admins, and only when auto-publish was turned off. */
+  guide_revoked: boolean;
+}
+
+export interface ProfilePlace {
+  id: string;
+  slug: string;
+  name: string;
+  category: PlaceCategory;
+  lat: number;
+  lng: number;
+  rating: number | null;
+  review_status: 'visible' | 'pending' | 'rejected' | null;
+}
+
+export interface ProfileReviewRow {
+  id: string;
+  place_id: string;
+  place_slug: string;
+  place_name: string;
+  place_category: PlaceCategory;
+  rating: number;
+  body: string | null;
+  has_body: boolean;
+  created_at: string;
+  status: 'visible' | 'hidden' | 'pending' | 'rejected';
+  edit_status: 'pending' | 'rejected' | null;
+  is_own: boolean;
+  body_locked: boolean;
+}
+
+export interface ProfilePhotoRow {
+  id: string;
+  place_id: string;
+  place_slug: string;
+  place_name: string;
+  preview_path: string;
+  full_path: string;
+  status: string;
+  created_at: string;
+}
+
+export interface PendingContribution {
+  kind: 'review' | 'photo' | 'suggestion' | 'fact' | 'menu' | 'offer';
+  id: string | null;
+  place_id: string | null;
+  user_id: string;
+  author_name: string;
+  avatar_path: string | null;
+  place_name: string;
+  place_slug: string | null;
+  created_at: string;
+  summary: string;
+  fact_key: string | null;
+  image_path: string | null;
 }
 
 export interface Entitlement {
