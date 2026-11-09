@@ -11,7 +11,7 @@ import { ScoreBadge } from '@/components/ScoreBadge';
 import { Button, CategoryBadge, Chip, EmptyState, Icon, Input, Notice, Screen, Skeleton, Text, TopBar } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
-import { FACT_KEYS, dayPassCurrency, factAppliesTo, formatFactValue, summarizeFacts } from '@/lib/facts';
+import { FACT_KEYS, dayPassCurrency, factAppliesTo, formatFactValue, summarizeFacts, type FactSummary } from '@/lib/facts';
 import {
   MAX_MENU_PHOTOS_PER_UPLOAD,
   MAX_USER_PHOTOS_PER_UPLOAD,
@@ -96,6 +96,70 @@ function toDraft(input: FactInput): FactDraft {
   };
 }
 
+/** The draft with the combined value of a fact copied in, or null if that value can't be taken over as is. */
+function withConfirmedFact(draft: FactDraft, f: FactSummary, web: WebFacts): FactDraft | null {
+  const v = f.value;
+  switch (f.key) {
+    case 'opening_hours':
+      return typeof v === 'string' ? { ...draft, hours: v } : null;
+    case 'day_pass':
+      return v && typeof v === 'object' && v.currency === dayPassCurrency(web) ? { ...draft, dayPass: String(v.amount) } : null;
+    case 'price_range':
+      return typeof v === 'number'
+        ? { ...draft, choices: { ...draft.choices, price_range: Math.min(4, Math.max(1, Math.round(v))) } }
+        : null;
+    default:
+      return { ...draft, choices: { ...draft.choices, [f.key]: v } };
+  }
+}
+
+function sameFactValue(a: FactDraft, b: FactDraft, key: FactKey): boolean {
+  if (key === 'opening_hours') return a.hours.trim() === b.hours.trim();
+  if (key === 'day_pass') {
+    const amount = (d: FactDraft) => (d.dayPass.trim() ? Number(d.dayPass.trim().replace(',', '.')) : NaN);
+    return amount(a) === amount(b);
+  }
+  return a.choices[key] === b.choices[key];
+}
+
+type ConfirmState = { next: FactDraft } | 'confirmed' | null;
+
+function confirmState(draft: FactDraft, f: FactSummary | undefined, web: WebFacts): ConfirmState {
+  const next = f ? withConfirmedFact(draft, f, web) : null;
+  if (!f || !next) return null;
+  return sameFactValue(draft, next, f.key) ? 'confirmed' : { next };
+}
+
+function CurrentValueRow({ text, state, onConfirm }: { text: string; state: ConfirmState; onConfirm: () => void }) {
+  return (
+    <View style={styles.currentRow}>
+      <Text variant="caption" tone="muted" style={styles.shrink}>
+        {text}
+      </Text>
+      {state === 'confirmed' ? (
+        <View style={styles.confirmed}>
+          <Icon name="check" size={13} color={colors.textMuted} />
+          <Text variant="caption" tone="muted">
+            {strings.review.factConfirmed}
+          </Text>
+        </View>
+      ) : state ? (
+        <Pressable
+          onPress={onConfirm}
+          accessibilityRole="button"
+          hitSlop={6}
+          style={({ pressed }) => [styles.confirmPill, pressed && styles.pressed]}
+        >
+          <Icon name="check" size={13} color={colors.accent} />
+          <Text variant="caption" tone="accent">
+            {strings.review.confirmFact}
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 export default function ReviewRoute() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   return (
@@ -117,7 +181,12 @@ function ReviewScreen({ slug }: { slug: string }) {
   const [form, setForm] = useState<ReviewInput>(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<{ isNew: boolean; photosSent: number; photosFailed: number } | null>(null);
+  const [done, setDone] = useState<{
+    isNew: boolean;
+    photosSent: number;
+    photosFailed: number;
+    photoFailReason: string | null;
+  } | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [photos, setPhotos] = useState<string[]>([]);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -191,16 +260,19 @@ function ReviewScreen({ slug }: { slug: string }) {
       if (factsHydrated) await savePlaceFacts(place.id, factInput);
       const rightsAcceptedAt = new Date().toISOString();
       let sent = 0;
+      let photoFailReason: string | null = null;
       for (const [i, uri] of photos.entries()) {
         setProgress(strings.photos.uploading(i + 1, photos.length));
         try {
           await uploadPlacePhoto(place.id, uri, 1000 + i, { userId: user.id, rightsAcceptedAt });
           sent += 1;
-        } catch {
+        } catch (e) {
           // The review is already saved; report failed photos on the thanks screen instead.
+          console.error('Photo upload failed', e);
+          photoFailReason ??= e instanceof Error ? e.message : null;
         }
       }
-      setDone({ isNew: !own, photosSent: sent, photosFailed: photos.length - sent });
+      setDone({ isNew: !own, photosSent: sent, photosFailed: photos.length - sent, photoFailReason });
       void refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : strings.common.somethingWentWrong);
@@ -305,7 +377,12 @@ function ReviewScreen({ slug }: { slug: string }) {
           ) : null}
         </View>
         {done.photosSent > 0 ? <Notice tone="success" body={photosGoLive ? strings.photos.thanksLive(done.photosSent) : strings.photos.thanks(done.photosSent)} /> : null}
-        {done.photosFailed > 0 ? <Notice tone="danger" body={strings.review.photosFailed(done.photosFailed)} /> : null}
+        {done.photosFailed > 0 ? (
+          <Notice
+            tone="danger"
+            body={done.photoFailReason ? `${strings.review.photosFailed(done.photosFailed)} ${done.photoFailReason}` : strings.review.photosFailed(done.photosFailed)}
+          />
+        ) : null}
 
         <View style={styles.block}>
           <Text variant="heading">{strings.review.nextTitle}</Text>
@@ -355,6 +432,10 @@ function ReviewScreen({ slug }: { slug: string }) {
   const factKeys = FACT_KEYS.filter(
     (k) => factAppliesTo(k, place.category) || summaries.some((s) => s.key === k) || myFactsQuery.data?.[k] !== undefined,
   );
+  const confirmable = summaries.filter((s) => {
+    const state = factKeys.includes(s.key) ? confirmState(facts, s, web) : null;
+    return state !== null && state !== 'confirmed';
+  });
   const setChoice = (key: FactKey, value: FactValue) =>
     setFacts((f) => {
       const choices = { ...f.choices };
@@ -425,16 +506,38 @@ function ReviewScreen({ slug }: { slug: string }) {
             {strings.review.factsHint}
           </Text>
         </View>
+        {confirmable.length >= 2 ? (
+          <Button
+            title={strings.review.confirmAllFacts}
+            icon="check-circle"
+            variant="secondary"
+            size="sm"
+            onPress={() => {
+              setFacts((f) => confirmable.reduce((d, s) => withConfirmedFact(d, s, web) ?? d, f));
+              setFactError(null);
+            }}
+            style={styles.selfStart}
+          />
+        ) : null}
         {factKeys.map((key) => {
           const current = summaries.find((s) => s.key === key);
-          const currently = current ? strings.review.factsCurrently(current.display) : undefined;
+          const state = confirmState(facts, current, web);
+          const currentRow = current ? (
+            <CurrentValueRow
+              text={strings.review.factsCurrently(current.display)}
+              state={state}
+              onConfirm={() => {
+                setFacts((f) => withConfirmedFact(f, current, web) ?? f);
+                if (factError?.key === key) setFactError(null);
+              }}
+            />
+          ) : null;
           const label = strings.place.factLabels[key];
           if (key === 'opening_hours' || key === 'day_pass') {
             const isHours = key === 'opening_hours';
             const currency = dayPassCurrency(web);
             const input = (
               <Input
-                key={key}
                 label={isHours ? label : `${label} (${currency})`}
                 value={isHours ? facts.hours : facts.dayPass}
                 onChangeText={(v) => setFacts((f) => (isHours ? { ...f, hours: v } : { ...f, dayPass: v }))}
@@ -442,14 +545,21 @@ function ReviewScreen({ slug }: { slug: string }) {
                 keyboardType={isHours ? 'default' : 'decimal-pad'}
                 maxLength={isHours ? 300 : 10}
                 error={factError?.key === key ? factError.message : null}
-                hint={currently}
               />
             );
-            if (!isHours) return input;
+            if (!isHours) {
+              return (
+                <View key={key} style={styles.block}>
+                  {input}
+                  {currentRow}
+                </View>
+              );
+            }
             const myHoursPhotos = (menusQuery.data ?? []).filter((m) => m.kind === 'hours' && m.is_own);
             return (
               <View key={key} style={styles.block}>
                 {input}
+                {currentRow}
                 <Text variant="caption" tone="muted">
                   {strings.review.hoursPhotosHint}
                 </Text>
@@ -479,11 +589,7 @@ function ReviewScreen({ slug }: { slug: string }) {
           return (
             <View key={key} style={styles.block}>
               <Text variant="small">{label}</Text>
-              {currently ? (
-                <Text variant="caption" tone="muted">
-                  {currently}
-                </Text>
-              ) : null}
+              {currentRow}
               <View style={styles.chips}>
                 {factChoices(key, web).map((c) => (
                   <Chip
@@ -678,5 +784,26 @@ const styles = StyleSheet.create({
   },
   selfStart: {
     alignSelf: 'flex-start',
+  },
+  currentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  confirmed: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  confirmPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.accent,
   },
 });

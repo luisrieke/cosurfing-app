@@ -78,6 +78,91 @@ export function ScoreBreakdownCard({ place }: { place: Place }) {
   );
 }
 
+function scorePartWhy(key: (typeof SCORE_PARTS)[number]['key'], place: Place): string {
+  const why = strings.place.scoreInfoWhy;
+  switch (key) {
+    case 'reviews':
+      return place.review_count === 0 || place.rating_avg === null
+        ? why.reviewsNone
+        : why.reviews(Number(place.rating_avg).toFixed(1), place.review_count);
+    case 'wifi':
+      return place.download_median_mbps !== null
+        ? why.wifiMeasured(Number(place.download_median_mbps), place.speed_test_count)
+        : why.wifiUnmeasured;
+    case 'facts':
+      return why.facts;
+    case 'completeness': {
+      const f = why.completenessFields;
+      const hasPrice = place.day_pass_price_cents !== null || place.price_level !== null || Boolean(place.web_facts?.day_pass);
+      const missing: string[] = [
+        place.opening_hours ? null : f.hours,
+        place.website ? null : f.website,
+        place.address ? null : f.address,
+        hasPrice ? null : f.price,
+      ].filter((m) => m !== null);
+      return why.completeness(missing);
+    }
+    case 'category':
+      return why.category;
+  }
+}
+
+/** Popup that explains how the work score of one place adds up. */
+export function ScoreInfoModal({ place, visible, onClose }: { place: Place; visible: boolean; onClose: () => void }) {
+  const b = place.score_breakdown;
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.infoBackdrop} onPress={onClose} accessibilityLabel={strings.common.close}>
+        <Pressable style={styles.infoSheet} onPress={() => undefined}>
+          <View style={styles.infoHead}>
+            <Text variant="heading" style={styles.infoTitle}>
+              {strings.place.scoreInfoTitle}
+            </Text>
+            <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel={strings.common.close}>
+              <Icon name="x" size={20} color={colors.textMuted} />
+            </Pressable>
+          </View>
+          <ScrollView style={styles.infoScroll} contentContainerStyle={styles.infoBody}>
+            <Text variant="small" tone="muted">
+              {strings.place.scoreInfoIntro}
+            </Text>
+            {SCORE_PARTS.map(({ key, weight }) => {
+              const v = Number(b?.[key] ?? 0);
+              return (
+                <View key={key} style={styles.infoPart}>
+                  <View style={styles.infoPartHead}>
+                    <Text variant="smallStrong" style={styles.infoPartLabel}>
+                      {strings.place.scoreParts[key]}
+                    </Text>
+                    <Text variant="small" tone="muted">
+                      {`${v.toFixed(1)} × ${weight}%`}
+                    </Text>
+                    <Text variant="smallStrong" style={styles.infoPoints}>
+                      {strings.place.scoreInfoPoints((v * weight) / 100)}
+                    </Text>
+                  </View>
+                  <View style={styles.infoBar}>
+                    <View style={[styles.barFill, { width: `${Math.max(2, v * 10)}%`, backgroundColor: scoreColor(v) }]} />
+                  </View>
+                  <Text variant="caption" tone="muted">
+                    {scorePartWhy(key, place)}
+                  </Text>
+                </View>
+              );
+            })}
+            <View style={styles.infoTotal}>
+              <Text variant="bodyStrong" style={styles.infoPartLabel}>
+                {strings.place.scoreInfoTotal}
+              </Text>
+              <Text variant="bodyStrong">{`${Number(place.work_score).toFixed(2)} ${strings.place.scoreOutOf}`}</Text>
+            </View>
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Hard facts
 // ---------------------------------------------------------------------------
@@ -789,6 +874,64 @@ const styles = StyleSheet.create({
   barValue: {
     width: 32,
     textAlign: 'right',
+  },
+  infoBackdrop: {
+    flex: 1,
+    backgroundColor: colors.overlay,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  infoSheet: {
+    width: '100%',
+    maxWidth: 480,
+    maxHeight: '90%',
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    gap: spacing.md,
+  },
+  infoHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  infoTitle: {
+    flex: 1,
+  },
+  infoScroll: {
+    flexGrow: 0,
+  },
+  infoBody: {
+    gap: spacing.lg,
+  },
+  infoPart: {
+    gap: 6,
+  },
+  infoPartHead: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing.sm,
+  },
+  infoPartLabel: {
+    flex: 1,
+  },
+  infoBar: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.bgMuted,
+    overflow: 'hidden',
+  },
+  infoPoints: {
+    minWidth: 48,
+    textAlign: 'right',
+  },
+  infoTotal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   table: {
     borderRadius: radius.lg,

@@ -70,16 +70,26 @@ function isHeicFile(file: File): boolean {
   return /^image\/hei[cf](-sequence)?$/i.test(file.type) || /\.hei[cf]$/i.test(file.name);
 }
 
+/**
+ * Copies the photo into memory and checks the browser can decode it. A picked File is only read
+ * from disk when used, and files handed over by the macOS photo library or iCloud can be gone
+ * by the time the form is submitted.
+ */
 async function webImageUri(file: File): Promise<string> {
-  if (!isHeicFile(file)) return URL.createObjectURL(file);
+  let image: Blob;
   try {
-    // ~3 MB of WebAssembly, so only loaded once someone actually picks a HEIC photo.
-    const { heicTo } = await import('heic-to');
-    const jpeg = await heicTo({ blob: file, type: 'image/jpeg', quality: 0.92 });
-    return URL.createObjectURL(jpeg);
+    if (isHeicFile(file)) {
+      // ~3 MB of WebAssembly, so only loaded once someone actually picks a HEIC photo.
+      const { heicTo } = await import('heic-to');
+      image = await heicTo({ blob: file, type: 'image/jpeg', quality: 0.92 });
+    } else {
+      image = new Blob([await file.arrayBuffer()], { type: file.type });
+    }
+    (await createImageBitmap(image)).close();
   } catch {
-    throw new Error(`"${file.name}" could not be converted. Please export it as JPEG and try again.`);
+    throw new Error(`"${file.name}" could not be read. Please export it as JPEG and try again.`);
   }
+  return URL.createObjectURL(image);
 }
 
 async function resizeToJpeg(uri: string, width: number, compress: number): Promise<string> {

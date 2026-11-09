@@ -278,6 +278,24 @@ export const strings = {
     },
     scoreExplainer:
       'Reviews count most (55%), then Wi‑Fi (20%, measured speed beats claims), outlets & calls (10%), complete info (10%) and the type of place (5%). Until a place has reviews, that part counts as a neutral middle value.',
+    scoreInfo: 'How is the work score calculated?',
+    scoreInfoTitle: 'How this score is calculated',
+    scoreInfoIntro: 'Each part is rated from 0 to 10 and weighted. The weighted parts add up to the work score.',
+    scoreInfoTotal: 'Work score',
+    scoreInfoPoints: (n: number) => `+${n.toFixed(2)}`,
+    scoreInfoWhy: {
+      reviewsNone: 'No reviews yet, so this counts as a neutral 3.5 ★.',
+      reviews: (avg: string, n: number) =>
+        `${avg} ★ from ${n} ${n === 1 ? 'review' : 'reviews'}. With few reviews the value is pulled toward 3.5 ★.`,
+      wifiMeasured: (mbps: number, n: number) =>
+        `Median of ${Math.round(mbps)} Mbps from ${n} ${n === 1 ? 'speed test' : 'speed tests'}. 100 Mbps or more gives full points.`,
+      wifiUnmeasured: 'No speed test yet, so this comes from Wi‑Fi ratings in reviews or the listing.',
+      facts: 'Average of power outlets and how well calls work, from reviews or the listing.',
+      completeness: (missing: string[]) =>
+        missing.length === 0 ? 'Opening hours, website, address and price are all known.' : `Missing: ${missing.join(', ')}.`,
+      completenessFields: { hours: 'opening hours', website: 'website', address: 'address', price: 'price' },
+      category: 'Coworking 10, library and coliving 8, other places 5.',
+    },
     hardFacts: 'Hard facts',
     wifiSpeed: 'Wi‑Fi speed',
     wifiMeasured: (down: number, up: number | null, n: number) =>
@@ -361,8 +379,12 @@ export const strings = {
     callsOkYes: 'Calls OK',
     callsOkNo: 'Not for calls',
     facts: 'Facts',
-    factsHint: 'Add or correct what you know. Tap a selected answer again to remove it. Everyone’s answers are combined.',
+    factsHint:
+      'Add, confirm or correct what you know. Tap a selected answer again to remove it. Everyone’s answers are combined.',
     factsCurrently: (v: string) => `Currently: ${v}`,
+    confirmFact: 'Confirm',
+    factConfirmed: 'Matches yours',
+    confirmAllFacts: 'Confirm all current values',
     openingHoursPlaceholder: 'Mo-Fr 09:00-18:00',
     dayPassPlaceholder: (currency: string) => `Price in ${currency}`,
     invalidOpeningHours: 'Opening hours need at least 3 characters.',

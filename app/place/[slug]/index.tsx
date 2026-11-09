@@ -13,6 +13,7 @@ import {
   OfferList,
   RatingDistribution,
   ScoreBreakdownCard,
+  ScoreInfoModal,
   SpeedTestHistory,
   VenueFactsList,
   WifiNoteList,
@@ -73,6 +74,7 @@ export default function PlaceScreen() {
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [offerError, setOfferError] = useState<string | null>(null);
   const [wifiError, setWifiError] = useState<string | null>(null);
+  const [scoreInfo, setScoreInfo] = useState(false);
 
   const placeQuery = useQuery(`place:${slug}`, () => getPlaceBySlug(slug!), Boolean(slug) && isSupabaseConfigured);
   const place = placeQuery.data ?? null;
@@ -303,9 +305,21 @@ export default function PlaceScreen() {
       <View style={styles.scoreHead}>
         <ScoreBadge score={place.work_score} size="lg" />
         <View style={styles.scoreHeadText}>
-          <Text variant="bodyStrong">
-            {strings.place.scoreTitle} {strings.place.scoreOutOf}
-          </Text>
+          <View style={styles.scoreTitleRow}>
+            <Text variant="bodyStrong">
+              {strings.place.scoreTitle} {strings.place.scoreOutOf}
+            </Text>
+            {place.score_breakdown ? (
+              <Pressable
+                onPress={() => setScoreInfo(true)}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={strings.place.scoreInfo}
+              >
+                <Icon name="info" size={16} color={colors.textMuted} />
+              </Pressable>
+            ) : null}
+          </View>
           {place.review_count === 0 ? (
             <Text variant="caption" tone="muted">
               {strings.place.scoreProvisional}
@@ -726,6 +740,7 @@ export default function PlaceScreen() {
         <SiteFooter />
       </ScrollView>
       <SignupBanner />
+      <ScoreInfoModal place={place} visible={scoreInfo} onClose={() => setScoreInfo(false)} />
       <SignupInterstitial
         visible={interstitial}
         onClose={() => {
@@ -826,6 +841,11 @@ const styles = StyleSheet.create({
   scoreHeadText: {
     flex: 1,
     gap: 2,
+  },
+  scoreTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   cardActions: {
     flexDirection: 'row',
