@@ -86,7 +86,7 @@ Visiting a city that has not been crawled yet bumps its job to the front (`reque
 
 ## Supabase
 
-Project: `cosurfing` (eu-central-1). Migrations in `supabase/migrations` are already applied; all Edge Functions are deployed, except the legal-compliance changes of November 9, 2026 (migrations `20261109200000`–`20261109202000`, functions `account`, `moderation-notices`, `cancel`, and updates to `billing` and `waitlist`).
+Project: `cosurfing` (eu-central-1). Migrations in `supabase/migrations` are already applied; all Edge Functions are deployed.
 
 To reproduce elsewhere: `supabase link --project-ref <ref>`, `supabase db push`, add `crawler_secret` and `project_url` to Vault, run the city import, then `supabase functions deploy <name> --no-verify-jwt` for each function (they authenticate in code: public waitlist actions are rate‑limited, admin/billing actions verify the user's session, webhooks verify provider signatures/secrets).
 
