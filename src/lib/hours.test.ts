@@ -16,6 +16,7 @@ import {
   laptopWeekRanges,
   localWeekMinute,
   makeInterval,
+  matchesTimeFilter,
   openStatus,
   parseTimeInput,
   presetHours,
@@ -127,6 +128,19 @@ describe('workStatus', () => {
     const laptop: LaptopHours = { mo: { mode: 'specific', ranges: [[H(18), H(23)]] } };
     assert.deepEqual(workStatus(cafe, laptop, 'cafe', MON + H(19)), { kind: 'allowed', until: MON + H(20), byDesign: false });
   });
+
+  it('filters like the server: work here now needs open and laptops confirmed', () => {
+    const laptop: LaptopHours = { mo: { mode: 'specific', ranges: [[H(8), H(12)]] } };
+    const both = { openNow: true, workNow: true };
+    assert.equal(matchesTimeFilter(cafe, laptop, 'cafe', MON + H(10), both), true);
+    assert.equal(matchesTimeFilter(cafe, laptop, 'cafe', MON + H(13), both), false);
+    assert.equal(matchesTimeFilter(cafe, laptop, 'cafe', MON + H(13), { openNow: true, workNow: false }), true);
+    assert.equal(matchesTimeFilter(cafe, null, 'cafe', MON + H(10), both), false);
+    assert.equal(matchesTimeFilter(cafe, null, 'coworking', MON + H(10), both), true);
+    assert.equal(matchesTimeFilter(null, null, 'coworking', MON + H(10), { openNow: true, workNow: false }), false);
+    assert.equal(matchesTimeFilter(cafe, laptop, 'cafe', null, { openNow: true, workNow: false }), false);
+    assert.equal(matchesTimeFilter(null, null, 'cafe', null, { openNow: false, workNow: false }), true);
+  });
 });
 
 describe('ranges', () => {
@@ -185,6 +199,8 @@ describe('input and formatting', () => {
     assert.deepEqual(makeInterval(H(20), H(3)), [H(20), H(27)]);
     assert.deepEqual(makeInterval(H(18), 0), [H(18), H(24)]);
     assert.deepEqual(makeInterval(H(8), H(18)), [H(8), H(18)]);
+    assert.deepEqual(makeInterval(H(8), H(8)), [H(8), H(8)]);
+    assert.equal(dayError([makeInterval(H(8), H(8))]), 'zero_length');
   });
 
   it('formats intervals and OSM text', () => {

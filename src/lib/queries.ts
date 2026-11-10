@@ -1,3 +1,4 @@
+import type { WeeklyHours } from './hours';
 import { previewUrl, signedPhotoUrls, signedWifiUrls } from './storage';
 import { requireSupabase } from './supabase';
 import { TERMS_VERSION } from './terms';
@@ -98,6 +99,8 @@ export async function getCityRanking(
     p_q: filters.q.trim() || null,
     p_limit: limit,
     p_offset: offset,
+    p_open_now: filters.openNow,
+    p_work_now: filters.workNow,
   });
   throwIf(error);
   const rows = (data ?? []) as RankedRow[];
@@ -281,25 +284,48 @@ export async function getMapCities(): Promise<MapCity[]> {
   }
 }
 
-/** Published places of the given categories inside a map area, best work score first. */
+type MapPlaceRow = Omit<MapPlace, 'city'> & { city_slug: string | null; city_name: string | null };
+
+/**
+ * Published places of the given categories inside a map area, best work score first. "Open now" and
+ * "Work here now" use each place's local time, as in the city ranking. A view that crosses the
+ * antimeridian has west > east; the longitude filter is skipped there.
+ */
 export async function getPlacesInBounds(
   bounds: { north: number; south: number; east: number; west: number },
   categories: PlaceCategory[],
   limit = 300,
+  time: { openNow: boolean; workNow: boolean } = { openNow: false, workNow: false },
 ): Promise<MapPlace[]> {
   if (categories.length === 0) return [];
-  let query = requireSupabase()
-    .from('places')
-    .select('id, slug, name, category, lat, lng, address, work_score, review_count, rating_avg, city:cities(slug, name)')
-    .eq('status', 'published')
-    .in('category', categories)
-    .gte('lat', bounds.south)
-    .lte('lat', bounds.north);
-  // A view that crosses the antimeridian has west > east; skip the longitude filter there.
-  if (bounds.west <= bounds.east) query = query.gte('lng', bounds.west).lte('lng', bounds.east);
-  const { data, error } = await query.order('work_score', { ascending: false }).limit(limit);
+  const { data, error } = await requireSupabase().rpc('get_places_in_bounds', {
+    p_south: bounds.south,
+    p_north: bounds.north,
+    p_west: bounds.west,
+    p_east: bounds.east,
+    p_categories: categories,
+    p_limit: limit,
+    p_open_now: time.openNow,
+    p_work_now: time.workNow,
+  });
   throwIf(error);
-  return ((data ?? []) as unknown as MapPlace[]).map((p) => ({ ...p, work_score: Number(p.work_score) }));
+  return ((data ?? []) as MapPlaceRow[]).map(({ city_slug, city_name, ...p }) => ({
+    ...p,
+    work_score: Number(p.work_score),
+    city: city_slug && city_name ? { slug: city_slug, name: city_name } : null,
+  }));
+}
+
+/** Reads opening hours text with the same parser the database uses (admins). */
+export async function parseOpeningHoursText(
+  text: string,
+): Promise<{ ok: true; hours: WeeklyHours; flags: string[] } | { ok: false; reason: string }> {
+  const { data, error } = await requireSupabase().rpc('parse_opening_hours', { p_text: text });
+  throwIf(error);
+  return (data as { ok: true; hours: WeeklyHours; flags: string[] } | { ok: false; reason: string } | null) ?? {
+    ok: false,
+    reason: 'no_times',
+  };
 }
 
 export async function getPlaceById(id: string): Promise<Place | null> {
@@ -684,6 +710,8 @@ export async function createReport(
 export async function adminSearchPlaces(input: {
   q: string;
   status: PlaceStatus | 'all';
+  /** Only places whose opening hours text needs a person to look at it. */
+  hoursReview?: boolean;
   limit?: number;
 }): Promise<Page<Place & { city: Pick<City, 'id' | 'name' | 'slug'> }>> {
   let query = requireSupabase()
@@ -694,6 +722,7 @@ export async function adminSearchPlaces(input: {
   const term = input.q.trim().replace(/[%_,()]/g, '');
   if (term) query = query.ilike('name', `%${term}%`);
   if (input.status !== 'all') query = query.eq('status', input.status);
+  if (input.hoursReview) query = query.eq('hours_status', 'needs_review');
   const { data, error, count } = await query;
   throwIf(error);
   return { items: (data ?? []) as (Place & { city: Pick<City, 'id' | 'name' | 'slug'> })[], total: count ?? 0 };
@@ -728,6 +757,11 @@ export const PLACE_INPUT_FIELDS = [
   'website',
   'phone',
   'opening_hours',
+  'hours',
+  'hours_source',
+  'hours_status',
+  'laptop_hours',
+  'laptop_source',
   'price_level',
   'day_pass_price_cents',
   'wifi',

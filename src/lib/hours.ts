@@ -99,11 +99,34 @@ export function sortIntervals(intervals: Interval[]): Interval[] {
 }
 
 /**
- * Interval from a start and end time of day. An end at or before the start means the next day
- * ("20:00–03:00"); 00:00 as the end is midnight.
+ * Interval from a start and end time of day. An end before the start means the next day
+ * ("20:00–03:00"); 00:00 as the end is midnight. Equal times stay a zero-length interval so the
+ * editor can point it out.
  */
 export function makeInterval(start: number, end: number): Interval {
-  return [start, end <= start ? end + DAY_MINUTES : end];
+  if (end === start) return [start, start];
+  return [start, end < start ? end + DAY_MINUTES : end];
+}
+
+/** Clock time of an interval end: 24:00 stays 1440, the next day's 03:00 is 180. */
+export function endClock(end: number): number {
+  return end === DAY_MINUTES ? DAY_MINUTES : end % DAY_MINUTES;
+}
+
+/** Sorted intervals on every day, as stored. */
+export function normalizeWeek(hours: WeeklyHours): WeeklyHours {
+  const out = emptyWeek();
+  for (const d of DAY_KEYS) out[d] = sortIntervals(hours[d]);
+  return out;
+}
+
+/** First invalid day of a schedule being edited, with the problem. */
+export function weekError(hours: WeeklyHours): { day: DayKey; error: IntervalError } | null {
+  for (const d of DAY_KEYS) {
+    const error = dayError(sortIntervals(hours[d]));
+    if (error) return { day: d, error };
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -337,6 +360,25 @@ export function workStatus(
   const next = nextStart(laptopRanges, minute);
   if (next !== null && next < openRange[1]) return { kind: 'later', from: next };
   return { kind: 'not_now' };
+}
+
+/**
+ * The "Open now" / "Work here now" filters, the same rule as the server: open now, and for work
+ * also laptops explicitly welcome now. Unknown never matches.
+ */
+export function matchesTimeFilter(
+  hours: WeeklyHours | null | undefined,
+  laptop: LaptopHours | null | undefined,
+  category: string,
+  minute: number | null,
+  filter: { openNow: boolean; workNow: boolean },
+): boolean {
+  if (filter.workNow) return workStatus(hours, laptop, category, minute).kind === 'allowed';
+  if (filter.openNow) {
+    const k = openStatus(hours, minute).kind;
+    return k === 'open' || k === 'always';
+  }
+  return true;
 }
 
 /** Week minute -> day and time of day, e.g. { day: 'sa', time: 600 }. */
