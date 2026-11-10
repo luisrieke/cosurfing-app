@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Href } from 'expo-router';
 
 import type { TestContext } from './speedtest';
-import type { PlaceCategory } from './types';
+import type { PlaceCategory, SpeedTestKind } from './types';
 
 const VIEWS_KEY = 'cosurfing.funnel.placeViews';
 const DISMISSED_KEY = 'cosurfing.funnel.interstitialDismissedAt';
@@ -57,6 +57,7 @@ const PENDING_TEST_MAX_AGE_MS = 30 * 60 * 1000;
 
 export interface PendingSpeedTest {
   placeId: string;
+  kind: SpeedTestKind;
   downloadMbps: number;
   uploadMbps: number | null;
   pingMs: number | null;
@@ -73,12 +74,12 @@ export async function stashSpeedTest(test: Omit<PendingSpeedTest, 'at'>): Promis
   }
 }
 
-export async function takeStashedSpeedTest(placeId: string): Promise<PendingSpeedTest | null> {
+export async function takeStashedSpeedTest(placeId: string, kind: SpeedTestKind): Promise<PendingSpeedTest | null> {
   try {
     const raw = await AsyncStorage.getItem(PENDING_TEST_KEY);
     if (!raw) return null;
     const test = JSON.parse(raw) as PendingSpeedTest;
-    if (test.placeId !== placeId || !test.context) return null;
+    if (test.placeId !== placeId || !test.context || (test.kind ?? 'wifi') !== kind) return null;
     await AsyncStorage.removeItem(PENDING_TEST_KEY);
     return Date.now() - test.at < PENDING_TEST_MAX_AGE_MS ? test : null;
   } catch {

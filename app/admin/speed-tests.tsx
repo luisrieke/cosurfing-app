@@ -29,7 +29,8 @@ function filterLabel(f: Filter): string {
 }
 
 function subtitle(t: AdminSpeedTest): string {
-  const parts = [`↓ ${formatMbps(Number(t.download_mbps))}`];
+  const parts = [t.kind === 'mobile' ? `${strings.mobile.speed}${t.carrier ? ` (${t.carrier})` : ''}` : strings.place.wifi];
+  parts.push(`↓ ${formatMbps(Number(t.download_mbps))}`);
   if (t.upload_mbps !== null) parts.push(`↑ ${formatMbps(Number(t.upload_mbps))}`);
   if (t.ping_ms !== null) parts.push(`${t.ping_ms} ms`);
   if (t.distance_m !== null) {

@@ -9,7 +9,7 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { Platform } from 'react-native';
 
-import { AVATAR_BUCKET, MENU_BUCKET, PHOTO_BUCKET, PREVIEW_BUCKET, WIFI_BUCKET } from './storage';
+import { AVATAR_BUCKET, MENU_BUCKET, PHOTO_BUCKET, PREVIEW_BUCKET, UPLOAD_CACHE_CONTROL, WIFI_BUCKET } from './storage';
 import { requireSupabase } from './supabase';
 import { TERMS_VERSION } from './terms';
 import type { MenuKind } from './types';
@@ -144,9 +144,9 @@ export async function uploadPlacePhoto(
   const [fullBytes, previewBytes] = await Promise.all([readBytes(fullUri), readBytes(previewUri)]);
   const path = asUser ? `${placeId}/${asUser.userId}/${randomId()}.jpg` : `${placeId}/${randomId()}.jpg`;
 
-  const full = await sb.storage.from(PHOTO_BUCKET).upload(path, fullBytes, { contentType: 'image/jpeg', upsert: false });
+  const full = await sb.storage.from(PHOTO_BUCKET).upload(path, fullBytes, { contentType: 'image/jpeg', cacheControl: UPLOAD_CACHE_CONTROL, upsert: false });
   if (full.error) throw new Error(full.error.message);
-  const preview = await sb.storage.from(PREVIEW_BUCKET).upload(path, previewBytes, { contentType: 'image/jpeg', upsert: false });
+  const preview = await sb.storage.from(PREVIEW_BUCKET).upload(path, previewBytes, { contentType: 'image/jpeg', cacheControl: UPLOAD_CACHE_CONTROL, upsert: false });
   if (preview.error) {
     await sb.storage.from(PHOTO_BUCKET).remove([path]);
     throw new Error(preview.error.message);
@@ -179,7 +179,7 @@ export async function uploadAvatar(userId: string, sourceUri: string): Promise<s
   const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.85 });
   const bytes = await readBytes(saved.uri);
   const path = `${userId}/${randomId()}.jpg`;
-  const { error } = await sb.storage.from(AVATAR_BUCKET).upload(path, bytes, { contentType: 'image/jpeg', upsert: false });
+  const { error } = await sb.storage.from(AVATAR_BUCKET).upload(path, bytes, { contentType: 'image/jpeg', cacheControl: UPLOAD_CACHE_CONTROL, upsert: false });
   if (error) throw new Error(error.message);
   return path;
 }
@@ -196,7 +196,7 @@ export async function uploadPlaceMenu(placeId: string, userId: string, sourceUri
   const sb = requireSupabase();
   const bytes = await readBytes(await resizeToJpeg(sourceUri, MENU_WIDTH, 0.85));
   const path = `${placeId}/${userId}/${randomId()}.jpg`;
-  const upload = await sb.storage.from(MENU_BUCKET).upload(path, bytes, { contentType: 'image/jpeg', upsert: false });
+  const upload = await sb.storage.from(MENU_BUCKET).upload(path, bytes, { contentType: 'image/jpeg', cacheControl: UPLOAD_CACHE_CONTROL, upsert: false });
   if (upload.error) throw new Error(upload.error.message);
   const { error } = await sb.from('place_menus').insert({
     place_id: placeId,
@@ -238,7 +238,7 @@ export async function createWifiNote(
   if (input.photoUri) {
     const bytes = await readBytes(await resizeToJpeg(input.photoUri, MENU_WIDTH, 0.85));
     path = `${placeId}/${userId}/${randomId()}.jpg`;
-    const upload = await sb.storage.from(WIFI_BUCKET).upload(path, bytes, { contentType: 'image/jpeg', upsert: false });
+    const upload = await sb.storage.from(WIFI_BUCKET).upload(path, bytes, { contentType: 'image/jpeg', cacheControl: UPLOAD_CACHE_CONTROL, upsert: false });
     if (upload.error) throw new Error(upload.error.message);
   }
   const { error } = await sb.from('place_wifi_notes').insert({

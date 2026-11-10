@@ -18,6 +18,8 @@ export const env = {
   ),
   webPayments: read('EXPO_PUBLIC_WEB_PAYMENTS', process.env.EXPO_PUBLIC_WEB_PAYMENTS),
   plusWaitlistUrl: read('EXPO_PUBLIC_PLUS_WAITLIST_URL', process.env.EXPO_PUBLIC_PLUS_WAITLIST_URL),
+  ownerFormUrl:
+    read('EXPO_PUBLIC_OWNER_FORM_URL', process.env.EXPO_PUBLIC_OWNER_FORM_URL) || 'https://tally.so/r/o9Djeb',
 };
 
 // While set, the paywall sends people to this form instead of a checkout on every platform.

@@ -6,6 +6,7 @@ import { Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View } fro
 import { RankedPlaceRow } from '@/components/city/RankedPlaceRow';
 import { PhotoGallery } from '@/components/PhotoGallery';
 import { AddPhotos } from '@/components/place/AddPhotos';
+import { OwnerCta } from '@/components/place/OwnerCta';
 import {
   DetailRatings,
   FactTable,
@@ -18,6 +19,7 @@ import {
   VenueFactsList,
   WifiNoteList,
   hardFacts,
+  mobileFacts,
   wifiFacts,
 } from '@/components/place/PlaceSections';
 import { PlusUpsell } from '@/components/PlusUpsell';
@@ -59,7 +61,7 @@ import {
 } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, layout, radius, spacing } from '@/lib/theme';
-import { defaultRankingFilters, type PlaceMenu, type PlaceOffer, type PlaceWifiNote } from '@/lib/types';
+import { defaultRankingFilters, type PlaceMenu, type PlaceOffer, type PlaceWifiNote, type SpeedTestKind } from '@/lib/types';
 
 const INTERSTITIAL_AFTER_VIEWS = 2;
 const INTERSTITIAL_DELAY_MS = 4_000;
@@ -357,10 +359,25 @@ export default function PlaceScreen() {
     </View>
   );
 
-  const speedTest = <SpeedTestPanel placeId={place.id} onSaved={() => {
+  const onTestSaved = () => {
     void placeQuery.refetch(true);
     void testsQuery.refetch(true);
-  }} />;
+  };
+  const speedTest = <SpeedTestPanel placeId={place.id} onSaved={onTestSaved} />;
+  const mobileSpeedTest = <SpeedTestPanel placeId={place.id} kind="mobile" onSaved={onTestSaved} />;
+
+  const testHistory = (kind: SpeedTestKind, count: number, empty: string) => {
+    if (!user) {
+      return count > 0 ? (
+        <SignupGate compact title={strings.funnel.lockedSpeedTitle} body={strings.funnel.gateBody} />
+      ) : (
+        <Text tone="muted">{empty}</Text>
+      );
+    }
+    if (testsQuery.loading && !testsQuery.data) return <Skeleton height={80} />;
+    const tests = (testsQuery.data ?? []).filter((t) => (t.kind ?? 'wifi') === kind);
+    return tests.length === 0 ? <Text tone="muted">{empty}</Text> : <SpeedTestHistory tests={tests} />;
+  };
 
   return (
     <View style={styles.root}>
@@ -500,19 +517,20 @@ export default function PlaceScreen() {
                 {!wide ? speedTest : null}
                 <View style={styles.wifiBlock}>
                   <Text variant="smallStrong">{strings.wifi.speedTests}</Text>
-                  {!user ? (
-                    place.speed_test_count > 0 ? (
-                      <SignupGate compact title={strings.funnel.lockedSpeedTitle} body={strings.funnel.gateBody} />
-                    ) : (
-                      <Text tone="muted">{strings.place.speedTestsEmpty}</Text>
-                    )
-                  ) : testsQuery.loading && !testsQuery.data ? (
-                    <Skeleton height={80} />
-                  ) : (testsQuery.data ?? []).length === 0 ? (
-                    <Text tone="muted">{strings.place.speedTestsEmpty}</Text>
-                  ) : (
-                    <SpeedTestHistory tests={testsQuery.data!} />
-                  )}
+                  {testHistory('wifi', place.speed_test_count, strings.place.speedTestsEmpty)}
+                </View>
+
+                <View style={[styles.wifiBlock, styles.mobileBlock]}>
+                  <View style={styles.mobileHeader}>
+                    <Text variant="bodyStrong">{strings.mobile.title}</Text>
+                    <Text variant="small" tone="muted">
+                      {strings.mobile.hint}
+                    </Text>
+                  </View>
+                  <FactTable lines={mobileFacts(place)} />
+                  {!wide ? mobileSpeedTest : null}
+                  <Text variant="smallStrong">{strings.wifi.speedTests}</Text>
+                  {testHistory('mobile', place.mobile_speed_test_count, strings.mobile.empty)}
                 </View>
               </Section>
 
@@ -560,28 +578,17 @@ export default function PlaceScreen() {
                 </Section>
               ) : null}
 
-              {offers.length > 0 || canReview ? (
-                <Section
-                  title={strings.costs.offers}
-                  right={
-                    canReview ? (
-                      <Button title={strings.costs.addOffer} size="sm" variant="secondary" icon="plus" onPress={goCosts} />
-                    ) : undefined
-                  }
-                >
-                  {offers.length > 0 ? (
-                    <>
-                      {!user && lockedOffers > 0 ? (
-                        <SignupGate compact title={strings.costs.lockedOffersTitle(lockedOffers)} body={strings.funnel.gateBody} />
-                      ) : null}
-                      {offerError ? <Notice tone="danger" body={offerError} /> : null}
-                      <OfferList offers={offers} onDelete={removeOffer} canDelete={(o) => o.is_own || isAdmin} />
-                    </>
-                  ) : (
-                    <Text tone="muted">{strings.costs.noOffers}</Text>
-                  )}
+              {offers.length > 0 ? (
+                <Section title={strings.costs.offers}>
+                  {!user && lockedOffers > 0 ? (
+                    <SignupGate compact title={strings.costs.lockedOffersTitle(lockedOffers)} body={strings.funnel.gateBody} />
+                  ) : null}
+                  {offerError ? <Notice tone="danger" body={offerError} /> : null}
+                  <OfferList offers={offers} onDelete={removeOffer} canDelete={(o) => o.is_own || isAdmin} />
                 </Section>
               ) : null}
+
+              {canReview ? <OwnerCta place={place} /> : null}
 
               {description ? (
                 <Section title={strings.place.about}>
@@ -735,6 +742,7 @@ export default function PlaceScreen() {
               <View style={styles.side}>
                 {scoreCard}
                 {speedTest}
+                {mobileSpeedTest}
               </View>
             ) : null}
           </View>
@@ -871,6 +879,14 @@ const styles = StyleSheet.create({
   },
   wifiBlock: {
     gap: spacing.sm,
+  },
+  mobileBlock: {
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  mobileHeader: {
+    gap: 2,
   },
   footerLinks: {
     gap: spacing.sm,

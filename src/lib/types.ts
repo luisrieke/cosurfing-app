@@ -4,6 +4,7 @@ export type SeasonValue = 'year_round' | 'seasonal' | 'unknown';
 export type PlaceStatus = 'draft' | 'published' | 'needs_review' | 'archived';
 export type PlaceReviewReason = 'website_parked' | 'website_dead' | 'reported_closed';
 export type WifiValue = 'yes' | 'no' | 'unknown';
+export type WifiCommunityValue = 'yes' | 'unreliable' | 'no';
 export type PowerValue = 'plenty' | 'some' | 'none' | 'unknown';
 export type FocusValue = 'great' | 'okay' | 'poor' | 'unknown';
 export type CallsValue = 'yes' | 'limited' | 'no' | 'unknown';
@@ -88,7 +89,7 @@ export interface DayPassValue {
   currency: string;
 }
 
-/** Booleans for yes/no facts, 1–4 for price_range, 'welcome' | 'not_allowed' for laptops. */
+/** Booleans for yes/no facts (wifi also 'unreliable'), 1–4 for price_range, 'welcome' | 'not_allowed' for laptops. */
 export type FactValue = boolean | number | string | DayPassValue;
 
 export type FactInput = Partial<Record<FactKey, FactValue>>;
@@ -153,15 +154,6 @@ export interface PlaceOffer {
   status: 'pending' | 'approved' | 'rejected';
 }
 
-export interface OfferInput {
-  kind: OfferKind;
-  title: string;
-  details: string | null;
-  url: string | null;
-  code: string | null;
-  expires_on: string | null;
-}
-
 /** Each part is on a 0–10 scale; `score` is the weighted total (see compute_place_score). */
 export interface ScoreBreakdown {
   score: number;
@@ -222,6 +214,12 @@ export interface Place {
   ping_median_ms: number | null;
   speed_test_count: number;
   last_speed_test_at: string | null;
+  mobile_download_median_mbps: number | null;
+  mobile_upload_median_mbps: number | null;
+  mobile_ping_median_ms: number | null;
+  mobile_speed_test_count: number;
+  /** Combined member answer to the `wifi` fact; lowers the score when 'unreliable'. */
+  wifi_community: WifiCommunityValue | null;
   text_review_count: number;
   work_score: number;
   score_breakdown: ScoreBreakdown | null;
@@ -331,6 +329,9 @@ export type NetworkType = 'wifi' | 'cellular' | 'unknown';
 
 export type SpeedTestVerification = 'verified' | 'too_far' | 'low_accuracy' | 'no_location' | 'cellular';
 
+/** What a test measured: the venue's Wi‑Fi or the member's own mobile data (hotspot). */
+export type SpeedTestKind = 'wifi' | 'mobile';
+
 export interface SpeedTest {
   id: string;
   download_mbps: number;
@@ -341,6 +342,8 @@ export interface SpeedTest {
   is_own: boolean;
   author_name: string | null;
   note: string | null;
+  kind: SpeedTestKind;
+  carrier: string | null;
 }
 
 export interface CityContributor {

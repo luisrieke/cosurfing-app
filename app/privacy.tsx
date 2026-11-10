@@ -76,6 +76,7 @@ const CLAUSES: LegalClause[] = [
       'Purchases on the web are processed by Stripe Payments Europe, Ltd., Ireland. Stripe receives your email address and payment details; we never see your full card details. We store your Stripe customer and subscription IDs and the subscription status. Legal basis: Art. 6 (1) (b) GDPR. Invoices and payment records are kept for 10 years because tax law requires it (Art. 6 (1) (c) GDPR, § 147 AO, § 257 HGB).',
       'If you cancel through the “Cancel contracts here” page, we store your name, email address, the type of cancellation, an optional reason, the requested end date and the time we received it, and email you a confirmation. We keep this record for 3 years after the end of the year of the cancellation, as proof that we processed it (Art. 6 (1) (b) and (c) GDPR, § 312k BGB).',
       'The Plus waiting list is a form by Tally BV, Belgium. If you open it while signed in, your email address and user ID are filled in so we can unlock Plus for your account.',
+      'Venue owners register through a form by Tally BV, Belgium. It receives the place you came from and, if you are signed in, your email address and user ID. We use your answers to verify that you run the place and to set up passes, offers and opening hours with you (Art. 6 (1) (b) GDPR).',
     ],
   },
   {

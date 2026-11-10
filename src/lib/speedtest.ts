@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as Network from 'expo-network';
 import { Platform } from 'react-native';
@@ -161,6 +162,26 @@ async function currentPosition(): Promise<Pick<TestContext, 'lat' | 'lng' | 'acc
     return { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracyM: pos.coords.accuracy ?? null };
   } catch {
     return none;
+  }
+}
+
+const CARRIER_KEY = 'mobile-carrier-v1';
+
+/** The mobile carrier the member entered last, to prefill the next mobile data test. */
+export async function getSavedCarrier(): Promise<string> {
+  try {
+    return (await AsyncStorage.getItem(CARRIER_KEY)) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export async function rememberCarrier(carrier: string): Promise<void> {
+  try {
+    if (carrier) await AsyncStorage.setItem(CARRIER_KEY, carrier);
+    else await AsyncStorage.removeItem(CARRIER_KEY);
+  } catch {
+    // not critical
   }
 }
 

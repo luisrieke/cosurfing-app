@@ -6,9 +6,18 @@ import { Button, Icon, Input, Notice, Text } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { stashSpeedTest, takeStashedSpeedTest } from '@/lib/funnel';
 import { saveSpeedTest } from '@/lib/queries';
-import { type SpeedPhase, type SpeedResult, type TestContext, captureTestContext, runSpeedTest } from '@/lib/speedtest';
+import {
+  type SpeedPhase,
+  type SpeedResult,
+  type TestContext,
+  captureTestContext,
+  getSavedCarrier,
+  rememberCarrier,
+  runSpeedTest,
+} from '@/lib/speedtest';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
+import type { SpeedTestKind } from '@/lib/types';
 
 type State =
   | { kind: 'idle' }
@@ -16,18 +25,39 @@ type State =
   | { kind: 'done'; result: SpeedResult; context: TestContext }
   | { kind: 'error' };
 
-export function SpeedTestPanel({ placeId, onSaved }: { placeId: string; onSaved: () => void }) {
+export function SpeedTestPanel({
+  placeId,
+  kind = 'wifi',
+  onSaved,
+}: {
+  placeId: string;
+  kind?: SpeedTestKind;
+  onSaved: () => void;
+}) {
   const { user, refresh } = useAuth();
   const [state, setState] = useState<State>({ kind: 'idle' });
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState('');
+  const [carrier, setCarrier] = useState('');
   const [message, setMessage] = useState<{ tone: 'success' | 'danger' | 'warning'; text: string } | null>(null);
+  const mobile = kind === 'mobile';
+
+  useEffect(() => {
+    if (!mobile) return;
+    let cancelled = false;
+    void getSavedCarrier().then((c) => {
+      if (!cancelled) setCarrier((current) => current || c);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [mobile]);
 
   // A result measured before signing up comes back here after the sign-in redirect.
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    void takeStashedSpeedTest(placeId).then((t) => {
+    void takeStashedSpeedTest(placeId, kind).then((t) => {
       if (!cancelled && t) {
         setState({
           kind: 'done',
@@ -39,7 +69,7 @@ export function SpeedTestPanel({ placeId, onSaved }: { placeId: string; onSaved:
     return () => {
       cancelled = true;
     };
-  }, [user, placeId]);
+  }, [user, placeId, kind]);
 
   const start = async () => {
     setMessage(null);
@@ -60,7 +90,7 @@ export function SpeedTestPanel({ placeId, onSaved }: { placeId: string; onSaved:
       });
       const context = await contextPromise;
       setState({ kind: 'done', result, context });
-      if (!user) void stashSpeedTest({ placeId, ...result, context });
+      if (!user) void stashSpeedTest({ placeId, kind, ...result, context });
     } catch {
       setState({ kind: 'error' });
     }
@@ -70,6 +100,7 @@ export function SpeedTestPanel({ placeId, onSaved }: { placeId: string; onSaved:
     if (!user || state.kind !== 'done') return;
     setSaving(true);
     setMessage(null);
+    const carrierName = mobile ? carrier.trim() : '';
     try {
       const { verification } = await saveSpeedTest({
         placeId,
@@ -78,10 +109,13 @@ export function SpeedTestPanel({ placeId, onSaved }: { placeId: string; onSaved:
         pingMs: state.result.pingMs,
         ...state.context,
         note: note.trim() || null,
+        kind,
+        carrier: carrierName || null,
       });
+      if (mobile) void rememberCarrier(carrierName);
       setMessage({
-        tone: verification === 'verified' ? 'success' : 'warning',
-        text: strings.speedtest.verification[verification],
+        tone: verification === 'verified' || (mobile && verification === 'cellular') ? 'success' : 'warning',
+        text: (mobile ? strings.mobile.verification : strings.speedtest.verification)[verification],
       });
       setState({ kind: 'idle' });
       setNote('');
@@ -102,16 +136,19 @@ export function SpeedTestPanel({ placeId, onSaved }: { placeId: string; onSaved:
         ? { down: state.result.downloadMbps, up: state.result.uploadMbps, ping: state.result.pingMs }
         : null;
 
+  const wrongNetwork =
+    state.kind === 'done' && (mobile ? state.context.networkType === 'wifi' : state.context.networkType === 'cellular');
+
   return (
     <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.icon}>
-          <Icon name="activity" size={18} color={colors.accent} />
+          <Icon name={mobile ? 'smartphone' : 'activity'} size={18} color={colors.accent} />
         </View>
         <View style={styles.headerText}>
-          <Text variant="bodyStrong">{strings.speedtest.title}</Text>
+          <Text variant="bodyStrong">{mobile ? strings.mobile.testTitle : strings.speedtest.title}</Text>
           <Text variant="small" tone="muted">
-            {strings.speedtest.intro}
+            {mobile ? strings.mobile.testIntro : strings.speedtest.intro}
           </Text>
         </View>
       </View>
@@ -126,20 +163,29 @@ export function SpeedTestPanel({ placeId, onSaved }: { placeId: string; onSaved:
 
       {state.kind === 'error' ? <Notice tone="danger" body={strings.speedtest.failed} /> : null}
       {message ? <Notice tone={message.tone} body={message.text} /> : null}
-      {state.kind === 'done' && state.context.networkType === 'cellular' ? (
-        <Notice tone="warning" body={strings.speedtest.cellularHint} />
-      ) : null}
+      {wrongNetwork ? <Notice tone="warning" body={mobile ? strings.mobile.wifiHint : strings.speedtest.cellularHint} /> : null}
 
       {state.kind === 'done' ? (
         user ? (
           <>
+            {mobile ? (
+              <Input
+                label={strings.mobile.carrierLabel}
+                optional
+                value={carrier}
+                onChangeText={setCarrier}
+                placeholder={strings.mobile.carrierPlaceholder}
+                hint={strings.mobile.carrierHint}
+                maxLength={60}
+              />
+            ) : null}
             <Input
-              label={strings.speedtest.noteLabel}
+              label={mobile ? strings.mobile.noteLabel : strings.speedtest.noteLabel}
               optional
               value={note}
               onChangeText={setNote}
-              placeholder={strings.speedtest.notePlaceholder}
-              hint={strings.speedtest.noteHint}
+              placeholder={mobile ? strings.mobile.notePlaceholder : strings.speedtest.notePlaceholder}
+              hint={mobile ? undefined : strings.speedtest.noteHint}
               maxLength={280}
               multiline
               style={styles.note}

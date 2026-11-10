@@ -16,7 +16,6 @@ import type {
   MapCity,
   MapPlace,
   NetworkType,
-  OfferInput,
   Place,
   PlaceFactEntry,
   PlaceMenu,
@@ -41,6 +40,7 @@ import type {
   ReviewInput,
   ReviewUnlockQuota,
   SpeedTest,
+  SpeedTestKind,
   SpeedTestVerification,
   WaitlistEntry,
 } from './types';
@@ -158,6 +158,8 @@ export async function saveSpeedTest(input: {
   accuracyM: number | null;
   networkType: NetworkType;
   note: string | null;
+  kind: SpeedTestKind;
+  carrier: string | null;
 }): Promise<{ verification: SpeedTestVerification; distanceM: number | null }> {
   const { data, error } = await requireSupabase().rpc('submit_speed_test', {
     p_place_id: input.placeId,
@@ -169,6 +171,8 @@ export async function saveSpeedTest(input: {
     p_accuracy_m: input.accuracyM,
     p_network_type: input.networkType,
     p_note: input.note,
+    p_kind: input.kind,
+    p_carrier: input.carrier,
   });
   if (error?.message.includes('speed_test_rate_limited')) throw new Error('speed_test_rate_limited');
   throwIf(error);
@@ -587,21 +591,6 @@ export async function savePlaceFacts(placeId: string, facts: FactInput): Promise
   throwIf(error);
 }
 
-export class OfferLimitError extends Error {
-  constructor() {
-    super('offer_limit_reached');
-    this.name = 'OfferLimitError';
-  }
-}
-
-export async function createOffer(userId: string, placeId: string, input: OfferInput): Promise<void> {
-  const { error } = await requireSupabase()
-    .from('place_offers')
-    .insert({ ...input, user_id: userId, place_id: placeId });
-  if (error?.message.includes('offer_limit_reached')) throw new OfferLimitError();
-  throwIf(error);
-}
-
 /** Members delete their own offers, admins any. */
 export async function deleteOffer(offerId: string): Promise<void> {
   const { error } = await requireSupabase().from('place_offers').delete().eq('id', offerId);
@@ -1003,6 +992,8 @@ export interface AdminSpeedTest {
   verification: SpeedTestVerification | null;
   ip_hash: string | null;
   note: string | null;
+  kind: SpeedTestKind;
+  carrier: string | null;
   status: 'visible' | 'hidden';
   created_at: string;
   place: Pick<Place, 'id' | 'name' | 'slug'> | null;

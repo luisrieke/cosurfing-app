@@ -85,6 +85,7 @@ function priceSymbol(web: WebFacts): string {
 export function formatFactValue(key: FactKey, value: FactValue, web: WebFacts): string {
   const s = strings.place;
   if (typeof value === 'boolean') return value ? strings.common.yes : strings.common.no;
+  if (key === 'wifi' && value === 'unreliable') return s.wifi_unreliable;
   if (key === 'laptops') return value === 'welcome' ? s.laptopsWelcome : s.laptopsNotAllowed;
   if (key === 'price_range' && typeof value === 'number') return priceSymbol(web).repeat(Math.min(4, Math.max(1, Math.round(value))));
   if (isDayPass(value)) return formatMoney(value.amount, value.currency);

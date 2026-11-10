@@ -66,6 +66,8 @@ function factChoices(key: FactKey, web: WebFacts): { value: FactValue; label: st
     { value: false, label: strings.common.no },
   ];
   switch (key) {
+    case 'wifi':
+      return [yesNo[0]!, { value: 'unreliable', label: strings.review.wifiUnreliable }, yesNo[1]!];
     case 'laptops':
       return [
         { value: 'welcome', label: strings.place.laptopsWelcome },

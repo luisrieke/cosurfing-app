@@ -88,10 +88,13 @@ function scorePartWhy(key: (typeof SCORE_PARTS)[number]['key'], place: Place): s
       return place.review_count === 0 || place.rating_avg === null
         ? why.reviewsNone
         : why.reviews(Number(place.rating_avg).toFixed(1), place.review_count);
-    case 'wifi':
-      return place.download_median_mbps !== null
-        ? why.wifiMeasured(Number(place.download_median_mbps), place.speed_test_count)
-        : why.wifiUnmeasured;
+    case 'wifi': {
+      const base =
+        place.download_median_mbps !== null
+          ? why.wifiMeasured(Number(place.download_median_mbps), place.speed_test_count)
+          : why.wifiUnmeasured;
+      return place.wifi_community === 'unreliable' ? `${base} ${why.wifiUnreliable}` : base;
+    }
     case 'facts':
       return why.facts;
     case 'completeness': {
@@ -318,7 +321,9 @@ export function wifiFacts(place: Place, facts: FactSummary[] = []): FactLine[] {
 
   const wifiFact = communityFact(facts, 'wifi');
   if (wifiFact) {
-    lines.push({ icon: 'wifi', label: s.wifi, value: wifiFact.value ? s.wifi_yes : s.wifi_no, tone: wifiFact.value ? 'good' : 'bad' });
+    const [value, tone]: [string, FactLine['tone']] =
+      wifiFact.value === 'unreliable' ? [s.wifi_unreliable, 'okay'] : wifiFact.value ? [s.wifi_yes, 'good'] : [s.wifi_no, 'bad'];
+    lines.push({ icon: 'wifi', label: s.wifi, value, tone });
   } else {
     const [wifi, wifiTone] = pick(place.wifi, { yes: [s.wifi_yes, 'good'], no: [s.wifi_no, 'bad'] });
     lines.push({ icon: 'wifi', label: s.wifi, value: wifi ?? (wf.wifi_mentioned ? s.wifi_yes : null), tone: wifi ? wifiTone : wf.wifi_mentioned ? 'good' : 'unknown' });
@@ -331,6 +336,24 @@ export function wifiFacts(place: Place, facts: FactSummary[] = []): FactLine[] {
   });
   lines.push({ icon: 'credit-card', label: s.internetFee, value: fee, tone: feeTone });
   return lines;
+}
+
+/** Median of the mobile data tests on site; shown in the mobile data part of the Wi-Fi section. */
+export function mobileFacts(place: Place): FactLine[] {
+  const label = strings.mobile.speed;
+  if (place.mobile_download_median_mbps === null) {
+    return [{ icon: 'smartphone', label, value: null, tone: 'unknown', empty: strings.place.wifiNotMeasured }];
+  }
+  const down = Number(place.mobile_download_median_mbps);
+  const up = place.mobile_upload_median_mbps === null ? null : Number(place.mobile_upload_median_mbps);
+  return [
+    {
+      icon: 'smartphone',
+      label,
+      value: strings.place.wifiMeasured(down, up, place.mobile_speed_test_count),
+      tone: down >= 25 ? 'good' : down >= 10 ? 'okay' : 'bad',
+    },
+  ];
 }
 
 export function FactTable({ lines: all, onHelp }: { lines: FactLine[]; onHelp?: () => void }) {
@@ -832,6 +855,7 @@ export function SpeedTestHistory({ tests }: { tests: SpeedTest[] }) {
                 </Text>
                 <Text variant="caption" tone="faint">
                   {formatDate(t.created_at)} · {t.on_site ? strings.place.onSite : strings.place.notOnSite}
+                  {t.carrier ? ` · ${strings.mobile.carrier(t.carrier)}` : ''}
                 </Text>
               </View>
             </View>
