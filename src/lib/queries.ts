@@ -1,3 +1,4 @@
+import type { WeeklyHours } from './hours';
 import { previewUrl, signedPhotoUrls, signedWifiUrls } from './storage';
 import { requireSupabase } from './supabase';
 import { TERMS_VERSION } from './terms';
@@ -95,10 +96,13 @@ export async function getCityRanking(
     p_wifi: filters.wifi,
     p_power: filters.power,
     p_calls: filters.calls,
-    p_reviewed: filters.reviewed,
+    ...(filters.reviewed ? { p_reviewed: true } : null),
     p_q: filters.q.trim() || null,
     p_limit: limit,
     p_offset: offset,
+    // Only sent when on, so the call also works against a database without the hours migration.
+    ...(filters.openNow ? { p_open_now: true } : null),
+    ...(filters.workNow ? { p_work_now: true } : null),
   });
   throwIf(error);
   const rows = (data ?? []) as RankedRow[];
@@ -282,14 +286,50 @@ export async function getMapCities(): Promise<MapCity[]> {
   }
 }
 
-/** Published places of the given categories inside a map area, best work score first. */
+type MapPlaceRow = Omit<MapPlace, 'city'> & { city_slug: string | null; city_name: string | null };
+
+/**
+ * Published places of the given categories inside a map area, best work score first. "Open now" and
+ * "Work here now" use each place's local time, as in the city ranking. A view that crosses the
+ * antimeridian has west > east; the longitude filter is skipped there.
+ */
 export async function getPlacesInBounds(
   bounds: { north: number; south: number; east: number; west: number },
   categories: PlaceCategory[],
   limit = 300,
-  options: { reviewed?: boolean } = {},
+  options: { openNow?: boolean; workNow?: boolean; reviewed?: boolean } = {},
 ): Promise<MapPlace[]> {
+  const openNow = Boolean(options.openNow);
+  const workNow = Boolean(options.workNow);
+  const reviewed = Boolean(options.reviewed);
   if (categories.length === 0) return [];
+  const { data, error } = await requireSupabase().rpc('get_places_in_bounds', {
+    p_south: bounds.south,
+    p_north: bounds.north,
+    p_west: bounds.west,
+    p_east: bounds.east,
+    p_categories: categories,
+    p_limit: limit,
+    p_open_now: openNow,
+    p_work_now: workNow,
+    p_reviewed: reviewed,
+  });
+  // PGRST202: the RPC does not exist yet (database without the hours migration).
+  if (error?.code === 'PGRST202' && !openNow && !workNow) return getPlacesInBoundsLegacy(bounds, categories, limit, reviewed);
+  throwIf(error);
+  return ((data ?? []) as MapPlaceRow[]).map(({ city_slug, city_name, ...p }) => ({
+    ...p,
+    work_score: Number(p.work_score),
+    city: city_slug && city_name ? { slug: city_slug, name: city_name } : null,
+  }));
+}
+
+async function getPlacesInBoundsLegacy(
+  bounds: { north: number; south: number; east: number; west: number },
+  categories: PlaceCategory[],
+  limit: number,
+  reviewed: boolean,
+): Promise<MapPlace[]> {
   let query = requireSupabase()
     .from('places')
     .select('id, slug, name, category, lat, lng, address, work_score, review_count, rating_avg, city:cities(slug, name)')
@@ -297,12 +337,33 @@ export async function getPlacesInBounds(
     .in('category', categories)
     .gte('lat', bounds.south)
     .lte('lat', bounds.north);
-  if (options.reviewed) query = query.gt('review_count', 0);
-  // A view that crosses the antimeridian has west > east; skip the longitude filter there.
+  if (reviewed) query = query.gt('review_count', 0);
   if (bounds.west <= bounds.east) query = query.gte('lng', bounds.west).lte('lng', bounds.east);
   const { data, error } = await query.order('work_score', { ascending: false }).limit(limit);
   throwIf(error);
-  return ((data ?? []) as unknown as MapPlace[]).map((p) => ({ ...p, work_score: Number(p.work_score) }));
+  return ((data ?? []) as unknown as Omit<MapPlace, 'timezone' | 'hours' | 'hours_status' | 'laptop_hours' | 'laptop_source'>[]).map(
+    (p) => ({
+      ...p,
+      work_score: Number(p.work_score),
+      timezone: null,
+      hours: null,
+      hours_status: null,
+      laptop_hours: null,
+      laptop_source: null,
+    }),
+  );
+}
+
+/** Reads opening hours text with the same parser the database uses (admins). */
+export async function parseOpeningHoursText(
+  text: string,
+): Promise<{ ok: true; hours: WeeklyHours; flags: string[] } | { ok: false; reason: string }> {
+  const { data, error } = await requireSupabase().rpc('parse_opening_hours', { p_text: text });
+  throwIf(error);
+  return (data as { ok: true; hours: WeeklyHours; flags: string[] } | { ok: false; reason: string } | null) ?? {
+    ok: false,
+    reason: 'no_times',
+  };
 }
 
 export async function getPlaceById(id: string): Promise<Place | null> {
@@ -687,6 +748,8 @@ export async function createReport(
 export async function adminSearchPlaces(input: {
   q: string;
   status: PlaceStatus | 'all';
+  /** Only places whose opening hours text needs a person to look at it. */
+  hoursReview?: boolean;
   limit?: number;
 }): Promise<Page<Place & { city: Pick<City, 'id' | 'name' | 'slug'> }>> {
   let query = requireSupabase()
@@ -697,6 +760,7 @@ export async function adminSearchPlaces(input: {
   const term = input.q.trim().replace(/[%_,()]/g, '');
   if (term) query = query.ilike('name', `%${term}%`);
   if (input.status !== 'all') query = query.eq('status', input.status);
+  if (input.hoursReview) query = query.eq('hours_status', 'needs_review');
   const { data, error, count } = await query;
   throwIf(error);
   return { items: (data ?? []) as (Place & { city: Pick<City, 'id' | 'name' | 'slug'> })[], total: count ?? 0 };
@@ -731,6 +795,11 @@ export const PLACE_INPUT_FIELDS = [
   'website',
   'phone',
   'opening_hours',
+  'hours',
+  'hours_source',
+  'hours_status',
+  'laptop_hours',
+  'laptop_source',
   'price_level',
   'day_pass_price_cents',
   'wifi',
@@ -760,10 +829,13 @@ export function toPlaceInput(place: Place): PlaceInput {
   return out as PlaceInput;
 }
 
-export async function adminSavePlace(id: string | null, input: PlaceInput): Promise<string> {
+/** `skip` leaves columns as they are on update (e.g. hours the database derives itself). */
+export async function adminSavePlace(id: string | null, input: PlaceInput, skip: readonly (keyof PlaceInput)[] = []): Promise<string> {
   const sb = requireSupabase();
   if (id) {
-    const { error } = await sb.from('places').update(input).eq('id', id);
+    const patch: Partial<PlaceInput> = { ...input };
+    for (const k of skip) delete patch[k];
+    const { error } = await sb.from('places').update(patch).eq('id', id);
     throwIf(error);
     return id;
   }

@@ -11,7 +11,9 @@
     "build:web": "node scripts/copy-maplibre-worker.mjs && expo export --platform web",
     "postinstall": "node scripts/copy-maplibre-worker.mjs",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test src/lib/*.test.ts",
+    "test:sql": "scripts/test-hours-sql.sh"
   },
   "dependencies": {
     "@expo/metro-runtime": "~58.0.14",
@@ -50,6 +52,7 @@
   },
   "devDependencies": {
     "@types/geojson": "^7946.0.16",
+    "@types/node": "~26.6.0",
     "@types/react": "~19.3.0",
     "eslint": "^9.39.5",
     "eslint-config-expo": "^58.0.4",

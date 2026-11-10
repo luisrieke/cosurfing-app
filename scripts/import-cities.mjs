@@ -273,6 +273,7 @@ async function main() {
       byName.is_hotspot = true;
       byName.wiki = h.wiki;
       if (h.radius_km) byName.radius_km = h.radius_km;
+      byName.timezone ??= h.timezone ?? null;
       if (!kept.includes(byName)) kept.push(byName);
       continue;
     }
@@ -296,7 +297,7 @@ async function main() {
       lat: h.lat,
       lng: h.lng,
       population: h.population,
-      timezone: nearby?.timezone ?? null,
+      timezone: h.timezone ?? nearby?.timezone ?? null,
       is_hotspot: true,
       wiki: h.wiki,
       radius_km: h.radius_km,

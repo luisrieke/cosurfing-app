@@ -101,7 +101,7 @@ function scorePartWhy(key: (typeof SCORE_PARTS)[number]['key'], place: Place): s
       const f = why.completenessFields;
       const hasPrice = place.day_pass_price_cents !== null || place.price_level !== null || Boolean(place.web_facts?.day_pass);
       const missing: string[] = [
-        place.opening_hours ? null : f.hours,
+        place.opening_hours || place.hours ? null : f.hours,
         place.website ? null : f.website,
         place.address ? null : f.address,
         hasPrice ? null : f.price,
@@ -188,8 +188,31 @@ function pick<T extends string>(value: T, map: Partial<Record<T, [string, Tone]>
   return map[value] ?? [null, 'unknown'];
 }
 
+/**
+ * Opening hours as text: a member's answer we could not read, else the listing or website text.
+ * Shown next to the structured week (holidays, notes) or instead of it.
+ */
+export function hoursText(place: Place, facts: FactSummary[] = []): string | null {
+  const member = communityFact(facts, 'opening_hours')?.value;
+  if (typeof member === 'string' && !place.hours) return member;
+  return place.opening_hours ?? place.web_facts?.opening_hours?.value ?? null;
+}
+
+/** The plain yes/no laptop answer, for places without laptop hours. */
+export function laptopAnswer(place: Place, facts: FactSummary[] = []): { answer: string | null; banned: boolean } {
+  const s = strings.place;
+  const wf = place.web_facts ?? {};
+  const laptopsFact = communityFact(facts, 'laptops');
+  const answer =
+    laptopsFact?.display ??
+    place.laptop_rules ??
+    (wf.laptops ? (wf.laptops.value === 'welcome' ? s.laptopsWelcome : s.laptopsNotAllowed) : null);
+  const banned = laptopsFact ? laptopsFact.value === 'not_allowed' : wf.laptops?.value === 'not_allowed' && !place.laptop_rules;
+  return { answer, banned };
+}
+
 /** Member answers (see VenueFactsList) take precedence over imported data. */
-export function hardFacts(place: Place, facts: FactSummary[] = [], hasHoursPhotos = false): FactLine[] {
+export function hardFacts(place: Place, facts: FactSummary[] = []): FactLine[] {
   const s = strings.place;
   const wf = place.web_facts ?? {};
   const lines: FactLine[] = [];
@@ -247,31 +270,7 @@ export function hardFacts(place: Place, facts: FactSummary[] = [], hasHoursPhoto
     lines.push({ icon: 'dollar-sign', label: s.priceLevel, value: price, tone: price ? 'neutral' : 'unknown' });
   }
 
-  const hours = community('opening_hours')?.display ?? place.opening_hours ?? wf.opening_hours?.value ?? null;
-  if (!coliving || hours || hasHoursPhotos) {
-    lines.push({
-      icon: 'clock',
-      label: s.openingHours,
-      value: hours,
-      tone: hours ? 'neutral' : 'unknown',
-      hint: hours && hasHoursPhotos ? s.hoursSeePhoto : undefined,
-      empty: hasHoursPhotos ? s.hoursSeePhoto : undefined,
-    });
-  }
-
-  const laptopsFact = community('laptops');
-  const laptops =
-    laptopsFact?.display ??
-    place.laptop_rules ??
-    (wf.laptops ? (wf.laptops.value === 'welcome' ? s.laptopsWelcome : s.laptopsNotAllowed) : null);
-  const laptopsBanned = laptopsFact ? laptopsFact.value === 'not_allowed' : wf.laptops?.value === 'not_allowed' && !place.laptop_rules;
   if (!coliving) {
-    lines.push({
-      icon: 'monitor',
-      label: s.laptopRules,
-      value: laptops,
-      tone: laptops ? (laptopsBanned ? 'bad' : 'neutral') : 'unknown',
-    });
     const [outdoor, outdoorTone] = pick(place.outdoor_seating, { yes: [strings.common.yes, 'neutral'], no: [strings.common.no, 'neutral'] });
     lines.push({ icon: 'sun', label: s.outdoorSeating, value: outdoor, tone: outdoorTone });
   }

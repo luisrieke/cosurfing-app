@@ -25,8 +25,13 @@ export default function AdminPlaces() {
   const { isAdmin } = useAuth();
   const [filter, setFilter] = useState<PlaceStatus | 'all'>('all');
   const [search, setSearch] = useState('');
+  const [hoursReview, setHoursReview] = useState(false);
   const q = useDebounced(search, 250);
-  const places = useQuery(`admin-places:${q}:${filter}`, () => adminSearchPlaces({ q, status: filter, limit: 60 }), isAdmin);
+  const places = useQuery(
+    `admin-places:${q}:${filter}:${hoursReview}`,
+    () => adminSearchPlaces({ q, status: filter, limit: 60, hoursReview }),
+    isAdmin,
+  );
   const rows = places.data?.items ?? [];
 
   return (
@@ -42,6 +47,7 @@ export default function AdminPlaces() {
         {(['all', 'published', 'draft', 'needs_review', 'archived'] as const).map((s) => (
           <Chip key={s} label={s === 'all' ? strings.explore.all : strings.admin[s]} selected={filter === s} onPress={() => setFilter(s)} />
         ))}
+        <Chip label={strings.hours.admin.reviewFilter} icon="clock" selected={hoursReview} onPress={() => setHoursReview(!hoursReview)} />
       </View>
       {places.data ? (
         <Text variant="caption" tone="muted">
@@ -70,6 +76,7 @@ export default function AdminPlaces() {
                   <CategoryBadge category={p.category} />
                   <Badge label={strings.admin[p.status]} tone={statusTone[p.status]} />
                   {p.is_example ? <Badge label={strings.common.example} tone="warning" /> : null}
+                  {p.hours_status === 'needs_review' ? <Badge label={strings.hours.admin.status.needs_review ?? ''} tone="danger" /> : null}
                 </>
               }
               onPress={() => router.push(`/admin/places/${p.id}`)}

@@ -1,10 +1,13 @@
 import { formatMoney } from './format';
+import { isLaptopHours, isWeeklyHours } from './hours';
+import { formatLaptopWeekSummary, formatWeekSummary } from './hoursText';
 import { strings } from './strings';
 import type { DayPassValue, FactKey, FactValue, PlaceCategory, PlaceFactEntry, WebFact, WebFacts } from './types';
 
 /** Order of the facts list. Keep in sync with the place_facts check constraint. */
 export const FACT_KEYS: FactKey[] = [
   'opening_hours',
+  'laptop_hours',
   'open_24_7',
   'day_pass',
   'price_range',
@@ -16,6 +19,7 @@ export const FACT_KEYS: FactKey[] = [
 
 const FACT_CATEGORIES: Record<FactKey, PlaceCategory[]> = {
   opening_hours: ['coworking', 'cafe', 'library'],
+  laptop_hours: ['cafe', 'library'],
   open_24_7: ['coworking', 'library'],
   day_pass: ['coworking'],
   price_range: ['cafe', 'library'],
@@ -61,10 +65,11 @@ function priceLevel(value: string): { level: number; symbol: string } | null {
 }
 
 function isDayPass(v: FactValue): v is DayPassValue {
-  return typeof v === 'object' && v !== null && typeof v.amount === 'number';
+  return typeof v === 'object' && v !== null && typeof (v as Partial<DayPassValue>).amount === 'number';
 }
 
 function webSource(key: FactKey, web: WebFacts): FactSource | null {
+  if (key === 'laptop_hours') return null;
   const f: WebFact | undefined = key === 'wifi' ? web.wifi_mentioned : web[key];
   if (!f) return null;
   let value = f.value as FactValue;
@@ -89,6 +94,8 @@ export function formatFactValue(key: FactKey, value: FactValue, web: WebFacts): 
   if (key === 'laptops') return value === 'welcome' ? s.laptopsWelcome : s.laptopsNotAllowed;
   if (key === 'price_range' && typeof value === 'number') return priceSymbol(web).repeat(Math.min(4, Math.max(1, Math.round(value))));
   if (isDayPass(value)) return formatMoney(value.amount, value.currency);
+  if (key === 'opening_hours' && isWeeklyHours(value)) return formatWeekSummary(value);
+  if (key === 'laptop_hours' && isLaptopHours(value)) return formatLaptopWeekSummary(value);
   return String(value);
 }
 

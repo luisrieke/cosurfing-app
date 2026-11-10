@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Stars } from '@/components/Reviews';
+import { HoursStatusLine } from '@/components/hours';
 import { ScoreBadge } from '@/components/ScoreBadge';
 import { CategoryBadge, Icon, type IconName, Text, categoryIcon } from '@/components/ui';
 import { dayPassLabel, formatMbps, formatRating } from '@/lib/format';
@@ -18,12 +19,19 @@ export function RankedPlaceRow({
   signedIn,
   compact,
   onPress,
+  timezone = null,
+  now,
+  showWork = false,
 }: {
   place: RankedPlace;
   rank: number;
   signedIn: boolean;
   compact: boolean;
   onPress: () => void;
+  /** The city's time zone; without it (or `now`) no open/closed line is shown. */
+  timezone?: string | null;
+  now?: Date;
+  showWork?: boolean;
 }) {
   const facts: { icon: IconName; label: string; strong?: boolean }[] = [];
   if (place.download_median_mbps !== null) {
@@ -89,6 +97,16 @@ export function RankedPlaceRow({
             </Text>
           ) : null}
         </View>
+        {now ? (
+          <HoursStatusLine
+            hours={place.hours}
+            laptop={place.laptop_hours}
+            category={place.category}
+            timezone={timezone}
+            now={now}
+            showWork={showWork}
+          />
+        ) : null}
         <View style={styles.facts}>
           {facts.map((f) => (
             <View key={f.label} style={styles.fact}>

@@ -5,16 +5,19 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { clusterCities, type MapCluster, type MapHandle, type MapViewport, PlacesMap } from '@/components/map';
+import { HoursStatusLine } from '@/components/hours';
 import { pinColor } from '@/components/map/pinSvg';
 import { ScoreBadge } from '@/components/ScoreBadge';
 import { SiteHeader, SiteHeaderSpacer } from '@/components/SiteHeader';
 import { suggestRoute, type SuggestTarget } from '@/components/SuggestPlaceCta';
 import { Button, CategoryBadge, categoryIcon, Chip, Glass, glassSurface, Icon, IconButton, Notice, Text } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { useNow, useTimeFilterRefresh } from '@/hooks/useNow';
 import { useQuery } from '@/hooks/useQuery';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { isSupabaseConfigured } from '@/lib/env';
 import { distanceKm, formatDistance } from '@/lib/geo';
+import { localWeekMinute, matchesTimeFilter } from '@/lib/hours';
 import { getMapCities, getPlacesInBounds } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
@@ -96,6 +99,12 @@ export default function MapScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hidden, setHidden] = useState<ReadonlySet<PlaceCategory>>(() => new Set());
   const [reviewed, setReviewed] = useState(params.reviewed === '1');
+  const [openNow, setOpenNow] = useState(false);
+  const [workNow, setWorkNow] = useState(false);
+  const [requery, setRequery] = useState(0);
+  const now = useNow();
+  const timeFilter = openNow || workNow;
+  useTimeFilterRefresh(timeFilter, now, () => setRequery((n) => n + 1));
   const shownCategories = useMemo(() => CATEGORIES.filter((c) => !hidden.has(c)), [hidden]);
   const toggleCategory = (category: PlaceCategory) =>
     setHidden((prev) => {
@@ -113,7 +122,7 @@ export default function MapScreen() {
     const t = setTimeout(async () => {
       setLoading(true);
       try {
-        const next = await getPlacesInBounds(viewport.bounds, shownCategories, LIMIT, { reviewed });
+        const next = await getPlacesInBounds(viewport.bounds, shownCategories, LIMIT, { reviewed, openNow, workNow });
         if (!active) return;
         setPlaces(next);
         setError(null);
@@ -127,7 +136,7 @@ export default function MapScreen() {
       active = false;
       clearTimeout(t);
     };
-  }, [viewport, shownCategories, reviewed]);
+  }, [viewport, shownCategories, reviewed, openNow, workNow, requery]);
 
   const cities = useQuery('map-cities', getMapCities, isSupabaseConfigured);
   const clusters = useMemo(
@@ -137,10 +146,19 @@ export default function MapScreen() {
   const clusterPlaces = clusters.reduce((sum, c) => sum + c.count, 0);
   const openCluster = (c: MapCluster) => mapRef.current?.flyTo(c.target, c.target.zoom);
 
-  const visible = useMemo(
-    () => (zoomedIn ? places.filter((p) => !hidden.has(p.category) && (!reviewed || p.review_count > 0)) : []),
-    [zoomedIn, places, hidden, reviewed],
-  );
+  const filterNow = timeFilter ? now : null;
+  const visible = useMemo(() => {
+    if (!zoomedIn) return [];
+    const shown = places.filter((p) => !hidden.has(p.category) && (!reviewed || p.review_count > 0));
+    if (!filterNow) return shown;
+    // The server filtered when the area loaded; drop places that closed since.
+    const minutes = new Map<string | null, number | null>();
+    const minuteIn = (tz: string | null) => {
+      if (!minutes.has(tz)) minutes.set(tz, localWeekMinute(filterNow, tz));
+      return minutes.get(tz) ?? null;
+    };
+    return shown.filter((p) => matchesTimeFilter(p.hours, p.laptop_hours, p.category, minuteIn(p.timezone), { openNow, workNow }));
+  }, [zoomedIn, places, hidden, reviewed, filterNow, openNow, workNow]);
   const markers = useMemo(
     () => visible.map((p) => ({ id: p.id, lat: p.lat, lng: p.lng, category: p.category, name: p.name })),
     [visible],
@@ -232,8 +250,11 @@ export default function MapScreen() {
               />
             ))}
             <Chip label={strings.explore.reviewed} icon="star" selected={reviewed} onPress={() => setReviewed(!reviewed)} />
+            <Chip label={strings.hours.filterOpenNow} icon="clock" selected={openNow} onPress={() => setOpenNow(!openNow)} />
+            <Chip label={strings.hours.filterWorkNow} icon="monitor" selected={workNow} onPress={() => setWorkNow(!workNow)} />
           </View>
         ) : null}
+        {zoomedIn && workNow ? <Notice tone="info" body={strings.hours.filterWorkNowHint} style={styles.notice} /> : null}
         {zoomedIn && shownCategories.length === 0 ? (
           <Notice tone="info" body={strings.map.allHidden} style={styles.notice} />
         ) : null}
@@ -274,6 +295,14 @@ export default function MapScreen() {
                     {selected.address}
                   </Text>
                 ) : null}
+                <HoursStatusLine
+                  hours={selected.hours}
+                  laptop={selected.laptop_hours}
+                  category={selected.category}
+                  timezone={selected.timezone}
+                  now={now}
+                  showWork={workNow || selected.laptop_hours !== null}
+                />
               </View>
               <Icon name="chevron-right" size={20} color={colors.textMuted} />
             </Pressable>

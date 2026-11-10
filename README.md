@@ -53,6 +53,8 @@ cp .env.example .env      # fill in EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPAB
 npm run web               # http://localhost:8081
 npm run ios / npm run android
 npm run typecheck && npm run lint
+npm test                  # opening hours logic (node --test, Node 22+)
+npm run test:sql          # hours parser, triggers and filters against a scratch Postgres (scripts/sql-tests, needs psql)
 ```
 
 Without Supabase credentials the app still renders and shows a clear "backend not configured" notice instead of pretending to work. Maps on native need a development build (`npx expo run:ios|android` or EAS); Expo Go does not include `react-native-maps` with these settings or `react-native-purchases`.
@@ -82,11 +84,13 @@ Visiting a city that has not been crawled yet bumps its job to the front (`reque
 
 **Colivings.** Places to stay with a workspace for residents, so they are kept apart from the places to work: they have their own tab on the city page (only shown when the city has colivings, never preselected) and are listed under "All" too, but are left out of the city's place count, city score and median Wi‑Fi, and only appear on the map when "Show colivings" is on. Their page says that you usually need a booked stay to work there and that some colivings are not open all year round. `season`, `non_guest_work` and `min_stay` hold what the operator's website says, `unknown` otherwise.
 
+**Opening hours and laptop hours.** `places.opening_hours` keeps the text as listed (OSM, website, admin). `places.hours` is the structured week: per day a list of `[start, end]` in minutes after midnight, an end after 1440 for times past midnight, `[]` for closed, `null` when not known. A trigger derives it with `parse_opening_hours()`: team-entered hours (`hours_source = 'team'`) win over the member majority, which wins over the listing. Text it cannot read with confidence (notes, seasons, "sunset", overlapping or replacing rules…) is never guessed: `hours_status = 'needs_review'` with the reason in `hours_note`; the place shows the text, works as before and is left out of "Open now" until an admin converts it (**Admin → Places → Hours to review**) or keeps it as text. Holidays and single-date closures are flagged and shown next to the week. `laptop_hours` is separate: per weekday `all` (whenever open), `specific` with ranges, `none`, missing = unknown; `laptop_source` says whether it is the venue's policy, observed by the team or by members. Being open never implies laptops are welcome; only coworking spaces count as laptop-friendly while open without a policy. `open_ranges` / `laptop_ranges` (minutes of the week) back the "Open now" / "Work here now" filters, evaluated in the city's IANA time zone so daylight saving time is handled by Postgres.
+
 **Work score (0–10).** Reviews 55 %, Wi‑Fi 20 % (measured speed beats advertised beats "has Wi‑Fi"), outlets and calls 10 %, completeness of the info 10 %, type of place 5 %. Places with few reviews start near the middle. Ties are ranked by review count, then name, both in the city list and in the "#N place to work in …" rank on the place page.
 
 ## Supabase
 
-Project: `cosurfing` (eu-central-1). Migrations in `supabase/migrations` are already applied; all Edge Functions are deployed.
+Project: `cosurfing` (eu-central-1). Migrations in `supabase/migrations` are already applied, except `20261110180000_has_reviews_filter.sql` and `20261110200000_structured_opening_hours.sql` (apply both, in this order, with `supabase db push`; the second backfills about 32,000 places in one transaction, so run it at a quiet time). All Edge Functions are deployed.
 
 To reproduce elsewhere: `supabase link --project-ref <ref>`, `supabase db push`, add `crawler_secret` and `project_url` to Vault, run the city import, then `supabase functions deploy <name> --no-verify-jwt` for each function (they authenticate in code: public waitlist actions are rate‑limited, admin/billing actions verify the user's session, webhooks verify provider signatures/secrets).
 

@@ -27,12 +27,14 @@ import { SuggestPlaceCta, suggestRoute, type SuggestTarget } from '@/components/
 import { Button, Chip, EmptyState, ErrorState, Glass, Icon, Notice, Skeleton, Text } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useDebounced } from '@/hooks/useDebounced';
+import { useNow, useTimeFilterRefresh } from '@/hooks/useNow';
 import { usePaged } from '@/hooks/usePaged';
 import { useQuery } from '@/hooks/useQuery';
 import { useSlowConnection } from '@/hooks/useSlowConnection';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useAuth } from '@/lib/auth';
 import { formatMbps } from '@/lib/format';
+import { localWeekMinute, matchesTimeFilter } from '@/lib/hours';
 import { canShowInterstitial, dismissInterstitial, markInterstitialShown, signUpHref } from '@/lib/funnel';
 import { LevelMark, UserAvatar } from '@/components/UserBadge';
 import { getCityContributors, getCityRanking, getPlacesToRate, requestCityCrawl } from '@/lib/queries';
@@ -64,6 +66,8 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
   const [power, setPower] = useState(false);
   const [calls, setCalls] = useState(false);
   const [reviewed, setReviewed] = useState(false);
+  const [openNow, setOpenNow] = useState(false);
+  const [workNow, setWorkNow] = useState(false);
   const [query, setQuery] = useState('');
   const [view, setView] = useState<'list' | 'map'>('list');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -73,10 +77,12 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
   const mapRef = useRef<MapHandle | null>(null);
   const location = useUserLocation();
 
-  const filters: RankingFilters = { category, sort, wifi, power, calls, reviewed, q };
-  const filtered = category !== 'all' || wifi || power || calls || reviewed || q !== '';
+  const now = useNow();
+  const timeFilter = openNow || workNow;
+  const filters: RankingFilters = { category, sort, wifi, power, calls, reviewed, q, openNow, workNow };
+  const filtered = category !== 'all' || wifi || power || calls || reviewed || timeFilter || q !== '';
   const ranking = usePaged<RankedPlace>(
-    `ranking:${city.id}:${category}:${sort}:${wifi}:${power}:${calls}:${reviewed}:${q}`,
+    `ranking:${city.id}:${category}:${sort}:${wifi}:${power}:${calls}:${reviewed}:${openNow}:${workNow}:${q}`,
     (offset, limit) => getCityRanking(city.id, filters, limit, offset),
     PAGE_SIZE,
   );
@@ -102,11 +108,22 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
     return () => clearInterval(t);
   }, [collecting, onRefreshCity, refreshRanking]);
 
-  const markers = useMemo(
-    () => ranking.items.map((p) => ({ id: p.id, lat: p.lat, lng: p.lng, category: p.category, name: p.name })),
-    [ranking.items],
+  useTimeFilterRefresh(timeFilter, now, refreshRanking);
+
+  // The server filtered at query time; drop places that closed since, until the next refresh.
+  const localMinute = timeFilter ? localWeekMinute(now, city.timezone) : null;
+  const items = useMemo(
+    () =>
+      timeFilter
+        ? ranking.items.filter((p) => matchesTimeFilter(p.hours, p.laptop_hours, p.category, localMinute, { openNow, workNow }))
+        : ranking.items,
+    [ranking.items, timeFilter, localMinute, openNow, workNow],
   );
-  const selected = ranking.items.find((p) => p.id === selectedId) ?? null;
+  const markers = useMemo(
+    () => items.map((p) => ({ id: p.id, lat: p.lat, lng: p.lng, category: p.category, name: p.name })),
+    [items],
+  );
+  const selected = items.find((p) => p.id === selectedId) ?? null;
   const compact = width < 640;
   const sideBySide = width >= 1024;
   const suggestTarget: SuggestTarget = { city: city.slug, name: q || null };
@@ -169,13 +186,16 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
 
   const list = (
     <Glass variant="strong" style={styles.list}>
-      {ranking.items.map((p, i) => (
+      {items.map((p, i) => (
         <View key={p.id}>
           <RankedPlaceRow
             place={p}
             rank={i + 1}
             signedIn={Boolean(user)}
             compact={compact}
+            timezone={city.timezone}
+            now={now}
+            showWork={workNow}
             onPress={() => router.push(`/place/${p.slug}`)}
           />
           {!user && i === GATE_AFTER - 1 ? (
@@ -354,7 +374,15 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
                 <Chip label={strings.explore.power} icon="battery-charging" selected={power} onPress={() => setPower(!power)} />
                 <Chip label={strings.explore.calls} icon="video" selected={calls} onPress={() => setCalls(!calls)} />
                 <Chip label={strings.explore.reviewed} icon="star" selected={reviewed} onPress={() => setReviewed(!reviewed)} />
+                <Chip label={strings.hours.filterOpenNow} icon="clock" selected={openNow} onPress={() => setOpenNow(!openNow)} />
+                <Chip label={strings.hours.filterWorkNow} icon="monitor" selected={workNow} onPress={() => setWorkNow(!workNow)} />
               </ScrollView>
+              {workNow ? (
+                <Text variant="caption" tone="muted">
+                  {strings.hours.filterWorkNowHint}
+                </Text>
+              ) : null}
+              {timeFilter && !city.timezone ? <Notice tone="info" body={strings.hours.filterNoTimezone} /> : null}
 
               {coliving ? (
                 <Notice tone="warning" title={strings.city.colivingNoticeTitle} body={strings.city.colivingNoticeBody} />
@@ -384,7 +412,7 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
                 </View>
               ) : ranking.error ? (
                 <ErrorState body={ranking.error.message} onAction={() => void ranking.refresh()} />
-              ) : ranking.items.length === 0 ? (
+              ) : items.length === 0 ? (
                 q ? (
                   <SuggestPlaceCta
                     title={strings.suggestCta.searchMissTitle(q)}
@@ -392,7 +420,7 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
                     buttonLabel={strings.suggestCta.addNamed(q)}
                     target={suggestTarget}
                   />
-                ) : coliving && !wifi && !power && !calls && !reviewed ? (
+                ) : coliving && !wifi && !power && !calls && !reviewed && !timeFilter ? (
                   <EmptyState icon="home" title={strings.city.colivingEmpty(city.name)} />
                 ) : reviewed ? (
                   <EmptyState
@@ -457,9 +485,12 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
                   {selected ? (
                     <RankedPlaceRow
                       place={selected}
-                      rank={ranking.items.indexOf(selected) + 1}
+                      rank={items.indexOf(selected) + 1}
                       signedIn={Boolean(user)}
                       compact={compact}
+                      timezone={city.timezone}
+                      now={now}
+                      showWork={workNow}
                       onPress={() => router.push(`/place/${selected.slug}`)}
                     />
                   ) : null}
@@ -472,7 +503,7 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
               {!ranking.loading && ranking.hasMore && !ranking.loadingMore ? (
                 <Button title={strings.city.loadMore} variant="secondary" onPress={() => void loadMore()} style={styles.moreButton} />
               ) : null}
-              {ranking.items.length > 0 ? (
+              {items.length > 0 ? (
                 <SuggestPlaceCta
                   title={q ? strings.suggestCta.searchMissTitle(q) : strings.suggestCta.cityTitle(city.name)}
                   buttonLabel={q ? strings.suggestCta.addNamed(q) : strings.suggestCta.button}

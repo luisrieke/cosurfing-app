@@ -1,3 +1,5 @@
+import type { HoursFlag, HoursSource, HoursStatus, LaptopHours, LaptopSource, WeeklyHours } from './hours';
+
 export type CityStatus = 'active' | 'waitlist';
 export type PlaceCategory = 'coworking' | 'cafe' | 'library' | 'coliving';
 export type SeasonValue = 'year_round' | 'seasonal' | 'unknown';
@@ -81,6 +83,7 @@ export type FactKey =
   | 'wifi'
   | 'laptops'
   | 'opening_hours'
+  | 'laptop_hours'
   | 'price_range'
   | 'day_pass';
 
@@ -89,8 +92,12 @@ export interface DayPassValue {
   currency: string;
 }
 
-/** Booleans for yes/no facts (wifi also 'unreliable'), 1–4 for price_range, 'welcome' | 'not_allowed' for laptops. */
-export type FactValue = boolean | number | string | DayPassValue;
+/**
+ * Booleans for yes/no facts (wifi also 'unreliable'), 1–4 for price_range, 'welcome' | 'not_allowed'
+ * for laptops, a weekly schedule for opening_hours (free text from older app versions) and a weekly
+ * laptop policy for laptop_hours.
+ */
+export type FactValue = boolean | number | string | DayPassValue | WeeklyHours | LaptopHours;
 
 export type FactInput = Partial<Record<FactKey, FactValue>>;
 
@@ -176,6 +183,7 @@ export interface Place {
   lat: number;
   lng: number;
   website: string | null;
+  /** Original opening hours text (OSM, website or typed); the fallback when `hours` is unknown. */
   opening_hours: string | null;
   price_level: number | null;
   day_pass_price_cents: number | null;
@@ -184,6 +192,15 @@ export interface Place {
   focus: FocusValue;
   calls: CallsValue;
   laptop_rules: string | null;
+  /** Weekly schedule in the place's local time; null = unknown. See src/lib/hours.ts. */
+  hours: WeeklyHours | null;
+  hours_source: HoursSource | null;
+  hours_status: HoursStatus | null;
+  /** Why the text needs review (parser reason code). */
+  hours_note: string | null;
+  hours_flags: HoursFlag[];
+  laptop_hours: LaptopHours | null;
+  laptop_source: LaptopSource | null;
   last_verified_at: string | null;
   is_example: boolean;
   review_count: number;
@@ -293,6 +310,10 @@ export interface RankedPlace {
   cover_preview_url: string | null;
   cover_full_url: string | null;
   total_count: number;
+  hours: WeeklyHours | null;
+  hours_status: HoursStatus | null;
+  laptop_hours: LaptopHours | null;
+  laptop_source: LaptopSource | null;
 }
 
 export interface RankingFilters {
@@ -301,6 +322,10 @@ export interface RankingFilters {
   wifi: boolean;
   power: boolean;
   calls: boolean;
+  /** Open right now in the city's local time. */
+  openNow: boolean;
+  /** Open right now and laptops explicitly welcome now. */
+  workNow: boolean;
   /** Only places with at least one visible review. */
   reviewed: boolean;
   q: string;
@@ -312,6 +337,8 @@ export const defaultRankingFilters: RankingFilters = {
   wifi: false,
   power: false,
   calls: false,
+  openNow: false,
+  workNow: false,
   reviewed: false,
   q: '',
 };
@@ -619,6 +646,11 @@ export interface MapPlace {
   review_count: number;
   rating_avg: number | null;
   city: { slug: string; name: string } | null;
+  timezone: string | null;
+  hours: WeeklyHours | null;
+  hours_status: HoursStatus | null;
+  laptop_hours: LaptopHours | null;
+  laptop_source: LaptopSource | null;
 }
 
 export interface CitySearchResult {
