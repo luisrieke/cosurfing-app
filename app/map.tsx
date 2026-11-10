@@ -9,7 +9,7 @@ import { pinColor } from '@/components/map/pinSvg';
 import { ScoreBadge } from '@/components/ScoreBadge';
 import { SiteHeader, SiteHeaderSpacer } from '@/components/SiteHeader';
 import { suggestRoute, type SuggestTarget } from '@/components/SuggestPlaceCta';
-import { Button, CategoryBadge, categoryIcon, Glass, glassSurface, Icon, IconButton, Notice, Text } from '@/components/ui';
+import { Button, CategoryBadge, categoryIcon, Chip, Glass, glassSurface, Icon, IconButton, Notice, Text } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useQuery } from '@/hooks/useQuery';
 import { useUserLocation } from '@/hooks/useUserLocation';
@@ -75,7 +75,7 @@ function LegendChip({ category, shown, onPress }: { category: PlaceCategory; sho
 }
 
 export default function MapScreen() {
-  const params = useLocalSearchParams<{ lat?: string; lng?: string; zoom?: string }>();
+  const params = useLocalSearchParams<{ lat?: string; lng?: string; zoom?: string; reviewed?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { isDesktop } = useBreakpoint();
@@ -95,6 +95,7 @@ export default function MapScreen() {
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hidden, setHidden] = useState<ReadonlySet<PlaceCategory>>(() => new Set());
+  const [reviewed, setReviewed] = useState(params.reviewed === '1');
   const shownCategories = useMemo(() => CATEGORIES.filter((c) => !hidden.has(c)), [hidden]);
   const toggleCategory = (category: PlaceCategory) =>
     setHidden((prev) => {
@@ -112,7 +113,7 @@ export default function MapScreen() {
     const t = setTimeout(async () => {
       setLoading(true);
       try {
-        const next = await getPlacesInBounds(viewport.bounds, shownCategories, LIMIT);
+        const next = await getPlacesInBounds(viewport.bounds, shownCategories, LIMIT, { reviewed });
         if (!active) return;
         setPlaces(next);
         setError(null);
@@ -126,7 +127,7 @@ export default function MapScreen() {
       active = false;
       clearTimeout(t);
     };
-  }, [viewport, shownCategories]);
+  }, [viewport, shownCategories, reviewed]);
 
   const cities = useQuery('map-cities', getMapCities, isSupabaseConfigured);
   const clusters = useMemo(
@@ -137,8 +138,8 @@ export default function MapScreen() {
   const openCluster = (c: MapCluster) => mapRef.current?.flyTo(c.target, c.target.zoom);
 
   const visible = useMemo(
-    () => (zoomedIn ? places.filter((p) => !hidden.has(p.category)) : []),
-    [zoomedIn, places, hidden],
+    () => (zoomedIn ? places.filter((p) => !hidden.has(p.category) && (!reviewed || p.review_count > 0)) : []),
+    [zoomedIn, places, hidden, reviewed],
   );
   const markers = useMemo(
     () => visible.map((p) => ({ id: p.id, lat: p.lat, lng: p.lng, category: p.category, name: p.name })),
@@ -176,7 +177,10 @@ export default function MapScreen() {
         ? strings.map.loading
         : visible.length >= LIMIT
           ? strings.map.countCapped(LIMIT)
-          : strings.map.count(visible.length);
+          : reviewed
+            ? strings.map.countReviewed(visible.length)
+            : strings.map.count(visible.length);
+  const empty = zoomedIn && !loading && visible.length === 0;
 
   return (
     <View style={styles.root}>
@@ -227,6 +231,7 @@ export default function MapScreen() {
                 onPress={() => toggleCategory(category)}
               />
             ))}
+            <Chip label={strings.explore.reviewed} icon="star" selected={reviewed} onPress={() => setReviewed(!reviewed)} />
           </View>
         ) : null}
         {zoomedIn && shownCategories.length === 0 ? (
@@ -284,10 +289,10 @@ export default function MapScreen() {
           <Glass variant="strong" style={styles.sheet}>
             <View style={styles.suggestText}>
               <Text variant="bodyStrong">
-                {zoomedIn && !loading && visible.length === 0 ? strings.map.emptyTitle : strings.map.missingHere}
+                {empty ? (reviewed ? strings.map.reviewedEmptyTitle : strings.map.emptyTitle) : strings.map.missingHere}
               </Text>
               <Text variant="small" tone="muted">
-                {zoomedIn && !loading && visible.length === 0 ? strings.map.emptyBody : strings.suggestCta.searchMissBody}
+                {empty ? (reviewed ? strings.map.reviewedEmptyBody : strings.map.emptyBody) : strings.suggestCta.searchMissBody}
               </Text>
             </View>
             <Button title={strings.map.addPlace} icon="plus" onPress={() => router.push(suggestRoute(suggestTarget))} />
