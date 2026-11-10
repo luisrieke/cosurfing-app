@@ -220,6 +220,13 @@ select id, 'bar-b', 'Bar B', 'cafe', 'osm', 'Mo-Fr 09:00-18:00 "except in August
 select pg_temp.check('needs review', (select jsonb_build_object('st', hours_status, 'note', hours_note, 'text', opening_hours, 'h', hours) from public.places where slug = 'bar-b'),
   '{"st":"needs_review","note":"comment","text":"Mo-Fr 09:00-18:00 \"except in August\"","h":null}');
 
+-- "Keep as text" survives saves that re-derive the same text, and new text is reviewed again.
+update public.places set hours_status = 'text_only' where slug = 'bar-b';
+update public.places set hours_status = 'text_only', locked_fields = '{address}' where slug = 'bar-b';
+select pg_temp.check('text only kept', (select to_jsonb(hours_status) from public.places where slug = 'bar-b'), '"text_only"');
+update public.places set opening_hours = 'Mo-Fr 09:00-18:00 "closed in August"' where slug = 'bar-b';
+select pg_temp.check('text only reset by new text', (select to_jsonb(hours_status) from public.places where slug = 'bar-b'), '"needs_review"');
+
 insert into public.places (city_id, slug, name, category, source, opening_hours)
 select id, 'cowork-c', 'Cowork C', 'coworking', 'osm', 'Mo-Fr 08:00-18:00' from public.cities where slug = 'test-town';
 

@@ -775,8 +775,13 @@ begin
       new.opening_hours, new.web_facts, new.source, new.locked_fields
     );
     new.hours := d.hours;
+    -- "Keep as text" survives re-deriving the same unreadable text.
+    new.hours_status := case
+      when tg_op = 'UPDATE' and d.status = 'needs_review' and new.hours_status = 'text_only'
+       and new.opening_hours is not distinct from old.opening_hours
+       and d.source is not distinct from old.hours_source then 'text_only'
+      else d.status end;
     new.hours_source := d.source;
-    new.hours_status := d.status;
     new.hours_note := d.note;
     new.hours_flags := coalesce(d.flags, '{}');
   end if;
