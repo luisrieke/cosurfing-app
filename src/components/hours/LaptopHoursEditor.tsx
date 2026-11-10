@@ -50,8 +50,15 @@ function Segmented({
   label: string;
 }) {
   const s = strings.hours;
+  const [narrow, setNarrow] = useState(false);
+  const labels = narrow ? s.laptopModeTiny : s.laptopModeShort;
   return (
-    <View style={styles.segmented} accessibilityRole="radiogroup" accessibilityLabel={label}>
+    <View
+      style={styles.segmented}
+      accessibilityRole="radiogroup"
+      accessibilityLabel={label}
+      onLayout={(e) => setNarrow(e.nativeEvent.layout.width < 330)}
+    >
       {MODES.map((m, i) => {
         const selected = value === m;
         return (
@@ -69,11 +76,11 @@ function Segmented({
             ]}
           >
             <Text
-              variant="small"
+              variant="caption"
               numberOfLines={1}
               style={{ color: selected ? (m === 'unknown' ? colors.text : colors.onAccent) : colors.textMuted }}
             >
-              {s.laptopModeShort[m]}
+              {labels[m]}
             </Text>
           </Pressable>
         );
@@ -242,10 +249,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   segment: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 'auto',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 6,
   },
   segmentDivider: {
     borderLeftWidth: 1,

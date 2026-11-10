@@ -1194,6 +1194,7 @@ export const strings = {
     laptopSeparate: 'When you can work on a laptop here. This can be shorter than the opening hours.',
     laptopMode: { all: 'All opening hours', specific: 'Specific hours', none: 'Not allowed', unknown: 'Unknown' },
     laptopModeShort: { all: 'All hours', specific: 'Some hours', none: 'No', unknown: 'Unknown' },
+    laptopModeTiny: { all: 'All', specific: 'Times', none: 'No', unknown: '?' },
     laptopDay: {
       all: 'Whenever open',
       none: 'No laptops',
