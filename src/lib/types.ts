@@ -408,6 +408,8 @@ export interface PlaceReview {
   body_locked: boolean;
   is_own: boolean;
   status: 'visible' | 'hidden' | 'pending' | 'rejected';
+  /** Written in the Early Contributors coffee program; must be labelled as incentivized. */
+  coffee_program: boolean;
 }
 
 export interface ReviewUnlockQuota {

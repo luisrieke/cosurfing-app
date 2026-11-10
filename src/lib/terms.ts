@@ -2,4 +2,4 @@
 export const TERMS_VERSION = '2026-11-09';
 export const TERMS_UPDATED = 'November 9, 2026';
 
-export const PRIVACY_UPDATED = 'November 9, 2026';
+export const PRIVACY_UPDATED = 'November 10, 2026';
