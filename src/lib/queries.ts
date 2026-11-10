@@ -95,6 +95,7 @@ export async function getCityRanking(
     p_wifi: filters.wifi,
     p_power: filters.power,
     p_calls: filters.calls,
+    p_reviewed: filters.reviewed,
     p_q: filters.q.trim() || null,
     p_limit: limit,
     p_offset: offset,
@@ -286,6 +287,7 @@ export async function getPlacesInBounds(
   bounds: { north: number; south: number; east: number; west: number },
   categories: PlaceCategory[],
   limit = 300,
+  options: { reviewed?: boolean } = {},
 ): Promise<MapPlace[]> {
   if (categories.length === 0) return [];
   let query = requireSupabase()
@@ -295,6 +297,7 @@ export async function getPlacesInBounds(
     .in('category', categories)
     .gte('lat', bounds.south)
     .lte('lat', bounds.north);
+  if (options.reviewed) query = query.gt('review_count', 0);
   // A view that crosses the antimeridian has west > east; skip the longitude filter there.
   if (bounds.west <= bounds.east) query = query.gte('lng', bounds.west).lte('lng', bounds.east);
   const { data, error } = await query.order('work_score', { ascending: false }).limit(limit);

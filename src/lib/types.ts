@@ -301,6 +301,8 @@ export interface RankingFilters {
   wifi: boolean;
   power: boolean;
   calls: boolean;
+  /** Only places with at least one visible review. */
+  reviewed: boolean;
   q: string;
 }
 
@@ -310,6 +312,7 @@ export const defaultRankingFilters: RankingFilters = {
   wifi: false,
   power: false,
   calls: false,
+  reviewed: false,
   q: '',
 };
 
