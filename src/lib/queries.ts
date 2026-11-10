@@ -791,10 +791,13 @@ export function toPlaceInput(place: Place): PlaceInput {
   return out as PlaceInput;
 }
 
-export async function adminSavePlace(id: string | null, input: PlaceInput): Promise<string> {
+/** `skip` leaves columns as they are on update (e.g. hours the database derives itself). */
+export async function adminSavePlace(id: string | null, input: PlaceInput, skip: readonly (keyof PlaceInput)[] = []): Promise<string> {
   const sb = requireSupabase();
   if (id) {
-    const { error } = await sb.from('places').update(input).eq('id', id);
+    const patch: Partial<PlaceInput> = { ...input };
+    for (const k of skip) delete patch[k];
+    const { error } = await sb.from('places').update(patch).eq('id', id);
     throwIf(error);
     return id;
   }

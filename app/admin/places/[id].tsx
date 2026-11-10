@@ -4,11 +4,23 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 
+import { AdminHoursSection } from '@/components/admin/AdminHoursSection';
 import { AdminShell } from '@/components/admin/AdminShell';
+import type { LaptopWeek } from '@/components/hours';
 import { Badge, Button, Chip, Icon, Input, Notice, Section, Skeleton, Text } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
 import { formatDate, normalizeWebsite, slugify } from '@/lib/format';
+import {
+  compactLaptopWeek,
+  DAY_KEYS,
+  dayError,
+  fullLaptopWeek,
+  type LaptopHours,
+  normalizeWeek,
+  sortIntervals,
+  weekError,
+} from '@/lib/hours';
 import { deletePlacePhoto, pickImage, uploadPlacePhoto } from '@/lib/photoUpload';
 import {
   adminDeletePlace,
@@ -93,6 +105,21 @@ const emptyInput = (cityId: string): PlaceInput => ({
   min_stay: null,
 });
 
+const ownLaptopSource = (s: PlaceInput['laptop_source']) => s === 'venue' || s === 'team';
+const laptopWeekFor = (input: PlaceInput): LaptopWeek | null =>
+  ownLaptopSource(input.laptop_source) ? fullLaptopWeek(input.laptop_hours) : null;
+
+/** The first problem with laptop hours, as "Monday: …". */
+function laptopWeekError(week: LaptopWeek): string | null {
+  const e = strings.hours.editor;
+  for (const d of DAY_KEYS) {
+    const day = week[d];
+    const err = day.mode === 'specific' ? dayError(sortIntervals(day.ranges)) : null;
+    if (err) return e.invalidDay(strings.hours.dayLong[d], e.errors[err] ?? '');
+  }
+  return null;
+}
+
 /** Crawled fields whose value differs from what was loaded. */
 function changedCrawledFields(before: PlaceInput, after: PlaceInput): string[] {
   return CRAWLED_FIELDS.filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]));
@@ -141,6 +168,7 @@ function Editor({ placeId }: { placeId: string | null }) {
   const [lngText, setLngText] = useState('');
   const [priceLevelText, setPriceLevelText] = useState('');
   const [dayPassText, setDayPassText] = useState('');
+  const [laptopWeek, setLaptopWeek] = useState<LaptopWeek | null>(null);
 
   // Hydrate the form exactly once (from the loaded place, or with defaults for a new one).
   // Done as a state adjustment during render rather than in an effect.
@@ -153,6 +181,7 @@ function Editor({ placeId }: { placeId: string | null }) {
       setLngText(String(rest.lng));
       setPriceLevelText(rest.price_level ? String(rest.price_level) : '');
       setDayPassText(rest.day_pass_price_cents !== null ? (rest.day_pass_price_cents / 100).toFixed(2) : '');
+      setLaptopWeek(laptopWeekFor(rest));
       setHydrated(true);
     } else if (!placeId && cities.data && cities.data.length > 0) {
       const first = cities.data[0]!;
@@ -180,6 +209,19 @@ function Editor({ placeId }: { placeId: string | null }) {
     const dayPass = dayPassText ? Math.round(Number(dayPassText.replace(',', '.')) * 100) : null;
     if (dayPass !== null && !Number.isFinite(dayPass)) return setError('Day pass price must be a number.');
     if (form.last_verified_at && !/^\d{4}-\d{2}-\d{2}$/.test(form.last_verified_at)) return setError('Last checked must be YYYY-MM-DD.');
+    const e = strings.hours.editor;
+    const teamHours = form.hours_source === 'team' && form.hours ? normalizeWeek(form.hours) : null;
+    if (teamHours) {
+      const bad = weekError(teamHours);
+      if (bad) return setError(e.invalidDay(strings.hours.dayLong[bad.day], e.errors[bad.error] ?? ''));
+    }
+    let laptopHours: LaptopHours | null = form.laptop_hours;
+    if (ownLaptopSource(form.laptop_source)) {
+      const bad = laptopWeek ? laptopWeekError(laptopWeek) : null;
+      if (bad) return setError(bad);
+      laptopHours = laptopWeek ? compactLaptopWeek(laptopWeek) : null;
+      if (!laptopHours) return setError(strings.hours.admin.laptopEmpty);
+    }
 
     setBusy('save');
     setError(null);
@@ -204,14 +246,29 @@ function Editor({ placeId }: { placeId: string | null }) {
         lng,
         price_level: priceLevel,
         day_pass_price_cents: dayPass,
+        hours: teamHours ?? form.hours,
+        laptop_hours: laptopHours,
       };
+      // Hours and laptop hours the database derives (listing, members) are not written back, so a
+      // save never overwrites a newer member answer with what was loaded.
+      const skip: (keyof PlaceInput)[] = [];
+      if (original) {
+        if (form.hours_source !== 'team' && original.hours_source !== 'team') skip.push('hours', 'hours_source');
+        if (form.hours_status === original.hours_status) skip.push('hours_status');
+        if (!ownLaptopSource(form.laptop_source) && !ownLaptopSource(original.laptop_source)) skip.push('laptop_hours', 'laptop_source');
+      }
       if (original) {
         const changed = changedCrawledFields(original, input);
         input.locked_fields = [...new Set([...(form.locked_fields ?? []), ...changed])];
       }
-      const savedId = await adminSavePlace(placeId, input);
-      setForm(input);
-      setOriginal(input);
+      const savedId = await adminSavePlace(placeId, input, skip);
+      // Read back what the database derived (hours from the listing, review status).
+      const fresh = placeId ? await adminGetPlace(savedId) : null;
+      const next = fresh ? toPlaceInput(fresh) : input;
+      setForm(next);
+      setOriginal(next);
+      setLaptopWeek(laptopWeekFor(next));
+      if (fresh) placeQuery.setData(() => fresh);
       setSaved(true);
       if (!placeId) router.replace(`/admin/places/${savedId}`);
     } catch (e) {
@@ -322,8 +379,22 @@ function Editor({ placeId }: { placeId: string | null }) {
         </View>
         <Input label={f.website} optional value={form.website ?? ''} onChangeText={(v) => update('website', v)} autoCapitalize="none" keyboardType="url" />
         <Input label={f.phone} optional value={form.phone ?? ''} onChangeText={(v) => update('phone', v)} keyboardType="phone-pad" />
-        <Input label={f.openingHours} optional value={form.opening_hours ?? ''} onChangeText={(v) => update('opening_hours', v)} placeholder="Mon–Fri 8:00–18:00" />
       </Section>
+
+      <AdminHoursSection
+        value={form}
+        note={placeQuery.data?.hours_note ?? null}
+        flags={placeQuery.data?.hours_flags ?? []}
+        laptopWeek={laptopWeek}
+        onLaptopWeek={(week) => {
+          setLaptopWeek(week);
+          setSaved(false);
+        }}
+        onChange={(patch) => {
+          setForm((cur) => (cur ? { ...cur, ...patch } : cur));
+          setSaved(false);
+        }}
+      />
 
       {form.category === 'coliving' ? (
         <Section title={strings.explore.coliving}>

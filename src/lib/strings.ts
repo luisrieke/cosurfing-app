@@ -1277,6 +1277,24 @@ export const strings = {
       reviewLaptopAdd: 'Add laptop hours',
       laptopEmpty: 'Set at least one day, or remove your answer.',
     },
+
+    admin: {
+      listing: 'Listing text (fallback)',
+      listingHint:
+        'From OpenStreetMap, the website or typed here. Read automatically; shown as is when it cannot be read, and next to the hours for notes like holidays.',
+      status: { structured: 'Structured', needs_review: 'Needs review', text_only: 'Text only' } as Record<string, string>,
+      reason: (reason: string) => `The text ${reason}.`,
+      current: 'Current hours',
+      none: 'No structured hours.',
+      edit: 'Edit hours',
+      editHint: 'Hours set here win over the listing and member answers until you switch back.',
+      laptopSet: 'Set laptop hours',
+      laptopOverride: 'Override member answers',
+      laptopRemove: 'Remove, use member answers',
+      laptopSourceShort: { venue: 'Venue policy', team: 'Observed by the team' },
+      laptopEmpty: 'Set at least one day, or remove the laptop hours.',
+      reviewFilter: 'Hours to review',
+    },
   },
 } as const;
 
