@@ -99,8 +99,9 @@ export async function getCityRanking(
     p_q: filters.q.trim() || null,
     p_limit: limit,
     p_offset: offset,
-    p_open_now: filters.openNow,
-    p_work_now: filters.workNow,
+    // Only sent when on, so the call also works against a database without the hours migration.
+    ...(filters.openNow ? { p_open_now: true } : null),
+    ...(filters.workNow ? { p_work_now: true } : null),
   });
   throwIf(error);
   const rows = (data ?? []) as RankedRow[];
@@ -308,12 +309,42 @@ export async function getPlacesInBounds(
     p_open_now: time.openNow,
     p_work_now: time.workNow,
   });
+  // PGRST202: the RPC does not exist yet (database without the hours migration).
+  if (error?.code === 'PGRST202' && !time.openNow && !time.workNow) return getPlacesInBoundsLegacy(bounds, categories, limit);
   throwIf(error);
   return ((data ?? []) as MapPlaceRow[]).map(({ city_slug, city_name, ...p }) => ({
     ...p,
     work_score: Number(p.work_score),
     city: city_slug && city_name ? { slug: city_slug, name: city_name } : null,
   }));
+}
+
+async function getPlacesInBoundsLegacy(
+  bounds: { north: number; south: number; east: number; west: number },
+  categories: PlaceCategory[],
+  limit: number,
+): Promise<MapPlace[]> {
+  let query = requireSupabase()
+    .from('places')
+    .select('id, slug, name, category, lat, lng, address, work_score, review_count, rating_avg, city:cities(slug, name)')
+    .eq('status', 'published')
+    .in('category', categories)
+    .gte('lat', bounds.south)
+    .lte('lat', bounds.north);
+  if (bounds.west <= bounds.east) query = query.gte('lng', bounds.west).lte('lng', bounds.east);
+  const { data, error } = await query.order('work_score', { ascending: false }).limit(limit);
+  throwIf(error);
+  return ((data ?? []) as unknown as Omit<MapPlace, 'timezone' | 'hours' | 'hours_status' | 'laptop_hours' | 'laptop_source'>[]).map(
+    (p) => ({
+      ...p,
+      work_score: Number(p.work_score),
+      timezone: null,
+      hours: null,
+      hours_status: null,
+      laptop_hours: null,
+      laptop_source: null,
+    }),
+  );
 }
 
 /** Reads opening hours text with the same parser the database uses (admins). */
