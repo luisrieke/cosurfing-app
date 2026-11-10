@@ -60,11 +60,16 @@ export async function verifySignature(raw: string, header: string, secret: strin
   }
 }
 
-/** Tally serves uploads from its own storage; anything else is refused (SSRF guard). */
+/**
+ * Tally serves uploads from its own storage (storage.tally.so, which may redirect to its Google Cloud
+ * bucket); anything else is refused (SSRF guard).
+ */
 export function isTallyFileUrl(url: string): boolean {
   try {
     const u = new URL(url);
-    return u.protocol === 'https:' && (u.hostname === 'tally.so' || u.hostname.endsWith('.tally.so'));
+    if (u.protocol !== 'https:' || u.username || u.password || u.port) return false;
+    if (u.hostname === 'tally.so' || u.hostname.endsWith('.tally.so')) return true;
+    return u.hostname === 'storage.googleapis.com' && /^\/tally-[a-z0-9-]+\//.test(u.pathname);
   } catch {
     return false;
   }
@@ -79,29 +84,59 @@ interface StoredFile {
   sha256: string;
 }
 
+/** A file we will never accept; retrying the delivery would not help. */
+class RejectedFile extends Error {}
+
 async function download(file: ParsedFile['file']): Promise<{ bytes: Uint8Array<ArrayBuffer>; mime: string }> {
-  if (!isTallyFileUrl(file.url)) throw new Error('file_host_not_allowed');
-  const res = await fetch(file.url, { redirect: 'error', signal: AbortSignal.timeout(20000) });
+  let url = file.url;
+  let res: Response | null = null;
+  for (let hop = 0; hop < 4; hop++) {
+    if (!isTallyFileUrl(url)) throw new RejectedFile('file_host_not_allowed');
+    res = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(20000) });
+    const next = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null;
+    if (!next) break;
+    await res.body?.cancel();
+    url = new URL(next, url).toString();
+    res = null;
+  }
+  if (!res) throw new RejectedFile('too_many_redirects');
   if (!res.ok) throw new Error(`file_download_${res.status}`);
   const declared = Number(res.headers.get('content-length') ?? '0');
-  if (declared > MAX_BYTES) throw new Error('file_too_large');
+  if (declared > MAX_BYTES) throw new RejectedFile('file_too_large');
   const bytes = new Uint8Array(await res.arrayBuffer());
-  if (bytes.byteLength > MAX_BYTES) throw new Error('file_too_large');
+  if (bytes.byteLength > MAX_BYTES) throw new RejectedFile('file_too_large');
   const mime = (file.mimeType || res.headers.get('content-type') || '').split(';')[0]!.trim().toLowerCase();
-  if (!MIME_EXT[mime]) throw new Error('file_type_not_allowed');
+  if (!MIME_EXT[mime]) throw new RejectedFile('file_type_not_allowed');
   return { bytes, mime };
 }
 
+/**
+ * Copies files a few at a time: Tally waits 10 s for an answer and retries later (deduplicated by
+ * submission id). Files we refuse are skipped and show up as missing proof for the reviewer.
+ */
 async function storeFiles(sb: SupabaseClient, userId: string, submissionId: string, parsed: ParsedFile[]): Promise<StoredFile[]> {
+  const items = parsed.slice(0, MAX_FILES).map((item, i) => ({ item, n: i + 1 }));
   const stored: StoredFile[] = [];
-  let n = 0;
-  for (const item of parsed.slice(0, MAX_FILES)) {
-    const { bytes, mime } = await download(item.file);
-    const path = `${userId}/${submissionId}/${item.step}-${item.kind}-${++n}.${MIME_EXT[mime]}`;
-    const { error } = await sb.storage.from(BUCKET).upload(path, bytes, { contentType: mime, upsert: true });
-    if (error) throw new Error(`upload: ${error.message}`);
-    stored.push({ step: item.step, kind: item.kind, path, mime, size: bytes.byteLength, sha256: await sha256Hex(bytes) });
-  }
+  const worker = async () => {
+    for (let next = items.shift(); next; next = items.shift()) {
+      const { item, n } = next;
+      let file: { bytes: Uint8Array<ArrayBuffer>; mime: string };
+      try {
+        file = await download(item.file);
+      } catch (e) {
+        if (e instanceof RejectedFile) {
+          console.warn('coffee evidence skipped', item.kind, e.message);
+          continue;
+        }
+        throw e;
+      }
+      const path = `${userId}/${submissionId}/${item.step}-${item.kind}-${n}.${MIME_EXT[file.mime]}`;
+      const { error } = await sb.storage.from(BUCKET).upload(path, file.bytes, { contentType: file.mime, upsert: true });
+      if (error) throw new Error(`upload: ${error.message}`);
+      stored.push({ step: item.step, kind: item.kind, path, mime: file.mime, size: file.bytes.byteLength, sha256: await sha256Hex(file.bytes) });
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
   return stored;
 }
 

@@ -109,6 +109,9 @@ Deno.test('file urls must be on tally.so', () => {
   assert(!isTallyFileUrl('http://storage.tally.so/a.jpg'));
   assert(!isTallyFileUrl('https://tally.so.evil.com/a.jpg'));
   assert(!isTallyFileUrl('https://169.254.169.254/latest'));
+  assert(isTallyFileUrl('https://storage.googleapis.com/tally-response-assets/abc/file.png'));
+  assert(!isTallyFileUrl('https://storage.googleapis.com/someone-else/file.png'));
+  assert(!isTallyFileUrl('https://storage.tally.so:8443/a.jpg'));
 });
 
 Deno.test('signature', async () => {
