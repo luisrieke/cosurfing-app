@@ -326,6 +326,8 @@ export interface RankingFilters {
   openNow: boolean;
   /** Open right now and laptops explicitly welcome now. */
   workNow: boolean;
+  /** Only places with at least one visible review. */
+  reviewed: boolean;
   q: string;
 }
 
@@ -337,6 +339,7 @@ export const defaultRankingFilters: RankingFilters = {
   calls: false,
   openNow: false,
   workNow: false,
+  reviewed: false,
   q: '',
 };
 

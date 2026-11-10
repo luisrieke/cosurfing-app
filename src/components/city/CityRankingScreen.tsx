@@ -65,6 +65,7 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
   const [wifi, setWifi] = useState(false);
   const [power, setPower] = useState(false);
   const [calls, setCalls] = useState(false);
+  const [reviewed, setReviewed] = useState(false);
   const [openNow, setOpenNow] = useState(false);
   const [workNow, setWorkNow] = useState(false);
   const [query, setQuery] = useState('');
@@ -78,10 +79,10 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
 
   const now = useNow();
   const timeFilter = openNow || workNow;
-  const filters: RankingFilters = { category, sort, wifi, power, calls, q, openNow, workNow };
-  const filtered = category !== 'all' || wifi || power || calls || timeFilter || q !== '';
+  const filters: RankingFilters = { category, sort, wifi, power, calls, reviewed, q, openNow, workNow };
+  const filtered = category !== 'all' || wifi || power || calls || reviewed || timeFilter || q !== '';
   const ranking = usePaged<RankedPlace>(
-    `ranking:${city.id}:${category}:${sort}:${wifi}:${power}:${calls}:${openNow}:${workNow}:${q}`,
+    `ranking:${city.id}:${category}:${sort}:${wifi}:${power}:${calls}:${reviewed}:${openNow}:${workNow}:${q}`,
     (offset, limit) => getCityRanking(city.id, filters, limit, offset),
     PAGE_SIZE,
   );
@@ -372,6 +373,7 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
                 <Chip label={strings.explore.wifi} icon="wifi" selected={wifi} onPress={() => setWifi(!wifi)} />
                 <Chip label={strings.explore.power} icon="battery-charging" selected={power} onPress={() => setPower(!power)} />
                 <Chip label={strings.explore.calls} icon="video" selected={calls} onPress={() => setCalls(!calls)} />
+                <Chip label={strings.explore.reviewed} icon="star" selected={reviewed} onPress={() => setReviewed(!reviewed)} />
                 <Chip label={strings.hours.filterOpenNow} icon="clock" selected={openNow} onPress={() => setOpenNow(!openNow)} />
                 <Chip label={strings.hours.filterWorkNow} icon="monitor" selected={workNow} onPress={() => setWorkNow(!workNow)} />
               </ScrollView>
@@ -418,8 +420,16 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
                     buttonLabel={strings.suggestCta.addNamed(q)}
                     target={suggestTarget}
                   />
-                ) : coliving && !wifi && !power && !calls && !timeFilter ? (
+                ) : coliving && !wifi && !power && !calls && !reviewed && !timeFilter ? (
                   <EmptyState icon="home" title={strings.city.colivingEmpty(city.name)} />
+                ) : reviewed ? (
+                  <EmptyState
+                    icon="star"
+                    title={strings.city.noReviewedTitle}
+                    body={strings.city.noReviewedBody}
+                    actionLabel={user ? strings.city.rateCtaButton : strings.nav.signUp}
+                    onAction={() => void rateSomething()}
+                  />
                 ) : filtered ? (
                   <EmptyState icon="filter" title={strings.city.noMatchTitle} body={strings.city.noMatchBody} />
                 ) : (
@@ -450,7 +460,12 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
                       onPress={() =>
                         router.push({
                           pathname: '/map',
-                          params: { lat: String(city.lat), lng: String(city.lng), zoom: String(city.zoom) },
+                          params: {
+                            lat: String(city.lat),
+                            lng: String(city.lng),
+                            zoom: String(city.zoom),
+                            ...(reviewed ? { reviewed: '1' } : null),
+                          },
                         })
                       }
                     />

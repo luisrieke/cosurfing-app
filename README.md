@@ -54,7 +54,7 @@ npm run web               # http://localhost:8081
 npm run ios / npm run android
 npm run typecheck && npm run lint
 npm test                  # opening hours logic (node --test, Node 22+)
-npm run test:sql          # parser, triggers and filters against a scratch Postgres (needs createdb/psql)
+npm run test:sql          # hours parser, triggers and filters against a scratch Postgres (scripts/sql-tests, needs psql)
 ```
 
 Without Supabase credentials the app still renders and shows a clear "backend not configured" notice instead of pretending to work. Maps on native need a development build (`npx expo run:ios|android` or EAS); Expo Go does not include `react-native-maps` with these settings or `react-native-purchases`.
@@ -90,7 +90,7 @@ Visiting a city that has not been crawled yet bumps its job to the front (`reque
 
 ## Supabase
 
-Project: `cosurfing` (eu-central-1). Migrations in `supabase/migrations` are already applied, except `20261110180000_structured_opening_hours.sql` (apply it with `supabase db push`; it backfills about 32,000 places in one transaction, so run it at a quiet time). All Edge Functions are deployed.
+Project: `cosurfing` (eu-central-1). Migrations in `supabase/migrations` are already applied, except `20261110180000_has_reviews_filter.sql` and `20261110200000_structured_opening_hours.sql` (apply both, in this order, with `supabase db push`; the second backfills about 32,000 places in one transaction, so run it at a quiet time). All Edge Functions are deployed.
 
 To reproduce elsewhere: `supabase link --project-ref <ref>`, `supabase db push`, add `crawler_secret` and `project_url` to Vault, run the city import, then `supabase functions deploy <name> --no-verify-jwt` for each function (they authenticate in code: public waitlist actions are rate‑limited, admin/billing actions verify the user's session, webhooks verify provider signatures/secrets).
 

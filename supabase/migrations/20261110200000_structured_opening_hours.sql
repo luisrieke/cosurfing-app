@@ -1095,7 +1095,9 @@ create index places_hours_review_idx on public.places (updated_at desc) where ho
 -- City ranking: "Open now" and "Work here now"
 -- ---------------------------------------------------------------------------
 
-drop function public.get_city_ranking(uuid, text, text, boolean, boolean, boolean, text, integer, integer);
+-- Replaces the version from 20261110180000_has_reviews_filter.sql (or the one before it).
+drop function if exists public.get_city_ranking(uuid, text, text, boolean, boolean, boolean, text, integer, integer);
+drop function if exists public.get_city_ranking(uuid, text, text, boolean, boolean, boolean, text, integer, integer, boolean);
 
 create function public.get_city_ranking(
   p_city_id uuid,
@@ -1107,6 +1109,7 @@ create function public.get_city_ranking(
   p_q text default null,
   p_limit integer default 30,
   p_offset integer default 0,
+  p_reviewed boolean default false,
   p_open_now boolean default false,
   p_work_now boolean default false
 )
@@ -1140,6 +1143,7 @@ as $$
      where (not p_wifi or b.wifi = 'yes' or b.download_median_mbps is not null)
        and (not p_power or b.power_outlets in ('plenty', 'some'))
        and (not p_calls or b.calls in ('yes', 'limited'))
+       and (not p_reviewed or b.review_count > 0)
        and (not (p_open_now or p_work_now) or coalesce(b.open_ranges @> (select m from now_local), false))
        and (not p_work_now or coalesce(b.laptop_ranges @> (select m from now_local), false))
        and (
@@ -1175,8 +1179,8 @@ as $$
   offset greatest(p_offset, 0);
 $$;
 
-revoke all on function public.get_city_ranking(uuid, text, text, boolean, boolean, boolean, text, integer, integer, boolean, boolean) from public;
-grant execute on function public.get_city_ranking(uuid, text, text, boolean, boolean, boolean, text, integer, integer, boolean, boolean) to anon, authenticated;
+revoke all on function public.get_city_ranking(uuid, text, text, boolean, boolean, boolean, text, integer, integer, boolean, boolean, boolean) from public;
+grant execute on function public.get_city_ranking(uuid, text, text, boolean, boolean, boolean, text, integer, integer, boolean, boolean, boolean) to anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Map: places in the viewport, with the same time filters
@@ -1190,7 +1194,8 @@ create or replace function public.get_places_in_bounds(
   p_categories text[],
   p_limit integer default 300,
   p_open_now boolean default false,
-  p_work_now boolean default false
+  p_work_now boolean default false,
+  p_reviewed boolean default false
 )
 returns table (
   id uuid, slug text, name text, category text, lat double precision, lng double precision, address text,
@@ -1212,6 +1217,7 @@ as $$
        and p.category = any(p_categories)
        and p.lat between p_south and p_north
        and (p_west > p_east or p.lng between p_west and p_east)
+       and (not p_reviewed or p.review_count > 0)
        and (not (p_open_now or p_work_now) or p.open_ranges is not null)
        and (not p_work_now or p.laptop_ranges is not null)
   ),
@@ -1230,8 +1236,8 @@ as $$
    limit least(greatest(p_limit, 1), 500);
 $$;
 
-revoke all on function public.get_places_in_bounds(double precision, double precision, double precision, double precision, text[], integer, boolean, boolean) from public;
-grant execute on function public.get_places_in_bounds(double precision, double precision, double precision, double precision, text[], integer, boolean, boolean) to anon, authenticated;
+revoke all on function public.get_places_in_bounds(double precision, double precision, double precision, double precision, text[], integer, boolean, boolean, boolean) from public;
+grant execute on function public.get_places_in_bounds(double precision, double precision, double precision, double precision, text[], integer, boolean, boolean, boolean) to anon, authenticated;
 
 -- The admin editor converts pasted text with the same parser.
 revoke all on function public.parse_opening_hours(text) from public, anon;

@@ -1,4 +1,4 @@
--- Tests for 20261110180000_structured_opening_hours.sql. Run with scripts/test-hours-sql.sh.
+-- Tests for 20261110200000_structured_opening_hours.sql. Run with scripts/test-hours-sql.sh.
 \set ON_ERROR_STOP on
 
 create or replace function pg_temp.check(p_name text, p_got jsonb, p_want jsonb)
@@ -248,6 +248,19 @@ select pg_temp.check('work now late', pg_temp.ranked(false, true, '2026-11-09 18
 
 select count(*) as ranking_rows from public.get_city_ranking((select id from public.cities where slug = 'test-town'), p_work_now => true);
 select count(*) as map_rows from public.get_places_in_bounds(-90, 90, -180, 180, array['cafe', 'coworking'], 300, true, false);
+
+-- "Has reviews" (from 20261110180000_has_reviews_filter.sql) still works next to the time filters.
+update public.places set review_count = 2 where slug = 'cafe-a';
+update public.places set lat = 52.5, lng = 13.4 where slug in ('cafe-a', 'bar-b', 'cowork-c');
+select pg_temp.check('ranking has reviews',
+  (select jsonb_agg(slug order by slug) from public.get_city_ranking((select id from public.cities where slug = 'test-town'), p_reviewed => true)),
+  '["cafe-a"]');
+select pg_temp.check('map has reviews',
+  (select jsonb_agg(slug order by slug) from public.get_places_in_bounds(-90, 90, -180, 180, array['cafe', 'coworking'], 300, p_reviewed => true)),
+  '["cafe-a"]');
+select pg_temp.check('map all',
+  (select jsonb_agg(slug order by slug) from public.get_places_in_bounds(-90, 90, -180, 180, array['cafe', 'coworking'], 300)),
+  '["bar-b","cafe-a","cowork-c"]');
 
 -- Fact values
 select pg_temp.check('fact structured hours', to_jsonb(public.place_fact_value_ok('opening_hours', pg_temp.week('[[[480,1080]],[],[],[],[],[],[]]'))), 'true');

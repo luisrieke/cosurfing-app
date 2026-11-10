@@ -4,7 +4,7 @@
  * A schedule stores, per weekday, intervals in minutes after that day's midnight in the place's local
  * time: [[480, 1080]] is 08:00–18:00. An interval may end after midnight (end up to 2880) for
  * overnight hours, so Friday [[1200, 1620]] is Friday 20:00 to Saturday 03:00. An empty day is closed.
- * Same shape as places.hours in the database (migration 20261110180000).
+ * Same shape as places.hours in the database (migration 20261110200000).
  *
  * This module has no runtime imports so it runs under `node --test`.
  */

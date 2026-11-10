@@ -85,6 +85,14 @@ create table public.place_facts (
   updated_at timestamptz not null default now()
 );
 
+create table public.reviews (
+  id uuid primary key default gen_random_uuid(),
+  place_id uuid not null references public.places (id) on delete cascade,
+  rating integer not null,
+  body text,
+  status text not null default 'visible'
+);
+
 create table public.place_photos (
   id uuid primary key default gen_random_uuid(),
   place_id uuid not null,

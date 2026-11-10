@@ -96,6 +96,7 @@ export async function getCityRanking(
     p_wifi: filters.wifi,
     p_power: filters.power,
     p_calls: filters.calls,
+    ...(filters.reviewed ? { p_reviewed: true } : null),
     p_q: filters.q.trim() || null,
     p_limit: limit,
     p_offset: offset,
@@ -296,8 +297,11 @@ export async function getPlacesInBounds(
   bounds: { north: number; south: number; east: number; west: number },
   categories: PlaceCategory[],
   limit = 300,
-  time: { openNow: boolean; workNow: boolean } = { openNow: false, workNow: false },
+  options: { openNow?: boolean; workNow?: boolean; reviewed?: boolean } = {},
 ): Promise<MapPlace[]> {
+  const openNow = Boolean(options.openNow);
+  const workNow = Boolean(options.workNow);
+  const reviewed = Boolean(options.reviewed);
   if (categories.length === 0) return [];
   const { data, error } = await requireSupabase().rpc('get_places_in_bounds', {
     p_south: bounds.south,
@@ -306,11 +310,12 @@ export async function getPlacesInBounds(
     p_east: bounds.east,
     p_categories: categories,
     p_limit: limit,
-    p_open_now: time.openNow,
-    p_work_now: time.workNow,
+    p_open_now: openNow,
+    p_work_now: workNow,
+    p_reviewed: reviewed,
   });
   // PGRST202: the RPC does not exist yet (database without the hours migration).
-  if (error?.code === 'PGRST202' && !time.openNow && !time.workNow) return getPlacesInBoundsLegacy(bounds, categories, limit);
+  if (error?.code === 'PGRST202' && !openNow && !workNow) return getPlacesInBoundsLegacy(bounds, categories, limit, reviewed);
   throwIf(error);
   return ((data ?? []) as MapPlaceRow[]).map(({ city_slug, city_name, ...p }) => ({
     ...p,
@@ -323,6 +328,7 @@ async function getPlacesInBoundsLegacy(
   bounds: { north: number; south: number; east: number; west: number },
   categories: PlaceCategory[],
   limit: number,
+  reviewed: boolean,
 ): Promise<MapPlace[]> {
   let query = requireSupabase()
     .from('places')
@@ -331,6 +337,7 @@ async function getPlacesInBoundsLegacy(
     .in('category', categories)
     .gte('lat', bounds.south)
     .lte('lat', bounds.north);
+  if (reviewed) query = query.gt('review_count', 0);
   if (bounds.west <= bounds.east) query = query.gte('lng', bounds.west).lte('lng', bounds.east);
   const { data, error } = await query.order('work_score', { ascending: false }).limit(limit);
   throwIf(error);
