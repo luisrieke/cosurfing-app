@@ -1132,7 +1132,7 @@ export const strings = {
     metaDescription:
       'Cosurfing founder Luis is buying coffee for the first 50 contributors who share honest reviews, photos and new places to work from. Up to 3 coffees, €5 each, after a manual review.',
     eyebrow: 'Early Contributors · first 50 people',
-    title: 'Your next 3 coffees are on me ☕',
+    title: 'Your next 3 coffees are on\u00a0me\u00a0☕',
     intro:
       'Hey, I’m Luis, the founder of Cosurfing. I’m building a community of people who love discovering great places to work from. To get things started, I’m buying coffee for our first 50 contributors.',
     signature: 'Luis Rieke, founder of Cosurfing',
@@ -1326,7 +1326,7 @@ export const strings = {
       rate_limited: 'Too many attempts today. Please try again tomorrow.',
     } as Record<string, string>,
     // Guest popup and entry points
-    popupTitle: 'Your next coffee could be on me ☕',
+    popupTitle: 'Your next coffee could be on\u00a0me\u00a0☕',
     popupBody:
       'Hey, I’m Luis, founder of Cosurfing. I’m treating our first 50 contributors to coffee. Share your favorite work spots, add photos and help build the community.',
     popupCta: 'Get free coffee',
