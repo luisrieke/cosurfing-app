@@ -110,7 +110,7 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
   useTimeFilterRefresh(timeFilter, now, refreshRanking);
 
   // The server filtered at query time; drop places that closed since, until the next refresh.
-  const localMinute = localWeekMinute(now, city.timezone);
+  const localMinute = timeFilter ? localWeekMinute(now, city.timezone) : null;
   const items = useMemo(
     () =>
       timeFilter
