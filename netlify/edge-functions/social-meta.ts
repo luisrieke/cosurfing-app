@@ -2,10 +2,26 @@ import type { Config, Context } from '@netlify/edge-functions';
 
 // The site is a client-rendered SPA, so link-preview crawlers (Instagram, WhatsApp, iMessage,
 // Slack, ...) only ever see the static index.html. This swaps its default title, description
-// and image for the city or place behind the URL.
+// and image for the city or place behind the URL, and for a few static campaign pages.
 
 const APP_ROUTES = new Set(['map', 'welcome', 'suggest', 'terms', 'admin', 'account', 'plus', 'auth', 'waitlist', 'place']);
 const LOOKUP_TIMEOUT_MS = 1500;
+
+const STATIC_META: Record<string, Meta> = {
+  'free-coffee': {
+    title: 'Your next 3 coffees are on me ☕ · Cosurfing Early Contributors',
+    description:
+      'Cosurfing founder Luis is buying coffee for the first 50 contributors who share honest reviews, photos and new places to work from. Up to 3 coffees, €5 each, after a manual review.',
+    image: null,
+    imageAlt: '',
+  },
+  'free-coffee/terms': {
+    title: 'Early Contributors program terms · Cosurfing',
+    description: 'Terms of the Cosurfing Early Contributors coffee program: eligibility, rewards, review criteria and payout.',
+    image: null,
+    imageAlt: '',
+  },
+};
 
 interface Meta {
   title: string;
@@ -33,7 +49,10 @@ export default async (req: Request, context: Context) => {
   const segments = url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
 
   let lookup: ((supabaseUrl: string, anonKey: string) => Promise<Meta | null>) | null = null;
-  if (segments.length === 1 && !APP_ROUTES.has(segments[0]!) && !segments[0]!.includes('.')) {
+  const staticMeta = STATIC_META[segments.join('/')];
+  if (staticMeta) {
+    lookup = async () => staticMeta;
+  } else if (segments.length === 1 && !APP_ROUTES.has(segments[0]!) && !segments[0]!.includes('.')) {
     lookup = (s, k) => cityMeta(s, k, segments[0]!);
   } else if (segments.length === 2 && segments[0] === 'place') {
     lookup = (s, k) => placeMeta(s, k, segments[1]!);
@@ -142,7 +161,7 @@ function injectMeta(html: string, meta: Meta, url: URL): string {
 }
 
 export const config: Config = {
-  path: ['/:city', '/place/:slug'],
+  path: ['/:city', '/place/:slug', '/free-coffee/terms'],
   method: ['GET'],
   onError: 'bypass',
   cache: 'manual',
