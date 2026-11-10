@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { LaptopHoursEditor, type LaptopWeek, WeeklyHoursEditor } from '@/components/hours';
 import { RequireAuth } from '@/components/RequireAuth';
 import { MenuGallery } from '@/components/place/PlaceSections';
 import { Stars } from '@/components/Reviews';
@@ -11,6 +12,22 @@ import { ScoreBadge } from '@/components/ScoreBadge';
 import { Button, CategoryBadge, Chip, EmptyState, Icon, Input, Notice, Screen, Skeleton, Text, TopBar } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
+import {
+  compactLaptopWeek,
+  dayError,
+  DAY_KEYS,
+  defaultPreset,
+  fullLaptopWeek,
+  isLaptopHours,
+  isWeeklyHours,
+  laptopsAnswer,
+  normalizeWeek,
+  presetHours,
+  sameWeek,
+  sortIntervals,
+  weekError,
+  type WeeklyHours,
+} from '@/lib/hours';
 import { FACT_KEYS, dayPassCurrency, factAppliesTo, formatFactValue, summarizeFacts, type FactSummary } from '@/lib/facts';
 import {
   MAX_MENU_PHOTOS_PER_UPLOAD,
@@ -29,6 +46,7 @@ import {
   getPlaceFacts,
   getPlaceMenus,
   getPlacesToRate,
+  parseOpeningHoursText,
   savePlaceFacts,
   upsertReview,
 } from '@/lib/queries';
@@ -76,6 +94,7 @@ function factChoices(key: FactKey, web: WebFacts): { value: FactValue; label: st
     case 'price_range':
       return [1, 2, 3, 4].map((level) => ({ value: level, label: formatFactValue('price_range', level, web) }));
     case 'opening_hours':
+    case 'laptop_hours':
     case 'day_pass':
       return [];
     default:
@@ -85,27 +104,39 @@ function factChoices(key: FactKey, web: WebFacts): { value: FactValue; label: st
 
 interface FactDraft {
   choices: FactInput;
-  hours: string;
+  /** Structured hours; null = no answer (yet). */
+  hours: WeeklyHours | null;
+  /** An earlier free-text answer, kept as is until it is converted or removed. */
+  legacyHours: string | null;
+  laptop: LaptopWeek | null;
   dayPass: string;
 }
 
 function toDraft(input: FactInput): FactDraft {
-  const { opening_hours, day_pass, ...choices } = input;
+  const { opening_hours, laptop_hours, day_pass, ...choices } = input;
   return {
     choices,
-    hours: typeof opening_hours === 'string' ? opening_hours : '',
-    dayPass: day_pass && typeof day_pass === 'object' ? String(day_pass.amount) : '',
+    hours: isWeeklyHours(opening_hours) ? normalizeWeek(opening_hours) : null,
+    legacyHours: typeof opening_hours === 'string' ? opening_hours : null,
+    laptop: isLaptopHours(laptop_hours) ? fullLaptopWeek(laptop_hours) : null,
+    dayPass: day_pass && typeof day_pass === 'object' && 'amount' in day_pass ? String(day_pass.amount) : '',
   };
 }
+
+const laptopKey = (w: LaptopWeek | null) => JSON.stringify(w ? compactLaptopWeek(w) : null);
 
 /** The draft with the combined value of a fact copied in, or null if that value can't be taken over as is. */
 function withConfirmedFact(draft: FactDraft, f: FactSummary, web: WebFacts): FactDraft | null {
   const v = f.value;
   switch (f.key) {
     case 'opening_hours':
-      return typeof v === 'string' ? { ...draft, hours: v } : null;
+      return isWeeklyHours(v) ? { ...draft, hours: normalizeWeek(v), legacyHours: null } : null;
+    case 'laptop_hours':
+      return isLaptopHours(v) ? { ...draft, laptop: fullLaptopWeek(v) } : null;
     case 'day_pass':
-      return v && typeof v === 'object' && v.currency === dayPassCurrency(web) ? { ...draft, dayPass: String(v.amount) } : null;
+      return v && typeof v === 'object' && 'currency' in v && v.currency === dayPassCurrency(web)
+        ? { ...draft, dayPass: String(v.amount) }
+        : null;
     case 'price_range':
       return typeof v === 'number'
         ? { ...draft, choices: { ...draft.choices, price_range: Math.min(4, Math.max(1, Math.round(v))) } }
@@ -116,7 +147,8 @@ function withConfirmedFact(draft: FactDraft, f: FactSummary, web: WebFacts): Fac
 }
 
 function sameFactValue(a: FactDraft, b: FactDraft, key: FactKey): boolean {
-  if (key === 'opening_hours') return a.hours.trim() === b.hours.trim();
+  if (key === 'opening_hours') return sameWeek(a.hours, b.hours);
+  if (key === 'laptop_hours') return laptopKey(a.laptop) === laptopKey(b.laptop);
   if (key === 'day_pass') {
     const amount = (d: FactDraft) => (d.dayPass.trim() ? Number(d.dayPass.trim().replace(',', '.')) : NaN);
     return amount(a) === amount(b);
@@ -203,6 +235,7 @@ function ReviewScreen({ slug }: { slug: string }) {
   const [hoursBusy, setHoursBusy] = useState<string | null>(null);
   const [hoursError, setHoursError] = useState<string | null>(null);
   const [hoursSaved, setHoursSaved] = useState(0);
+  const [converting, setConverting] = useState(false);
 
   // Prefill from the existing review once it has loaded (state adjustment during render, no effect).
   if (!hydrated && mineQuery.data !== undefined) {
@@ -235,13 +268,39 @@ function ReviewScreen({ slug }: { slug: string }) {
       return;
     }
     const factInput: FactInput = { ...facts.choices };
-    const hours = facts.hours.trim();
-    if (hours) {
-      if (hours.length < 3) {
-        setFactError({ key: 'opening_hours', message: strings.review.invalidOpeningHours });
+    const e = strings.hours.editor;
+    if (facts.hours) {
+      const bad = weekError(facts.hours);
+      if (bad) {
+        setFactError({ key: 'opening_hours', message: e.invalidDay(strings.hours.dayLong[bad.day], e.errors[bad.error] ?? '') });
         return;
       }
-      factInput.opening_hours = hours;
+      factInput.opening_hours = normalizeWeek(facts.hours);
+    } else if (facts.legacyHours) {
+      factInput.opening_hours = facts.legacyHours;
+    }
+    if (facts.laptop) {
+      const laptop = facts.laptop;
+      const badDay = DAY_KEYS.find((d) => {
+        const day = laptop[d];
+        return day.mode === 'specific' && dayError(sortIntervals(day.ranges)) !== null;
+      });
+      if (badDay) {
+        const day = laptop[badDay];
+        const err = day.mode === 'specific' ? dayError(sortIntervals(day.ranges)) : null;
+        setFactError({ key: 'laptop_hours', message: e.invalidDay(strings.hours.dayLong[badDay], err ? (e.errors[err] ?? '') : '') });
+        return;
+      }
+      const compact = compactLaptopWeek(laptop);
+      if (!compact) {
+        setFactError({ key: 'laptop_hours', message: e.laptopEmpty });
+        return;
+      }
+      factInput.laptop_hours = compact;
+      if (factInput.laptops === undefined) {
+        const answer = laptopsAnswer(compact);
+        if (answer) factInput.laptops = answer;
+      }
     }
     const dayPass = facts.dayPass.trim().replace(',', '.');
     if (dayPass) {
@@ -314,6 +373,24 @@ function ReviewScreen({ slug }: { slug: string }) {
       setHoursBusy(null);
       setHoursSaved(done);
       if (done > 0) void menusQuery.refetch(true);
+    }
+  };
+
+  const convertLegacyHours = async () => {
+    if (!facts.legacyHours) return;
+    setConverting(true);
+    setFactError(null);
+    try {
+      const res = await parseOpeningHoursText(facts.legacyHours);
+      if (res.ok) setFacts((f) => ({ ...f, hours: normalizeWeek(res.hours) }));
+      else {
+        const reason = strings.hours.reviewReasons[res.reason] ?? res.reason;
+        setFactError({ key: 'opening_hours', message: strings.hours.editor.importFailed(reason) });
+      }
+    } catch (err) {
+      setFactError({ key: 'opening_hours', message: err instanceof Error ? err.message : strings.common.somethingWentWrong });
+    } finally {
+      setConverting(false);
     }
   };
 
@@ -438,6 +515,7 @@ function ReviewScreen({ slug }: { slug: string }) {
     const state = factKeys.includes(s.key) ? confirmState(facts, s, web) : null;
     return state !== null && state !== 'confirmed';
   });
+  const he = strings.hours.editor;
   const setChoice = (key: FactKey, value: FactValue) =>
     setFacts((f) => {
       const choices = { ...f.choices };
@@ -535,33 +613,136 @@ function ReviewScreen({ slug }: { slug: string }) {
             />
           ) : null;
           const label = strings.place.factLabels[key];
-          if (key === 'opening_hours' || key === 'day_pass') {
-            const isHours = key === 'opening_hours';
+          const errorText = factError?.key === key ? (
+            <Text variant="caption" tone="danger">
+              {factError.message}
+            </Text>
+          ) : null;
+          if (key === 'day_pass') {
             const currency = dayPassCurrency(web);
-            const input = (
-              <Input
-                label={isHours ? label : `${label} (${currency})`}
-                value={isHours ? facts.hours : facts.dayPass}
-                onChangeText={(v) => setFacts((f) => (isHours ? { ...f, hours: v } : { ...f, dayPass: v }))}
-                placeholder={isHours ? strings.review.openingHoursPlaceholder : strings.review.dayPassPlaceholder(currency)}
-                keyboardType={isHours ? 'default' : 'decimal-pad'}
-                maxLength={isHours ? 300 : 10}
-                error={factError?.key === key ? factError.message : null}
-              />
-            );
-            if (!isHours) {
-              return (
-                <View key={key} style={styles.block}>
-                  {input}
-                  {currentRow}
-                </View>
-              );
-            }
-            const myHoursPhotos = (menusQuery.data ?? []).filter((m) => m.kind === 'hours' && m.is_own);
             return (
               <View key={key} style={styles.block}>
-                {input}
+                <Input
+                  label={`${label} (${currency})`}
+                  value={facts.dayPass}
+                  onChangeText={(v) => setFacts((f) => ({ ...f, dayPass: v }))}
+                  placeholder={strings.review.dayPassPlaceholder(currency)}
+                  keyboardType="decimal-pad"
+                  maxLength={10}
+                  error={factError?.key === key ? factError.message : null}
+                />
                 {currentRow}
+              </View>
+            );
+          }
+          if (key === 'laptop_hours') {
+            return (
+              <View key={key} style={styles.block}>
+                <Text variant="small">{label}</Text>
+                <Text variant="caption" tone="muted">
+                  {he.reviewLaptopHint}
+                </Text>
+                {currentRow}
+                {facts.laptop ? (
+                  <>
+                    <LaptopHoursEditor
+                      value={facts.laptop}
+                      onChange={(laptop) => setFacts((f) => ({ ...f, laptop }))}
+                      hours={facts.hours ?? place.hours}
+                    />
+                    <Button
+                      title={he.reviewRemove}
+                      icon="x"
+                      variant="ghost"
+                      size="sm"
+                      onPress={() => setFacts((f) => ({ ...f, laptop: null }))}
+                      style={styles.selfStart}
+                    />
+                  </>
+                ) : (
+                  <Button
+                    title={he.reviewLaptopAdd}
+                    icon="monitor"
+                    variant="secondary"
+                    size="sm"
+                    onPress={() => setFacts((f) => ({ ...f, laptop: fullLaptopWeek(null) }))}
+                    style={styles.selfStart}
+                  />
+                )}
+                {errorText}
+              </View>
+            );
+          }
+          if (key === 'opening_hours') {
+            const myHoursPhotos = (menusQuery.data ?? []).filter((m) => m.kind === 'hours' && m.is_own);
+            const currentHours = place.hours;
+            return (
+              <View key={key} style={styles.block}>
+                <Text variant="small">{label}</Text>
+                {currentRow}
+                {facts.hours ? (
+                  <>
+                    <WeeklyHoursEditor
+                      value={facts.hours}
+                      onChange={(hours) => setFacts((f) => ({ ...f, hours }))}
+                      category={place.category}
+                    />
+                    <Button
+                      title={he.reviewRemove}
+                      icon="x"
+                      variant="ghost"
+                      size="sm"
+                      onPress={() => setFacts((f) => ({ ...f, hours: null }))}
+                      style={styles.selfStart}
+                    />
+                  </>
+                ) : (
+                  <>
+                    {facts.legacyHours ? (
+                      <View style={styles.legacy}>
+                        <Text variant="caption" tone="muted">
+                          {he.reviewOldText(facts.legacyHours)}
+                        </Text>
+                        <View style={styles.chips}>
+                          <Button
+                            title={he.reviewConvert}
+                            icon="refresh-cw"
+                            variant="secondary"
+                            size="sm"
+                            loading={converting}
+                            onPress={() => void convertLegacyHours()}
+                          />
+                          <Button
+                            title={he.reviewRemove}
+                            icon="x"
+                            variant="ghost"
+                            size="sm"
+                            onPress={() => setFacts((f) => ({ ...f, legacyHours: null }))}
+                          />
+                        </View>
+                      </View>
+                    ) : null}
+                    <View style={styles.chips}>
+                      <Button
+                        title={he.reviewAdd}
+                        icon="clock"
+                        variant="secondary"
+                        size="sm"
+                        onPress={() => setFacts((f) => ({ ...f, hours: presetHours(defaultPreset(place.category)) }))}
+                      />
+                      {currentHours ? (
+                        <Button
+                          title={he.reviewStartCurrent}
+                          icon="copy"
+                          variant="ghost"
+                          size="sm"
+                          onPress={() => setFacts((f) => ({ ...f, hours: normalizeWeek(currentHours) }))}
+                        />
+                      ) : null}
+                    </View>
+                  </>
+                )}
+                {errorText}
                 <Text variant="caption" tone="muted">
                   {strings.review.hoursPhotosHint}
                 </Text>
@@ -786,6 +967,12 @@ const styles = StyleSheet.create({
   },
   selfStart: {
     alignSelf: 'flex-start',
+  },
+  legacy: {
+    gap: spacing.xs,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
   },
   currentRow: {
     flexDirection: 'row',

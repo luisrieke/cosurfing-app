@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 
 import { RankedPlaceRow } from '@/components/city/RankedPlaceRow';
+import { LaptopHoursCard, OpeningHoursCard } from '@/components/hours';
 import { PhotoGallery } from '@/components/PhotoGallery';
 import { AddPhotos } from '@/components/place/AddPhotos';
 import { OwnerCta } from '@/components/place/OwnerCta';
@@ -19,6 +20,8 @@ import {
   VenueFactsList,
   WifiNoteList,
   hardFacts,
+  hoursText,
+  laptopAnswer,
   mobileFacts,
   wifiFacts,
 } from '@/components/place/PlaceSections';
@@ -34,6 +37,7 @@ import { SiteHeader, SiteHeaderSpacer } from '@/components/SiteHeader';
 import { SpeedTestPanel } from '@/components/SpeedTest';
 import { Button, CategoryBadge, EmptyState, ErrorState, Icon, IconButton, Notice, Section, Skeleton, Text } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { useNow } from '@/hooks/useNow';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
 import { env, isSupabaseConfigured } from '@/lib/env';
@@ -70,6 +74,7 @@ export default function PlaceScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const router = useRouter();
   const { width } = useBreakpoint();
+  const now = useNow();
   const { user, isPlus, isAdmin, favoriteIds, toggleFavorite, ready } = useAuth();
   const [flash, setFlash] = useState<string | null>(null);
   const [interstitial, setInterstitial] = useState(false);
@@ -238,6 +243,9 @@ export default function PlaceScreen() {
   const more = (moreQuery.data?.items ?? []).filter((p) => p.id !== place.id).slice(0, 5);
   const webFacts = place.web_facts ?? {};
   const venueFacts = summarizeFacts(webFacts, factsQuery.data ?? []);
+  const listingHours = hoursText(place, venueFacts);
+  const laptop = laptopAnswer(place, venueFacts);
+  const showHours = !coliving || Boolean(place.hours || listingHours || hoursPhotos.length > 0);
   const description = place.description ?? webFacts.description?.value ?? null;
   const contentWidth = Math.min(width, layout.maxWideWidth) - spacing.lg * 2 - (wide ? 340 + spacing.xl : 0);
   const galleryHeight = Math.min(Math.round(contentWidth * 0.56), 420);
@@ -483,14 +491,42 @@ export default function PlaceScreen() {
               {!wide ? scoreCard : null}
 
               <Section title={strings.place.hardFacts}>
-                <FactTable lines={hardFacts(place, venueFacts, hoursPhotos.length > 0)} onHelp={canReview ? goReview : undefined} />
-                {hoursPhotos.length > 0 ? (
-                  <View style={styles.hoursPhotos}>
-                    <Text variant="smallStrong">{strings.place.hoursPhotos}</Text>
-                    <MenuGallery kind="hours" menus={hoursPhotos} onDelete={removeMenu} canDelete={(m) => m.is_own || isAdmin} />
-                  </View>
-                ) : null}
+                <FactTable lines={hardFacts(place, venueFacts)} onHelp={canReview ? goReview : undefined} />
               </Section>
+
+              {showHours ? (
+                <Section title={strings.place.openingHours}>
+                  <OpeningHoursCard
+                    hours={place.hours}
+                    status={place.hours_status}
+                    source={place.hours_source}
+                    flags={place.hours_flags ?? []}
+                    text={listingHours}
+                    timezone={place.city.timezone}
+                    now={now}
+                    onAdd={canReview && hoursPhotos.length === 0 ? goReview : undefined}
+                  />
+                  {!coliving ? (
+                    <LaptopHoursCard
+                      laptop={place.laptop_hours}
+                      source={place.laptop_source}
+                      hours={place.hours}
+                      category={place.category}
+                      timezone={place.city.timezone}
+                      now={now}
+                      answer={laptop.answer}
+                      answerBanned={laptop.banned}
+                      onAdd={canReview ? goReview : undefined}
+                    />
+                  ) : null}
+                  {hoursPhotos.length > 0 ? (
+                    <View style={styles.hoursPhotos}>
+                      <Text variant="smallStrong">{strings.hours.photos}</Text>
+                      <MenuGallery kind="hours" menus={hoursPhotos} onDelete={removeMenu} canDelete={(m) => m.is_own || isAdmin} />
+                    </View>
+                  ) : null}
+                </Section>
+              ) : null}
 
               <Section
                 title={strings.wifi.title}
@@ -690,6 +726,8 @@ export default function PlaceScreen() {
                         rank={moreQuery.data!.items.indexOf(p) + 1}
                         signedIn={Boolean(user)}
                         compact
+                        timezone={place.city.timezone}
+                        now={now}
                         onPress={() => router.push(`/place/${p.slug}`)}
                       />
                     ))}
