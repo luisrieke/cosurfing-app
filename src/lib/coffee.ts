@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { env } from './env';
+import { strings } from './strings';
 import { functionUrl, requireSupabase, supabase } from './supabase';
 
 /** Bump together with coffee_campaign.terms_version whenever /free-coffee/terms changes. */
@@ -275,6 +276,25 @@ export interface CoffeeAdminDetail {
   suggestions: { id: string; name: string; city: string | null; status: string; created_at: string }[];
   payout_details: { method: 'paypal' | 'sepa'; account_holder: string; paypal_email: string | null; iban: string | null } | null;
   payouts: { id: string; step: string; amount_cents: number; method: string; reference: string | null; paid_at: string }[];
+}
+
+/** Human-readable message for an error raised by a coffee_admin_* RPC. */
+export function coffeeAdminError(e: unknown): string {
+  const code = e instanceof Error ? e.message : 'server_error';
+  const known: Record<string, string> = {
+    approve_base_first: 'Approve Step 1 first. Bonus steps need an approved base contribution.',
+    amount_exceeds_receipt: 'The amount is higher than the receipt total.',
+    invalid_amount: 'Enter an amount between €0.01 and the maximum per coffee.',
+    receipt_details_required: 'Enter the venue, date and total from the receipt.',
+    receipt_already_reimbursed: 'This receipt (same venue, date, total and number) was already reimbursed.',
+    note_required: 'Add a note that explains the reason.',
+    invalid_state: 'This step changed in the meantime. Reload the page.',
+    spot_not_held: 'The participant has no active spot.',
+    below_committed_spots: 'Max participants cannot be lower than the number of held and confirmed spots.',
+    invalid_dates: 'The end date must be after the start date.',
+    not_allowed: strings.admin.notAllowed,
+  };
+  return known[code] ?? `${strings.common.somethingWentWrong} (${code})`;
 }
 
 async function rpc<T>(name: string, args?: Record<string, unknown>): Promise<T> {

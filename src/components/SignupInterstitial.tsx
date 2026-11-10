@@ -18,10 +18,7 @@ export function SignupInterstitial({ visible, onClose }: { visible: boolean; onC
   const [variant, setVariant] = useState<'coffee' | 'signup' | null>(null);
 
   useEffect(() => {
-    if (!visible) {
-      setVariant(null);
-      return;
-    }
+    if (!visible) return;
     let cancelled = false;
     void canShowCoffeePromo()
       .catch(() => false)
