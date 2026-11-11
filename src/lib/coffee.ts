@@ -1,12 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { env } from './env';
 import { strings } from './strings';
-import { functionUrl, requireSupabase, supabase } from './supabase';
+import { requireSupabase, supabase } from './supabase';
 
 /** Bump together with coffee_campaign.terms_version whenever /free-coffee/terms changes. */
-export const COFFEE_TERMS_VERSION = '2026-11-10';
-export const COFFEE_TERMS_UPDATED = 'November 10, 2026';
+export const COFFEE_TERMS_VERSION = '2026-11-11';
+export const COFFEE_TERMS_UPDATED = 'November 11, 2026';
 
 export type CoffeeStep = 'contribute' | 'new_place' | 'spread';
 export type CoffeeRewardStatus = 'not_started' | 'submitted' | 'under_review' | 'approved' | 'rejected' | 'paid';
@@ -14,6 +13,15 @@ export type CoffeeSpotStatus = 'reserved' | 'held' | 'confirmed' | 'waitlisted' 
 export type CoffeeCampaignStatus = 'draft' | 'live' | 'paused' | 'closed';
 
 export const COFFEE_STEPS: CoffeeStep[] = ['contribute', 'new_place', 'spread'];
+
+export type CoffeeChannel = 'instagram' | 'tiktok' | 'x';
+
+/** Where participants send their proof as a direct message. */
+export const COFFEE_CHANNELS: { id: CoffeeChannel; label: string; handle: string; url: string }[] = [
+  { id: 'instagram', label: 'Instagram', handle: '@luisbuildsinpublic', url: 'https://ig.me/m/luisbuildsinpublic' },
+  { id: 'tiktok', label: 'TikTok', handle: '@luisbuildsinpublic', url: 'https://www.tiktok.com/@luisbuildsinpublic' },
+  { id: 'x', label: 'X', handle: '@luisbu1lds', url: 'https://x.com/luisbu1lds' },
+];
 
 export interface CoffeeCampaign {
   status: CoffeeCampaignStatus;
@@ -43,6 +51,9 @@ export interface CoffeeReward {
 export interface CoffeeStatus {
   campaign: CoffeeCampaign;
   participant: {
+    code: string;
+    social_channel: CoffeeChannel | null;
+    social_handle: string | null;
     spot_status: CoffeeSpotStatus;
     reserved_until: string | null;
     released_reason: 'expired' | 'rejected' | 'disqualified' | 'withdrawn' | 'campaign_closed' | null;
@@ -64,10 +75,6 @@ export function isCampaignOpen(c: CoffeeCampaign | null | undefined): boolean {
 
 export function formatEuros(cents: number | null | undefined): string {
   return `€${((cents ?? 0) / 100).toFixed(2).replace(/\.00$/, '')}`;
-}
-
-export function isCoffeeFormConfigured(): boolean {
-  return /^https:\/\//.test(env.coffeeFormUrl);
 }
 
 let publicCache: { at: number; promise: Promise<CoffeeCampaign | null> } | null = null;
@@ -110,22 +117,11 @@ export async function withdrawFromCoffeeCampaign(): Promise<void> {
   publicCache = null;
 }
 
-/** Tally URL with a fresh one-time token; hidden fields `base`, `place` and `share` drive the form's conditional sections. */
-export async function coffeeFormUrl(): Promise<string> {
-  const { data, error } = await requireSupabase().rpc('coffee_form_link');
+/** Records that the proof for these steps went out as a direct message, so the spot is held while it is reviewed. */
+export async function markCoffeeSent(steps: CoffeeStep[], channel: CoffeeChannel, handle: string): Promise<CoffeeStatus> {
+  const { data, error } = await requireSupabase().rpc('coffee_mark_sent', { p_steps: steps, p_channel: channel, p_handle: handle });
   if (error) throw new Error(error.message);
-  const link = data as { token: string; email: string | null; contribute: boolean; new_place: boolean; spread: boolean };
-  const params: Record<string, string> = {
-    token: link.token,
-    email: link.email ?? '',
-    base: link.contribute ? 'open' : 'done',
-    place: link.new_place ? 'open' : 'done',
-    share: link.spread ? 'open' : 'done',
-  };
-  const query = Object.entries(params)
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-    .join('&');
-  return `${env.coffeeFormUrl}${env.coffeeFormUrl.includes('?') ? '&' : '?'}${query}`;
+  return data as CoffeeStatus;
 }
 
 export async function saveCoffeePayoutDetails(input: {
@@ -195,7 +191,6 @@ export interface CoffeeAdminOverview {
   rewards: Partial<Record<CoffeeRewardStatus, number>>;
   approved_unpaid_cents: number;
   paid_cents: number;
-  unmatched_submissions: number;
   unsent_notices: number;
 }
 
@@ -211,6 +206,9 @@ export interface CoffeeAdminRow {
   rewards: Partial<Record<CoffeeStep, CoffeeRewardStatus>>;
   needs_action: boolean;
   last_submitted_at: string | null;
+  code: string;
+  social_channel: CoffeeChannel | null;
+  social_handle: string | null;
 }
 
 export interface CoffeeAdminReward {
@@ -218,9 +216,9 @@ export interface CoffeeAdminReward {
   step: CoffeeStep;
   status: CoffeeRewardStatus;
   attempts: number;
-  submission_id: string | null;
   submitted_at: string | null;
-  claimed_cents: number | null;
+  submitted_by: 'participant' | 'admin' | null;
+  can_record: boolean;
   checks: Record<string, boolean | string>;
   referral_user_id: string | null;
   referral_email: string | null;
@@ -232,24 +230,13 @@ export interface CoffeeAdminReward {
   paid_at: string | null;
 }
 
-export interface CoffeeAdminEvidence {
-  id: string;
-  submission_id: string;
-  step: CoffeeStep;
-  kind: string;
-  mime_type: string | null;
-  size_bytes: number | null;
-  available: boolean;
-  duplicate_of: string | null;
-  duplicate_user_is_other: boolean | null;
-  purge_after: string;
-  created_at: string;
-}
-
 export interface CoffeeAdminDetail {
   participant: {
     id: string;
     user_id: string;
+    code: string;
+    social_channel: CoffeeChannel | null;
+    social_handle: string | null;
     email: string;
     display_name: string | null;
     account_created_at: string;
@@ -261,16 +248,6 @@ export interface CoffeeAdminDetail {
     admin_note: string | null;
   };
   rewards: CoffeeAdminReward[];
-  submissions: {
-    id: string;
-    status: string;
-    steps: CoffeeStep[];
-    ignored: Record<string, string>;
-    answers: Record<string, string | number | boolean | null>;
-    submitted_at: string | null;
-    received_at: string;
-  }[];
-  evidence: CoffeeAdminEvidence[];
   reviews: { id: string; place_name: string; place_slug: string; rating: number; body: string | null; status: string; created_at: string; coffee_program: boolean }[];
   photos: number;
   suggestions: { id: string; name: string; city: string | null; status: string; created_at: string }[];
@@ -288,6 +265,11 @@ export function coffeeAdminError(e: unknown): string {
     receipt_details_required: 'Enter the venue, date and total from the receipt.',
     receipt_already_reimbursed: 'This receipt (same venue, date, total and number) was already reimbursed.',
     note_required: 'Add a note that explains the reason.',
+    nothing_to_submit: 'This step cannot be recorded right now (already sent, Step 1 missing, or no active spot).',
+    referral_not_found: 'No Cosurfing account uses this email. Approve without an email if it is a public post.',
+    referral_self: 'That is the participant’s own account.',
+    referral_too_old: 'The friend’s account was created before the participant joined.',
+    referral_used: 'This friend was already used for a referral.',
     invalid_state: 'This step changed in the meantime. Reload the page.',
     spot_not_held: 'The participant has no active spot.',
     below_committed_spots: 'Max participants cannot be lower than the number of held and confirmed spots.',
@@ -307,7 +289,6 @@ export const coffeeAdmin = {
   overview: () => rpc<CoffeeAdminOverview>('coffee_admin_overview'),
   list: () => rpc<CoffeeAdminRow[]>('coffee_admin_list'),
   get: (participantId: string) => rpc<CoffeeAdminDetail>('coffee_admin_get', { p_participant: participantId }),
-  unmatched: () => rpc<{ id: string; received_at: string; reason: string; email: string | null }[]>('coffee_admin_unmatched'),
   updateCampaign: (input: {
     status: CoffeeCampaignStatus;
     maxParticipants: number;
@@ -322,8 +303,12 @@ export const coffeeAdmin = {
       p_ends_at: input.endsAt,
       p_submissions_close_at: input.submissionsCloseAt,
     }),
+  markReceived: (rewardId: string) => rpc<void>('coffee_admin_decide', { p_reward: rewardId, p_decision: 'received' }),
   markUnderReview: (rewardId: string) => rpc<void>('coffee_admin_decide', { p_reward: rewardId, p_decision: 'under_review' }),
-  approve: (rewardId: string, input: { cents: number; note: string; merchant: string; date: string; totalCents: number; receiptNumber: string }) =>
+  approve: (
+    rewardId: string,
+    input: { cents: number; note: string; merchant: string; date: string; totalCents: number; receiptNumber: string; referralEmail?: string },
+  ) =>
     rpc<void>('coffee_admin_decide', {
       p_reward: rewardId,
       p_decision: 'approve',
@@ -333,24 +318,12 @@ export const coffeeAdmin = {
       p_receipt_date: input.date,
       p_receipt_total_cents: input.totalCents,
       p_receipt_number: input.receiptNumber || null,
+      p_referral_email: input.referralEmail || null,
     }),
   reject: (rewardId: string, reason: string, note: string) =>
     rpc<void>('coffee_admin_decide', { p_reward: rewardId, p_decision: 'reject', p_reason: reason, p_note: note || null }),
   markPaid: (rewardId: string, cents: number, method: 'paypal' | 'sepa' | 'other', reference: string) =>
     rpc<void>('coffee_admin_mark_paid', { p_reward: rewardId, p_paid_cents: cents, p_method: method, p_reference: reference || null }),
-  participant: (participantId: string, action: 'extend' | 'release' | 'disqualify' | 'purge_evidence' | 'note', note?: string) =>
+  participant: (participantId: string, action: 'extend' | 'release' | 'disqualify' | 'note', note?: string) =>
     rpc<void>('coffee_admin_participant', { p_participant: participantId, p_action: action, p_note: note ?? null }),
-  async evidenceUrls(participantId: string): Promise<Record<string, string>> {
-    const { data } = await requireSupabase().auth.getSession();
-    const token = data.session?.access_token;
-    if (!token) throw new Error('unauthorized');
-    const res = await fetch(functionUrl('coffee-evidence'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: env.supabaseAnonKey, Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ participant_id: participantId }),
-    });
-    const json = (await res.json().catch(() => ({}))) as { urls?: Record<string, string>; error?: string };
-    if (!res.ok) throw new Error(json.error ?? 'server_error');
-    return json.urls ?? {};
-  },
 };

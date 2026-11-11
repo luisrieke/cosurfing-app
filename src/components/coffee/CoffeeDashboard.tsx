@@ -1,16 +1,17 @@
-import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 
-import { Badge, Button, Glass, Icon, Input, Notice, Text } from '@/components/ui';
+import { Badge, Button, Chip, Glass, Icon, Input, Notice, Text } from '@/components/ui';
 import {
+  COFFEE_CHANNELS,
   COFFEE_STEPS,
+  type CoffeeChannel,
   type CoffeeReward,
   type CoffeeStatus,
-  coffeeFormUrl,
+  type CoffeeStep,
   formatEuros,
-  isCoffeeFormConfigured,
   joinCoffeeCampaign,
+  markCoffeeSent,
   saveCoffeePayoutDetails,
   withdrawFromCoffeeCampaign,
 } from '@/lib/coffee';
@@ -38,27 +39,6 @@ function confirm(message: string, onYes: () => void) {
   ]);
 }
 
-/** Opens the Tally form with a fresh one-time token. On web the tab is opened before the token request so popup blockers allow it. */
-async function openForm() {
-  if (Platform.OS === 'web') {
-    const tab = window.open('about:blank', '_blank');
-    try {
-      const url = await coffeeFormUrl();
-      if (tab) {
-        tab.opener = null;
-        tab.location.href = url;
-      } else {
-        window.location.assign(url);
-      }
-    } catch (e) {
-      tab?.close();
-      throw e;
-    }
-    return;
-  }
-  await WebBrowser.openBrowserAsync(await coffeeFormUrl());
-}
-
 function hint(r: CoffeeReward): string {
   switch (r.status) {
     case 'approved':
@@ -76,7 +56,6 @@ export function CoffeeDashboard({ status, onChange }: { status: CoffeeStatus; on
   const p = status.participant!;
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
 
   const rewards = COFFEE_STEPS.map(
     (step) =>
@@ -85,13 +64,11 @@ export function CoffeeDashboard({ status, onChange }: { status: CoffeeStatus; on
   );
   const earned = rewards.filter((r) => r.status === 'approved' || r.status === 'paid').length;
   const canSubmit = rewards.some((r) => r.can_submit);
-  const baseOpen = rewards[0]?.can_submit ?? false;
   const active = p.spot_status !== 'released';
 
   const run = async (key: string, fn: () => Promise<void>) => {
     setBusy(key);
     setError(null);
-    setInfo(null);
     try {
       await fn();
     } catch (e) {
@@ -100,15 +77,6 @@ export function CoffeeDashboard({ status, onChange }: { status: CoffeeStatus; on
       setBusy(null);
     }
   };
-
-  const submit = () =>
-    run('form', async () => {
-      if (!isCoffeeFormConfigured()) {
-        setInfo(s.formNotReady);
-        return;
-      }
-      await openForm();
-    });
 
   const withdraw = () =>
     confirm(s.withdrawConfirm, () =>
@@ -187,26 +155,8 @@ export function CoffeeDashboard({ status, onChange }: { status: CoffeeStatus; on
       </View>
 
       {error ? <Notice tone="danger" body={error} /> : null}
-      {info ? <Notice tone="warning" body={info} /> : null}
 
-      {active && canSubmit ? (
-        <View style={styles.block}>
-          <Button
-            title={baseOpen ? s.submitBase : s.submitBonus}
-            icon="upload"
-            size="lg"
-            fullWidth
-            loading={busy === 'form'}
-            onPress={submit}
-          />
-          <Text variant="caption" tone="muted" align="center">
-            {s.submitHint}
-          </Text>
-          <Text variant="caption" tone="muted" align="center">
-            {s.receiptNote}
-          </Text>
-        </View>
-      ) : null}
+      {active && canSubmit ? <SendProof status={status} rewards={rewards} onSent={onChange} /> : null}
 
       {status.payout?.needed || status.payout?.method ? <PayoutSection status={status} onSaved={() => onChange()} /> : null}
 
@@ -215,6 +165,155 @@ export function CoffeeDashboard({ status, onChange }: { status: CoffeeStatus; on
         {active ? <Button title={s.withdraw} variant="ghost" size="sm" loading={busy === 'withdraw'} onPress={withdraw} /> : null}
       </View>
     </Glass>
+  );
+}
+
+const STEP_SHORT: Record<CoffeeStep, string> = { contribute: 'Step 1', new_place: 'Step 2', spread: 'Step 3' };
+
+/** Bonus steps can go in the same message as Step 1, before Step 1 counts as sent. */
+function sendable(rewards: CoffeeReward[]): CoffeeStep[] {
+  const baseOpen = rewards[0]?.can_submit ?? false;
+  return rewards.filter((r) => r.can_submit || (baseOpen && r.step !== 'contribute' && r.status === 'not_started')).map((r) => r.step);
+}
+
+function SendProof({ status, rewards, onSent }: { status: CoffeeStatus; rewards: CoffeeReward[]; onSent: (next?: CoffeeStatus) => void }) {
+  const p = status.participant!;
+  const options = sendable(rewards);
+  const [steps, setSteps] = useState<CoffeeStep[]>(() => options.slice(0, 1));
+  const [channel, setChannel] = useState<CoffeeChannel>(p.social_channel ?? 'instagram');
+  const [handle, setHandle] = useState(p.social_handle ?? '');
+  const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  const chosen = COFFEE_STEPS.filter((st) => steps.includes(st));
+  const message = s.message(p.code, (chosen.length ? chosen : options).map((st) => STEP_SHORT[st]).join(', '));
+  const channelLabel = COFFEE_CHANNELS.find((c) => c.id === channel)?.label ?? '';
+  const canCopy = Platform.OS === 'web' && typeof navigator !== 'undefined' && Boolean(navigator.clipboard);
+
+  const toggle = (st: CoffeeStep) => setSteps((cur) => (cur.includes(st) ? cur.filter((x) => x !== st) : [...cur, st]));
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(message);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // the message stays selectable
+    }
+  };
+
+  const submit = async () => {
+    setError(null);
+    if (chosen.length === 0) return setError(s.sentPickStep);
+    if (!/^@?[A-Za-z0-9._]{1,40}$/.test(handle.trim())) return setError(s.errors.invalid_handle ?? null);
+    setBusy(true);
+    try {
+      const next = await markCoffeeSent(chosen, channel, handle.trim());
+      setDone(true);
+      onSent(next);
+    } catch (e) {
+      setError(coffeeError(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <View style={styles.send}>
+      <View style={styles.block}>
+        <Text variant="heading">{s.sendTitle}</Text>
+        <Text variant="small" tone="muted">
+          {s.sendBody}
+        </Text>
+      </View>
+
+      <View style={styles.code}>
+        <Text variant="caption" tone="muted">
+          {s.codeLabel}
+        </Text>
+        <Text variant="title" selectable accessibilityLabel={`${s.codeLabel}: ${p.code.split('').join(' ')}`}>
+          {p.code}
+        </Text>
+        <Text variant="small" selectable style={styles.message}>
+          {message}
+        </Text>
+        {canCopy ? <Button title={copied ? s.copied : s.copyMessage} icon={copied ? 'check' : 'copy'} variant="secondary" size="sm" onPress={copy} /> : null}
+      </View>
+
+      <View style={styles.block}>
+        <Text variant="smallStrong">{s.whatToSend}</Text>
+        {options.map((st) => (
+          <View key={st} style={styles.block}>
+            <Text variant="small" tone="muted">
+              {s.steps[st].label}
+            </Text>
+            {s.sendItems[st].map((item) => (
+              <View key={item} style={styles.item}>
+                <Icon name="check" size={14} color={colors.success} />
+                <Text variant="small" style={styles.flex}>
+                  {item}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ))}
+        <Text variant="caption" tone="muted">
+          {s.receiptNote} {s.coverNote}
+        </Text>
+      </View>
+
+      <View style={styles.channels}>
+        {COFFEE_CHANNELS.map((c) => (
+          <Button
+            key={c.id}
+            title={s.openChannel(c.label)}
+            icon={c.id === 'instagram' ? 'instagram' : c.id === 'x' ? 'twitter' : 'video'}
+            variant={c.id === 'instagram' ? 'primary' : 'secondary'}
+            size="sm"
+            onPress={() => {
+              setChannel(c.id);
+              void Linking.openURL(c.url);
+            }}
+          />
+        ))}
+      </View>
+      <Text variant="caption" tone="muted" selectable>
+        {COFFEE_CHANNELS.map((c) => `${c.label} ${c.handle}`).join(' · ')}
+      </Text>
+
+      <View style={styles.sent}>
+        <Text variant="heading">{s.sentTitle}</Text>
+        <Text variant="small" tone="muted">
+          {s.sentBody}
+        </Text>
+        <Text variant="smallStrong">{s.sentSteps}</Text>
+        <View style={styles.chips}>
+          {options.map((st) => (
+            <Chip key={st} label={STEP_SHORT[st]} selected={steps.includes(st)} onPress={() => toggle(st)} />
+          ))}
+        </View>
+        <Text variant="smallStrong">{s.sentChannel}</Text>
+        <View style={styles.chips}>
+          {COFFEE_CHANNELS.map((c) => (
+            <Chip key={c.id} label={c.label} selected={channel === c.id} onPress={() => setChannel(c.id)} />
+          ))}
+        </View>
+        <Input
+          label={s.sentHandle(channelLabel)}
+          value={handle}
+          onChangeText={setHandle}
+          placeholder="@"
+          autoCapitalize="none"
+          autoCorrect={false}
+          maxLength={41}
+        />
+        {error ? <Notice tone="danger" body={error} /> : null}
+        {done ? <Notice tone="success" body={s.sentDone} /> : null}
+        <Button title={s.sentCta} icon="send" size="lg" fullWidth loading={busy} onPress={submit} />
+      </View>
+    </View>
   );
 }
 
@@ -345,6 +444,42 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   block: {
+    gap: spacing.sm,
+  },
+  send: {
+    gap: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  code: {
+    gap: spacing.xs,
+    alignItems: 'flex-start',
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  message: {
+    marginTop: spacing.xs,
+  },
+  item: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  channels: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  sent: {
+    gap: spacing.md,
+  },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   footer: {

@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -10,8 +9,8 @@ import { Badge, Button, Card, Chip, Icon, Input, Notice, Skeleton, Text } from '
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
 import {
+  COFFEE_CHANNELS,
   type CoffeeAdminDetail,
-  type CoffeeAdminEvidence,
   type CoffeeAdminReward,
   coffeeAdmin,
   coffeeAdminError as adminCoffeeError,
@@ -19,47 +18,30 @@ import {
 } from '@/lib/coffee';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { strings } from '@/lib/strings';
-import { colors, radius, spacing } from '@/lib/theme';
+import { colors, spacing } from '@/lib/theme';
 
 const STEP_TITLE = { contribute: 'Step 1 · Contribute', new_place: 'Step 2 · New place', spread: 'Step 3 · Spread the word' } as const;
 
 const REJECT_REASONS: Record<CoffeeAdminReward['step'], string[]> = {
-  contribute: ['low_effort', 'not_authentic', 'evidence_missing', 'receipt_invalid', 'receipt_reused', 'not_coffee', 'other'],
-  new_place: ['place_exists', 'place_inaccurate', 'evidence_missing', 'receipt_invalid', 'receipt_reused', 'not_coffee', 'other'],
-  spread: ['referral_invalid', 'post_invalid', 'evidence_missing', 'receipt_invalid', 'receipt_reused', 'not_coffee', 'other'],
+  contribute: ['proof_not_received', 'low_effort', 'not_authentic', 'evidence_missing', 'receipt_invalid', 'receipt_reused', 'not_coffee', 'other'],
+  new_place: ['proof_not_received', 'place_exists', 'place_inaccurate', 'evidence_missing', 'receipt_invalid', 'receipt_reused', 'not_coffee', 'other'],
+  spread: ['proof_not_received', 'referral_invalid', 'post_invalid', 'evidence_missing', 'receipt_invalid', 'receipt_reused', 'not_coffee', 'other'],
 };
 
-/** Signals computed when the proof arrived. `bad` ones are a warning when true. */
-const CHECKS: Record<string, { label: string; bad?: boolean }> = {
-  receipt_attached: { label: 'Receipt attached' },
-  receipt_reused: { label: 'Receipt file seen before', bad: true },
-  claimed_over_cap: { label: 'Claimed more than the cap', bad: true },
-  review_found: { label: 'Review with 120+ characters since joining' },
-  photo_found: { label: 'Photo uploaded since joining' },
-  visit_date_plausible: { label: 'Visit date within the last 30 days and after joining' },
-  location_screenshot: { label: 'Location screenshot attached' },
-  review_screenshot: { label: 'Review screenshot attached' },
-  photos_screenshot: { label: 'Photos screenshot attached' },
-  suggestion_found: { label: 'Place suggestion since joining' },
-  place_screenshot: { label: 'Suggestion screenshot attached' },
-  referral_account_found: { label: 'Friend’s account exists' },
-  referral_not_self: { label: 'Friend is not the participant' },
-  referral_created_after_join: { label: 'Friend’s account created after joining' },
-  referral_unused: { label: 'Friend not used for another referral' },
-  referral_not_participant_pair: { label: 'Not a mutual referral' },
-  post_url_https: { label: 'Post link is a public https URL' },
-  post_not_cosurfing: { label: 'Post link is not on cosurfing.app' },
-  share_screenshot: { label: 'Post screenshot attached' },
+/** Signals computed when the step was marked as sent. */
+const CHECKS: Record<string, string> = {
+  review_found: 'Review with 120+ characters since joining',
+  photo_found: 'Photo uploaded since joining',
+  suggestion_found: 'Place suggestion since joining',
 };
 
-const KIND_LABEL: Record<string, string> = {
-  review_screenshot: 'Review',
-  photos_screenshot: 'Photos',
-  location_screenshot: 'Location',
-  receipt: 'Receipt',
-  place_screenshot: 'Place suggestion',
-  share_screenshot: 'Post',
-};
+function inboxUrl(channel: string | null, handle: string | null): string | null {
+  if (!handle) return null;
+  if (channel === 'instagram') return `https://www.instagram.com/${handle}`;
+  if (channel === 'tiktok') return `https://www.tiktok.com/@${handle}`;
+  if (channel === 'x') return `https://x.com/${handle}`;
+  return null;
+}
 
 function confirm(message: string, onYes: () => void) {
   if (Platform.OS === 'web') {
@@ -82,8 +64,6 @@ export default function AdminCoffeeParticipant() {
   const router = useRouter();
   const { isAdmin } = useAuth();
   const detail = useQuery(`admin-coffee:${id}`, () => coffeeAdmin.get(id!), isAdmin && Boolean(id));
-  const [urls, setUrls] = useState<Record<string, string> | null>(null);
-  const [loadingUrls, setLoadingUrls] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -103,20 +83,9 @@ export default function AdminCoffeeParticipant() {
     }
   };
 
-  const loadEvidence = async () => {
-    setLoadingUrls(true);
-    setMessage(null);
-    try {
-      setUrls(await coffeeAdmin.evidenceUrls(id!));
-    } catch (e) {
-      setMessage({ tone: 'danger', text: adminCoffeeError(e) });
-    } finally {
-      setLoadingUrls(false);
-    }
-  };
-
   const d = detail.data;
   const p = d?.participant;
+  const profile = p ? inboxUrl(p.social_channel, p.social_handle) : null;
 
   return (
     <AdminShell title="Coffee participant" backTo="/admin/coffee">
@@ -131,7 +100,21 @@ export default function AdminCoffeeParticipant() {
           <Card style={styles.card}>
             <View style={styles.header}>
               <View style={styles.flex}>
-                <Text variant="heading">{p.display_name ?? p.email}</Text>
+                <Text variant="heading" selectable>
+                  {p.code} · {p.display_name ?? p.email}
+                </Text>
+                <Text variant="small">
+                  {p.social_handle ? (
+                    <>
+                      Sent from {COFFEE_CHANNELS.find((c) => c.id === p.social_channel)?.label ?? p.social_channel}{' '}
+                      <Text variant="smallStrong" tone="accent" onPress={profile ? () => void Linking.openURL(profile) : undefined} accessibilityRole="link">
+                        @{p.social_handle}
+                      </Text>
+                    </>
+                  ) : (
+                    'No username yet. Match the direct message by the code.'
+                  )}
+                </Text>
                 <Text variant="small" tone="muted">
                   {p.email} · account since {formatDate(p.account_created_at)} · joined {formatDateTime(p.joined_at)} · terms {p.terms_version}
                 </Text>
@@ -170,13 +153,6 @@ export default function AdminCoffeeParticipant() {
                   />
                 </>
               ) : null}
-              <Button
-                title="Delete proof files now"
-                size="sm"
-                variant="ghost"
-                loading={busy === 'purge'}
-                onPress={() => confirm('Delete all uploaded proof files of this participant now?', () => void run('purge', () => coffeeAdmin.participant(p.id, 'purge_evidence'), 'Files are deleted within 10 minutes.'))}
-              />
             </View>
             <Input label="Internal note" value={note ?? p.admin_note ?? ''} onChangeText={setNote} multiline optional />
             {note !== null && note !== (p.admin_note ?? '') ? (
@@ -190,22 +166,10 @@ export default function AdminCoffeeParticipant() {
             <RewardCard key={r.id} reward={r} detail={d} busy={busy} run={run} />
           ))}
 
-          <Card style={styles.card}>
-            <View style={styles.header}>
-              <Text variant="heading" style={styles.flex}>
-                Proof files ({d.evidence.filter((e) => e.available).length})
-              </Text>
-              <Button title={urls ? 'Reload links' : 'Show files'} size="sm" variant="secondary" icon="eye" loading={loadingUrls} onPress={loadEvidence} />
-            </View>
-            <Text variant="small" tone="muted">
-              Receipts and location screenshots are sensitive. Opening them is logged; links expire after 5 minutes.
-            </Text>
-            <View style={styles.evidence}>
-              {d.evidence.map((e) => (
-                <EvidenceTile key={e.id} e={e} url={urls?.[e.id]} />
-              ))}
-            </View>
-          </Card>
+          <Notice
+            tone="info"
+            body="The proof lives in your direct messages. After deciding a step, delete the screenshots and receipt from the chat within 30 days (privacy policy 9a). Keep the receipt only if it is a paid reward and your accountant needs it."
+          />
 
           <Card style={styles.card}>
             <Text variant="heading">Contributions since joining</Text>
@@ -234,31 +198,6 @@ export default function AdminCoffeeParticipant() {
             ) : null}
           </Card>
 
-          <Card style={styles.card}>
-            <Text variant="heading">Form submissions</Text>
-            {d.submissions.length === 0 ? <Text tone="muted">None yet.</Text> : null}
-            {d.submissions.map((sub) => (
-              <View key={sub.id} style={styles.submission}>
-                <Text variant="smallStrong">
-                  {formatDateTime(sub.received_at)} · {sub.status} · steps: {sub.steps.join(', ') || 'none'}
-                </Text>
-                {Object.entries(sub.ignored ?? {}).map(([step, why]) => (
-                  <Text key={step} variant="small" tone="danger">
-                    Ignored {step}: {why}
-                  </Text>
-                ))}
-                {Object.entries(sub.answers ?? {}).map(([k, v]) => (
-                  <Text key={k} variant="small">
-                    <Text variant="small" tone="muted">
-                      {k}:{' '}
-                    </Text>
-                    {String(v ?? '')}
-                  </Text>
-                ))}
-              </View>
-            ))}
-          </Card>
-
           {d.payouts.length > 0 ? (
             <Card style={styles.card}>
               <Text variant="heading">Payments</Text>
@@ -276,39 +215,6 @@ export default function AdminCoffeeParticipant() {
   );
 }
 
-function EvidenceTile({ e, url }: { e: CoffeeAdminEvidence; url?: string }) {
-  const isImage = /^image\/(jpeg|png|webp)$/.test(e.mime_type ?? '');
-  return (
-    <View style={styles.tile}>
-      {url && isImage ? (
-        <Pressable onPress={() => void Linking.openURL(url)} accessibilityRole="link" accessibilityLabel={`Open ${KIND_LABEL[e.kind] ?? e.kind}`}>
-          <Image source={{ uri: url }} style={styles.thumb} contentFit="cover" />
-        </Pressable>
-      ) : (
-        <View style={[styles.thumb, styles.thumbEmpty]}>
-          <Icon name={e.available ? 'file' : 'trash-2'} size={22} color={colors.textMuted} />
-        </View>
-      )}
-      <Text variant="caption">
-        {STEP_TITLE[e.step].split(' · ')[0]} · {KIND_LABEL[e.kind] ?? e.kind}
-      </Text>
-      {e.duplicate_of ? (
-        <Text variant="caption" tone="danger">
-          {e.duplicate_user_is_other ? 'Same file as another participant' : 'Same file sent before'}
-        </Text>
-      ) : null}
-      <Text variant="caption" tone="faint">
-        {e.available ? `Deleted on ${formatDate(e.purge_after)}` : 'Deleted'}
-      </Text>
-      {url && !isImage ? (
-        <Text variant="caption" tone="accent" onPress={() => void Linking.openURL(url)} accessibilityRole="link">
-          Open file
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
 function RewardCard({
   reward: r,
   detail,
@@ -322,11 +228,12 @@ function RewardCard({
 }) {
   const max = 500;
   const [mode, setMode] = useState<'approve' | 'reject' | 'pay' | null>(null);
-  const [amount, setAmount] = useState(((Math.min(r.claimed_cents ?? max, max)) / 100).toFixed(2));
+  const [amount, setAmount] = useState((max / 100).toFixed(2));
   const [merchant, setMerchant] = useState('');
   const [date, setDate] = useState('');
   const [total, setTotal] = useState('');
   const [number, setNumber] = useState('');
+  const [referral, setReferral] = useState('');
   const [reason, setReason] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [payMethod, setPayMethod] = useState<'paypal' | 'sepa' | 'other'>(detail.payout_details?.method ?? 'paypal');
@@ -334,7 +241,7 @@ function RewardCard({
   const [error, setError] = useState<string | null>(null);
 
   const reviewable = r.status === 'submitted' || r.status === 'under_review';
-  const checks = Object.entries(r.checks ?? {}).filter(([k]) => k !== 'mode');
+  const checks = Object.entries(r.checks ?? {}).filter(([k]) => k in CHECKS);
   const payout = detail.payout_details;
 
   const approve = () => {
@@ -344,7 +251,7 @@ function RewardCard({
     if (!cents || cents < 1 || cents > max) return setError('Amount must be between €0.01 and €5.');
     if (!merchant.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !totalCents) return setError('Enter venue, date (YYYY-MM-DD) and total from the receipt.');
     if (cents > totalCents) return setError('The amount cannot be higher than the receipt total.');
-    void run(`approve:${r.id}`, () => coffeeAdmin.approve(r.id, { cents, note, merchant: merchant.trim(), date, totalCents, receiptNumber: number.trim() }), 'Approved. The participant is asked for payout details.').then(() => setMode(null));
+    void run(`approve:${r.id}`, () => coffeeAdmin.approve(r.id, { cents, note, merchant: merchant.trim(), date, totalCents, receiptNumber: number.trim(), referralEmail: referral.trim() }), 'Approved. The participant is asked for payout details.').then(() => setMode(null));
   };
   const reject = () => {
     setError(null);
@@ -371,8 +278,7 @@ function RewardCard({
       </View>
       <Text variant="small" tone="muted">
         Attempt {r.attempts}
-        {r.submitted_at ? ` · sent ${formatDateTime(r.submitted_at)}` : ''}
-        {r.claimed_cents !== null ? ` · claimed ${formatEuros(r.claimed_cents)}` : ''}
+        {r.submitted_at ? ` · sent ${formatDateTime(r.submitted_at)}${r.submitted_by === 'admin' ? ' (recorded by admin)' : ''}` : ''}
         {r.approved_cents !== null ? ` · approved ${formatEuros(r.approved_cents)}` : ''}
         {r.paid_cents !== null ? ` · paid ${formatEuros(r.paid_cents)} on ${formatDate(r.paid_at)}` : ''}
       </Text>
@@ -385,23 +291,33 @@ function RewardCard({
       {r.referral_email ? <Text variant="small">Referred account: {r.referral_email}</Text> : null}
       {checks.length > 0 ? (
         <View style={styles.checks}>
-          {checks.map(([k, v]) => {
-            const meta = CHECKS[k] ?? { label: k };
-            const ok = meta.bad ? v === false : v === true;
-            return (
-              <View key={k} style={styles.check}>
-                <Icon name={ok ? 'check-circle' : 'alert-triangle'} size={14} color={ok ? colors.success : colors.warning} />
-                <Text variant="small" style={styles.flex}>
-                  {meta.label}
-                  {meta.bad ? (v ? ': yes' : ': no') : ''}
-                </Text>
-              </View>
-            );
-          })}
+          {checks.map(([k, v]) => (
+            <View key={k} style={styles.check}>
+              <Icon name={v === true ? 'check-circle' : 'alert-triangle'} size={14} color={v === true ? colors.success : colors.warning} />
+              <Text variant="small" style={styles.flex}>
+                {CHECKS[k]}
+              </Text>
+            </View>
+          ))}
         </View>
       ) : null}
       {r.step === 'contribute' && reviewable ? (
         <Notice tone="info" body="Check: own visit, ≥3 work criteria covered, ≥2 own photos, receipt matches venue and date, coffee only. The rating does not matter. A location screenshot is not proof on its own." />
+      ) : null}
+      {r.can_record ? (
+        <View style={styles.actions}>
+          <Button
+            title="Mark proof received"
+            size="sm"
+            variant="secondary"
+            icon="inbox"
+            loading={busy === `received:${r.id}`}
+            onPress={() => run(`received:${r.id}`, () => coffeeAdmin.markReceived(r.id), 'Recorded as sent.')}
+          />
+          <Text variant="caption" tone="muted" style={styles.flex}>
+            Use this when the direct message arrived but the participant did not tap “I’ve sent my proof”.
+          </Text>
+        </View>
       ) : null}
 
       {reviewable ? (
@@ -459,6 +375,17 @@ function RewardCard({
               <Input label="Receipt number" value={number} onChangeText={setNumber} optional />
             </View>
           </View>
+          {r.step === 'spread' ? (
+            <Input
+              label="Friend’s account email (referral)"
+              value={referral}
+              onChangeText={setReferral}
+              optional
+              autoCapitalize="none"
+              keyboardType="email-address"
+              hint="Leave empty for a public #ad post. The email is only used to find and check the account and is not stored."
+            />
+          ) : null}
           <Input label="Note to participant" value={note} onChangeText={setNote} optional multiline />
           {error ? <Notice tone="danger" body={error} /> : null}
           <Button title="Approve" loading={busy === `approve:${r.id}`} onPress={approve} />
@@ -549,32 +476,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  evidence: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-  },
-  tile: {
-    width: 150,
-    gap: 2,
-  },
-  thumb: {
-    width: 150,
-    height: 150,
-    borderRadius: radius.md,
-    backgroundColor: colors.bgMuted,
-  },
-  thumbEmpty: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   review: {
-    gap: 2,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  submission: {
     gap: 2,
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,

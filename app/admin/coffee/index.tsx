@@ -17,7 +17,6 @@ import {
   coffeeAdmin,
   coffeeAdminError as adminCoffeeError,
   formatEuros,
-  isCoffeeFormConfigured,
 } from '@/lib/coffee';
 import { formatDateTime } from '@/lib/format';
 import { strings } from '@/lib/strings';
@@ -50,19 +49,24 @@ export default function AdminCoffee() {
   const overview = useQuery('admin-coffee-overview', coffeeAdmin.overview, isAdmin);
   const list = useQuery('admin-coffee-list', coffeeAdmin.list, isAdmin);
   const [filter, setFilter] = useState<Filter>('action');
-  const [showUnmatched, setShowUnmatched] = useState(false);
-  const unmatched = useQuery('admin-coffee-unmatched', coffeeAdmin.unmatched, isAdmin && showUnmatched);
+  const [search, setSearch] = useState('');
 
-  const rows = (list.data ?? []).filter((r) => (filter === 'all' ? true : filter === 'action' ? r.needs_action : r.spot_status === filter));
+  const q = search.trim().toLowerCase().replace(/^@/, '');
+  const rows = (list.data ?? []).filter((r) =>
+    q
+      ? [r.code, r.social_handle, r.email, r.display_name].some((v) => v?.toLowerCase().includes(q))
+      : filter === 'all'
+        ? true
+        : filter === 'action'
+          ? r.needs_action
+          : r.spot_status === filter,
+  );
 
   return (
     <AdminShell title="Coffee program">
       <Head>
         <title>Coffee program · Admin · Cosurfing</title>
       </Head>
-      {!isCoffeeFormConfigured() ? (
-        <Notice tone="warning" title="Submission form not configured" body="Set EXPO_PUBLIC_COFFEE_FORM_URL to the Tally form URL. See docs/free-coffee.md." />
-      ) : null}
       {overview.error ? <Notice tone="danger" body={adminCoffeeError(overview.error)} /> : null}
       {overview.data ? (
         <>
@@ -80,27 +84,14 @@ export default function AdminCoffee() {
         <Skeleton height={160} />
       ) : null}
 
-      {overview.data && overview.data.unmatched_submissions > 0 ? (
-        <Card style={styles.card}>
-          <View style={styles.header}>
-            <Text variant="heading" style={styles.flex}>
-              Unmatched submissions ({overview.data.unmatched_submissions})
-            </Text>
-            <Button title={showUnmatched ? 'Hide' : 'Show'} size="sm" variant="secondary" onPress={() => setShowUnmatched(!showUnmatched)} />
-          </View>
-          <Text variant="small" tone="muted">
-            Form submissions with a missing, expired or reused link. No files were kept. Ask the person to open the form again from /free-coffee.
-          </Text>
-          {showUnmatched
-            ? (unmatched.data ?? []).map((u) => (
-                <Text key={u.id} variant="small">
-                  {formatDateTime(u.received_at)} · {u.reason} · {u.email ?? 'no email'}
-                </Text>
-              ))
-            : null}
-        </Card>
-      ) : null}
-
+      <Input
+        label="Find a participant"
+        value={search}
+        onChangeText={setSearch}
+        placeholder="Code from the message (CS-…), username or email"
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
       <View style={styles.chips}>
         {FILTERS.map((f) => (
           <Chip
@@ -131,8 +122,8 @@ function ParticipantRow({ row, onPress }: { row: CoffeeAdminRow; onPress: () => 
   return (
     <AdminRow
       icon="coffee"
-      title={row.display_name ? `${row.display_name} · ${row.email}` : row.email}
-      subtitle={`${row.spot_status}${row.released_reason ? ` (${row.released_reason})` : ''}${
+      title={`${row.code} · ${row.display_name ? `${row.display_name} · ${row.email}` : row.email}`}
+      subtitle={`${row.social_handle ? `${row.social_channel} @${row.social_handle} · ` : ''}${row.spot_status}${row.released_reason ? ` (${row.released_reason})` : ''}${
         row.reserved_until && row.spot_status === 'reserved' ? ` until ${formatDateTime(row.reserved_until)}` : ''
       } · joined ${formatDateTime(row.joined_at)}${row.last_submitted_at ? ` · last proof ${formatDateTime(row.last_submitted_at)}` : ''}`}
       meta={
@@ -196,10 +187,6 @@ function CampaignSettings({ o, onSaved }: { o: CoffeeAdminOverview; onSaved: () 
     }
     if (s === 'invalid' || e === 'invalid' || cl === 'invalid') {
       setMessage({ tone: 'danger', text: 'Dates must look like 2026-12-31.' });
-      return;
-    }
-    if (status === 'live' && !isCoffeeFormConfigured()) {
-      setMessage({ tone: 'danger', text: 'Configure the Tally form URL before going live.' });
       return;
     }
     setBusy(true);

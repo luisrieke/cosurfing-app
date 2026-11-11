@@ -1160,7 +1160,7 @@ export const strings = {
           'Visit a real café or coworking-friendly place.',
           'Write at least one detailed, useful and honest review on Cosurfing.',
           'Upload your own photos of the place.',
-          'Send us proof: screenshots of your review and photos, your location at the place and your coffee receipt.',
+          'Send Luis a direct message with your code: screenshots of your review and photos, your location at the place and your coffee receipt.',
         ],
       },
       new_place: {
@@ -1170,7 +1170,7 @@ export const strings = {
           'Complete Step 1.',
           'Suggest at least one genuinely new place that is not on Cosurfing yet.',
           'Add accurate, useful information about it.',
-          'Send a screenshot of your place suggestion.',
+          'Send a screenshot of your place suggestion by direct message.',
           'The place has to pass our normal quality review.',
         ],
       },
@@ -1180,8 +1180,8 @@ export const strings = {
         requirements: [
           'Complete Step 1.',
           'Invite a friend who creates a Cosurfing account, or publish a genuine public post about Cosurfing.',
-          'Referral: give us your friend’s account email, with their agreement.',
-          'Post: give us the link and a screenshot. Mark the post as an ad (for example #ad), because you get a coffee for it.',
+          'Referral: send us your friend’s account email, with their agreement.',
+          'Post: send us the link and a screenshot. Mark the post as an ad (for example #ad), because you get a coffee for it.',
           'Referrals must be real and verifiable; posts must still be public when we check them.',
         ],
       },
@@ -1196,7 +1196,7 @@ export const strings = {
       'We never pay more than the eligible amount on your receipt, and there is no cash alternative.',
       'Each receipt must be your own, unique and clearly readable.',
       'Limited to the first 50 eligible participants, subject to verification.',
-      'Signing up or sending the form does not guarantee a reward. A person reviews every submission.',
+      'Signing up or sending your proof does not guarantee a reward. A person reviews every submission.',
       'Low-effort, fake, duplicated, misleading or irrelevant content is not eligible.',
       'We may reject submissions that do not meet the published quality criteria. We apply them reasonably and consistently, and tell you why.',
     ],
@@ -1207,7 +1207,7 @@ export const strings = {
     faq: [
       {
         q: 'How do I get my free coffee?',
-        a: 'Create a free account, reserve your spot on this page, visit a café or coworking-friendly place, write an honest and detailed review with your own photos, then send us your proof with the form on this page. Once a person has approved it, you tell us where to send the money and we reimburse the coffee.',
+        a: 'Create a free account, reserve your spot on this page, visit a café or coworking-friendly place, write an honest and detailed review with your own photos, then send your proof as a direct message to Luis on Instagram, TikTok or X and tap “I’ve sent my proof” on this page. Once a person has approved it, you tell us where to send the money and we reimburse the coffee.',
       },
       {
         q: 'Can I get all three coffees?',
@@ -1224,6 +1224,10 @@ export const strings = {
       {
         q: 'Which purchases are eligible?',
         a: 'One coffee drink per reward, such as a cappuccino, espresso, latte or something comparable, up to €5. Food, meals and other drinks are not reimbursed. If your receipt has other items, we only reimburse the coffee.',
+      },
+      {
+        q: 'Where do I send my proof?',
+        a: 'As a direct message to Luis: Instagram @luisbuildsinpublic, TikTok @luisbuildsinpublic or X @luisbu1lds. Start the message with your personal code from this page (for example CS-7K3QF), add the screenshots and the receipt, then tap “I’ve sent my proof” here and enter the username you sent it from. We do not accept proof by email or comments.',
       },
       {
         q: 'How do I prove I visited the café?',
@@ -1243,7 +1247,7 @@ export const strings = {
     joinTitle: 'Reserve your spot',
     joinBody: (days: number) =>
       `Your spot is held for ${days} days. Send Step 1 within that time, otherwise it goes to the next person. You can only take part once per person.`,
-    joinAccept: 'I accept the campaign terms and have read the privacy information about receipts, location screenshots and referrals.',
+    joinAccept: 'I accept the campaign terms and have read the privacy information about proof sent by direct message and referrals.',
     joinCta: 'Reserve my spot',
     joinWaitlistCta: 'Join the waiting list',
     spot: {
@@ -1271,7 +1275,7 @@ export const strings = {
     },
     statusHint: {
       not_started: 'Nothing sent yet.',
-      submitted: 'Received. A person will review it soon.',
+      submitted: 'Marked as sent. Luis will check your message soon.',
       under_review: 'We are checking it now.',
       approved: (amount: string) => `Approved: ${amount} will be reimbursed.`,
       rejected: 'Not approved.',
@@ -1281,6 +1285,7 @@ export const strings = {
     reasons: {
       low_effort: 'The review is too short or too general to help others.',
       not_authentic: 'We could not confirm it is your own, genuine experience.',
+      proof_not_received: 'We did not receive your direct message with the proof and your code.',
       evidence_missing: 'Some proof is missing or unreadable.',
       receipt_invalid: 'The receipt is unreadable, has no eligible coffee or does not match the visit.',
       receipt_reused: 'This receipt was already used.',
@@ -1294,11 +1299,28 @@ export const strings = {
       withdrawn: 'You left the program.',
       other: 'See the note.',
     } as Record<string, string>,
-    submitBase: 'Send Step 1 proof',
-    submitBonus: 'Send a bonus step',
-    submitHint: 'Opens our submission form (Tally). Your account is linked automatically; the link works once and for 48 hours.',
-    formNotReady: 'The submission form is not ready yet. Please check back soon.',
-    nothingToSend: 'Nothing to send right now.',
+    sendTitle: 'Send your proof by direct message',
+    sendBody: 'Send everything in one message to Luis on Instagram, TikTok or X. Start it with your code so we can match it to your account.',
+    codeLabel: 'Your code',
+    copyMessage: 'Copy message',
+    copied: 'Copied',
+    message: (code: string, steps: string) => `Hi Luis! My Cosurfing code is ${code}. Here is my proof for ${steps} ☕`,
+    whatToSend: 'What to put in the message',
+    sendItems: {
+      contribute: ['Screenshot of your published review', 'Screenshot of your uploaded photos', 'Screenshot of your location at the place', 'Photo of your coffee receipt'],
+      new_place: ['Screenshot of your place suggestion', 'A separate coffee receipt'],
+      spread: ['Your friend’s account email (with their OK), or the link and a screenshot of your #ad post', 'A separate coffee receipt'],
+    },
+    coverNote: 'Cover card numbers and anything else you do not want to share before sending.',
+    openChannel: (label: string) => `Message on ${label}`,
+    sentTitle: 'Sent it? Let us know',
+    sentBody: 'Tell us which steps are in your message and which account you sent it from. Your spot is held while we review it.',
+    sentSteps: 'Steps in your message',
+    sentChannel: 'Sent via',
+    sentHandle: (label: string) => `Your ${label} username`,
+    sentCta: 'I’ve sent my proof',
+    sentDone: 'Thanks! Luis will check your message and update the status here.',
+    sentPickStep: 'Pick at least one step.',
     refresh: 'Refresh status',
     payoutTitle: 'Where should we send your money?',
     payoutBody: 'We only need this because a reward was approved. We pay by hand and delete these details 30 days after the last payment.',
@@ -1323,7 +1345,9 @@ export const strings = {
       terms_outdated: 'The campaign terms changed. Please reload the page and accept them again.',
       not_eligible: 'You cannot take part again.',
       nothing_to_submit: 'There is nothing to send right now.',
-      rate_limited: 'Too many attempts today. Please try again tomorrow.',
+      invalid_handle: 'Enter your username without spaces, for example luis.rieke.',
+      invalid_channel: 'Pick where you sent the message.',
+      not_participating: 'Reserve your spot first.',
     } as Record<string, string>,
     // Guest popup and entry points
     popupTitle: 'Your next coffee could be on\u00a0me\u00a0☕',
