@@ -1,8 +1,12 @@
 -- Early Contributors Coffee Program ("Your next 3 coffees are on me").
 --
 -- Participation is tied to the Supabase user. Every table below has RLS enabled and no client
--- policies: participants and admins only go through the security definer RPCs at the bottom,
--- and the Tally webhook (service role) is the only writer of submissions and evidence.
+-- policies: participants and admins only go through the security definer RPCs at the bottom.
+--
+-- Proof (screenshots, receipt) is not uploaded here. Participants send it as a direct message
+-- to Luis on Instagram, TikTok or X together with their personal code (coffee_participants.code)
+-- and then mark the step as sent (coffee_mark_sent). The admin matches the message by code and
+-- handle, records the receipt details on approval and pays by hand.
 --
 -- Spot policy (first N participants, enforced here under an advisory lock):
 --   * join            -> 'reserved' for reservation_days, or 'waitlisted' when every spot is taken
@@ -29,7 +33,7 @@ create table public.coffee_campaign (
   starts_at timestamptz,
   ends_at timestamptz,
   submissions_close_at timestamptz,
-  terms_version text not null default '2026-11-10' check (char_length(terms_version) <= 20),
+  terms_version text not null default '2026-11-11' check (char_length(terms_version) <= 20),
   updated_at timestamptz not null default now()
 );
 
@@ -38,6 +42,10 @@ insert into public.coffee_campaign (id) values ('early-contributors');
 create table public.coffee_participants (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null unique references auth.users (id) on delete cascade,
+  -- Quoted in the direct message so the proof can be matched to the account.
+  code text not null unique check (code ~ '^CS-[A-HJ-NP-Z2-9]{5}$'),
+  social_channel text check (social_channel is null or social_channel in ('instagram', 'tiktok', 'x')),
+  social_handle text check (social_handle is null or social_handle ~ '^[A-Za-z0-9._]{1,40}$'),
   spot_status text not null check (spot_status in ('reserved', 'held', 'confirmed', 'waitlisted', 'released')),
   reserved_until timestamptz,
   released_reason text check (released_reason is null or released_reason in ('expired', 'rejected', 'disqualified', 'withdrawn', 'campaign_closed')),
@@ -59,24 +67,6 @@ create trigger coffee_participants_updated_at
   before update on public.coffee_participants
   for each row execute function public.set_updated_at();
 
-create table public.coffee_submissions (
-  id uuid primary key default gen_random_uuid(),
-  tally_submission_id text not null unique check (char_length(tally_submission_id) <= 100),
-  tally_form_id text check (tally_form_id is null or char_length(tally_form_id) <= 100),
-  user_id uuid references auth.users (id) on delete cascade,
-  participant_id uuid references public.coffee_participants (id) on delete cascade,
-  status text not null check (status in ('accepted', 'partial', 'ignored', 'unmatched')),
-  steps text[] not null default '{}',
-  ignored jsonb not null default '{}'::jsonb,
-  -- Non-file answers only. A friend's email address is never stored here, only the matched account.
-  answers jsonb not null default '{}'::jsonb,
-  submitted_at timestamptz,
-  received_at timestamptz not null default now()
-);
-
-create index coffee_submissions_user_idx on public.coffee_submissions (user_id, received_at desc);
-create index coffee_submissions_unmatched_idx on public.coffee_submissions (received_at desc) where status = 'unmatched';
-
 create table public.coffee_rewards (
   id uuid primary key default gen_random_uuid(),
   participant_id uuid not null references public.coffee_participants (id) on delete cascade,
@@ -85,9 +75,8 @@ create table public.coffee_rewards (
   status text not null default 'not_started'
     check (status in ('not_started', 'submitted', 'under_review', 'approved', 'rejected', 'paid')),
   attempts integer not null default 0,
-  submission_id uuid references public.coffee_submissions (id) on delete set null,
   submitted_at timestamptz,
-  claimed_cents integer check (claimed_cents is null or claimed_cents between 0 and 100000),
+  submitted_by text check (submitted_by is null or submitted_by in ('participant', 'admin')),
   checks jsonb not null default '{}'::jsonb,
   referral_user_id uuid references auth.users (id) on delete set null,
   approved_cents integer check (approved_cents is null or approved_cents between 1 and 500),
@@ -114,36 +103,6 @@ create index coffee_rewards_status_idx on public.coffee_rewards (status, submitt
 create trigger coffee_rewards_updated_at
   before update on public.coffee_rewards
   for each row execute function public.set_updated_at();
-
-create table public.coffee_evidence (
-  id uuid primary key default gen_random_uuid(),
-  submission_id uuid not null references public.coffee_submissions (id) on delete cascade,
-  user_id uuid not null references auth.users (id) on delete cascade,
-  step text not null check (step in ('contribute', 'new_place', 'spread')),
-  kind text not null check (kind in ('review_screenshot', 'photos_screenshot', 'location_screenshot', 'receipt', 'place_screenshot', 'share_screenshot')),
-  -- Private bucket `coffee-evidence`; null once the file was deleted under the retention policy.
-  storage_path text,
-  mime_type text,
-  size_bytes integer,
-  sha256 text not null check (sha256 ~ '^[0-9a-f]{64}$'),
-  duplicate_of uuid references public.coffee_evidence (id) on delete set null,
-  purge_after timestamptz not null default now() + interval '180 days',
-  deleted_at timestamptz,
-  created_at timestamptz not null default now()
-);
-
-create index coffee_evidence_submission_idx on public.coffee_evidence (submission_id);
-create index coffee_evidence_user_idx on public.coffee_evidence (user_id);
-create index coffee_evidence_sha_idx on public.coffee_evidence (sha256);
-create index coffee_evidence_purge_idx on public.coffee_evidence (purge_after) where storage_path is not null;
-
-create table public.coffee_evidence_access (
-  id bigint generated always as identity primary key,
-  admin_id uuid references auth.users (id) on delete set null,
-  participant_id uuid references public.coffee_participants (id) on delete set null,
-  evidence_ids uuid[] not null,
-  accessed_at timestamptz not null default now()
-);
 
 -- Only collected after a reward was approved. Deleted 30 days after the last approved reward was paid.
 create table public.coffee_payout_details (
@@ -178,19 +137,9 @@ create table public.coffee_payouts (
   paid_at timestamptz not null default now()
 );
 
-create table public.coffee_form_tokens (
-  token_hash text primary key check (token_hash ~ '^[0-9a-f]{64}$'),
-  user_id uuid not null references auth.users (id) on delete cascade,
-  created_at timestamptz not null default now(),
-  expires_at timestamptz not null,
-  used_at timestamptz
-);
-
-create index coffee_form_tokens_user_idx on public.coffee_form_tokens (user_id, created_at desc);
-
 create table public.coffee_notices (
   id uuid primary key default gen_random_uuid(),
-  kind text not null check (kind in ('spot_reserved', 'submission_received', 'reward_approved', 'reward_rejected', 'reward_paid')),
+  kind text not null check (kind in ('spot_reserved', 'reward_approved', 'reward_rejected', 'reward_paid')),
   user_id uuid not null references auth.users (id) on delete cascade,
   step text,
   reason text,
@@ -207,21 +156,10 @@ create index coffee_notices_unsent_idx on public.coffee_notices (created_at) whe
 
 alter table public.coffee_campaign enable row level security;
 alter table public.coffee_participants enable row level security;
-alter table public.coffee_submissions enable row level security;
 alter table public.coffee_rewards enable row level security;
-alter table public.coffee_evidence enable row level security;
-alter table public.coffee_evidence_access enable row level security;
 alter table public.coffee_payout_details enable row level security;
 alter table public.coffee_payouts enable row level security;
-alter table public.coffee_form_tokens enable row level security;
 alter table public.coffee_notices enable row level security;
-
--- Receipts, location screenshots and other proof. No storage policies: only the service role
--- (webhook, evidence function for admins, retention job) can read or write.
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('coffee-evidence', 'coffee-evidence', false, 10485760,
-        array['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf'])
-on conflict (id) do nothing;
 
 -- ---------------------------------------------------------------------------
 -- Incentive disclosure on reviews (§ 5b (3) UWG, Omnibus Directive)
@@ -530,6 +468,9 @@ begin
   return jsonb_build_object(
     'campaign', public.coffee_campaign_public(),
     'participant', jsonb_build_object(
+      'code', p.code,
+      'social_channel', p.social_channel,
+      'social_handle', p.social_handle,
       'spot_status', p.spot_status,
       'reserved_until', p.reserved_until,
       'released_reason', p.released_reason,
@@ -566,6 +507,30 @@ $$;
 
 revoke all on function public.coffee_my_status() from public, anon;
 grant execute on function public.coffee_my_status() to authenticated;
+
+-- Short, unambiguous code (no 0/O, 1/I) that participants quote in their direct message.
+create or replace function public.coffee_new_code()
+returns text
+language plpgsql
+volatile
+set search_path = public
+as $$
+declare
+  v_alphabet constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  v_code text;
+begin
+  loop
+    v_code := 'CS-' || (
+      select string_agg(substr(v_alphabet, 1 + floor(random() * length(v_alphabet))::integer, 1), '')
+        from generate_series(1, 5)
+    );
+    exit when not exists (select 1 from public.coffee_participants where code = v_code);
+  end loop;
+  return v_code;
+end;
+$$;
+
+revoke all on function public.coffee_new_code() from public, anon, authenticated;
 
 create or replace function public.coffee_join(p_terms_version text)
 returns jsonb
@@ -617,8 +582,8 @@ begin
            rejoins = rejoins + 1, terms_version = p_terms_version, terms_accepted_at = now(), joined_at = now()
      where id = p.id;
   else
-    insert into public.coffee_participants (user_id, spot_status, reserved_until, terms_version)
-    values (v_uid, v_status, v_until, p_terms_version)
+    insert into public.coffee_participants (user_id, code, spot_status, reserved_until, terms_version)
+    values (v_uid, public.coffee_new_code(), v_status, v_until, p_terms_version)
     returning * into p;
     insert into public.coffee_rewards (participant_id, user_id, step)
     select p.id, v_uid, s from unnest(array['contribute', 'new_place', 'spread']) s;
@@ -634,9 +599,86 @@ $$;
 revoke all on function public.coffee_join(text) from public, anon;
 grant execute on function public.coffee_join(text) to authenticated;
 
--- One-time token for the Tally form. Only its hash is stored; the webhook maps it back to the
--- account, so the hidden field cannot be changed to someone else's account.
-create or replace function public.coffee_form_link()
+-- Marks steps as sent once the proof went out as a direct message. Bonus steps can be sent
+-- together with Step 1. Returns the steps that were accepted; raises when none was open.
+create or replace function public.coffee_record_sent(p_participant uuid, p_steps text[], p_by text)
+returns text[]
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  c public.coffee_campaign;
+  part public.coffee_participants;
+  v_step text;
+  v_accepted text[] := '{}';
+  v_window timestamptz;
+  v_checks jsonb;
+begin
+  perform public.coffee_rebalance();
+  select * into c from public.coffee_campaign where id = 'early-contributors';
+  select * into part from public.coffee_participants where id = p_participant for update;
+  if not found then
+    raise exception 'not_participating';
+  end if;
+  v_window := public.coffee_window_start(part.user_id) - interval '1 day';
+
+  foreach v_step in array array['contribute', 'new_place', 'spread'] loop
+    if not v_step = any (coalesce(p_steps, '{}')) then
+      continue;
+    end if;
+    if not public.coffee_step_open(part, v_step)
+       and not (v_step <> 'contribute' and 'contribute' = any (v_accepted)
+                and exists (select 1 from public.coffee_rewards r where r.user_id = part.user_id and r.step = v_step
+                             and (r.status = 'not_started' or (r.status = 'rejected' and r.attempts < c.max_attempts)))) then
+      continue;
+    end if;
+
+    -- Signals for the reviewer. They inform the manual decision and never decide on their own.
+    v_checks := case v_step
+      when 'contribute' then jsonb_build_object(
+        'review_found', exists (select 1 from public.reviews r where r.user_id = part.user_id
+                                 and r.created_at >= v_window
+                                 and char_length(coalesce(r.body, r.pending_body, '')) >= 120),
+        'photo_found', exists (select 1 from public.place_photos ph where ph.uploaded_by = part.user_id
+                                and ph.created_at >= v_window))
+      when 'new_place' then jsonb_build_object(
+        'suggestion_found', exists (select 1 from public.place_suggestions s where s.user_id = part.user_id
+                                     and s.created_at >= v_window))
+      else '{}'::jsonb
+    end;
+
+    update public.coffee_rewards
+       set status = 'submitted',
+           attempts = attempts + 1,
+           submitted_at = now(),
+           submitted_by = p_by,
+           checks = v_checks,
+           referral_user_id = null,
+           approved_cents = null,
+           receipt_fingerprint = null,
+           decision_reason = null,
+           decision_note = null,
+           decided_by = null,
+           decided_at = null
+     where user_id = part.user_id and step = v_step;
+    v_accepted := v_accepted || v_step;
+  end loop;
+
+  if cardinality(v_accepted) = 0 then
+    raise exception 'nothing_to_submit';
+  end if;
+  if 'contribute' = any (v_accepted) then
+    update public.coffee_participants set spot_status = 'held', reserved_until = null where id = part.id;
+    perform public.coffee_flag_reviews(part.user_id);
+  end if;
+  return v_accepted;
+end;
+$$;
+
+revoke all on function public.coffee_record_sent(uuid, text[], text) from public, anon, authenticated;
+
+create or replace function public.coffee_mark_sent(p_steps text[], p_channel text, p_handle text)
 returns jsonb
 language plpgsql
 security definer
@@ -644,47 +686,30 @@ set search_path = public
 as $$
 declare
   v_uid uuid := auth.uid();
-  p public.coffee_participants;
-  v_token text;
-  v_contribute boolean;
-  v_place boolean;
-  v_spread boolean;
+  v_handle text := regexp_replace(trim(coalesce(p_handle, '')), '^@+', '');
+  v_participant uuid;
 begin
   if v_uid is null then
     raise exception 'not_signed_in';
   end if;
-  perform public.coffee_rebalance();
-  select * into p from public.coffee_participants where user_id = v_uid;
+  if p_channel is null or p_channel not in ('instagram', 'tiktok', 'x') then
+    raise exception 'invalid_channel';
+  end if;
+  if v_handle !~ '^[A-Za-z0-9._]{1,40}$' then
+    raise exception 'invalid_handle';
+  end if;
+  select id into v_participant from public.coffee_participants where user_id = v_uid;
   if not found then
     raise exception 'not_participating';
   end if;
-  v_contribute := public.coffee_step_open(p, 'contribute');
-  v_place := public.coffee_step_open(p, 'new_place');
-  v_spread := public.coffee_step_open(p, 'spread');
-  if not (v_contribute or v_place or v_spread) then
-    raise exception 'nothing_to_submit';
-  end if;
-  if (select count(*) from public.coffee_form_tokens where user_id = v_uid and created_at > now() - interval '1 day') >= 20 then
-    raise exception 'rate_limited';
-  end if;
-  delete from public.coffee_form_tokens where user_id = v_uid and (expires_at < now() - interval '7 days');
-
-  v_token := replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
-  insert into public.coffee_form_tokens (token_hash, user_id, expires_at)
-  values (encode(sha256(convert_to(v_token, 'UTF8')), 'hex'), v_uid, now() + interval '2 days');
-
-  return jsonb_build_object(
-    'token', v_token,
-    'email', (select email from auth.users where id = v_uid),
-    'contribute', v_contribute,
-    'new_place', v_place,
-    'spread', v_spread
-  );
+  update public.coffee_participants set social_channel = p_channel, social_handle = v_handle where id = v_participant;
+  perform public.coffee_record_sent(v_participant, p_steps, 'participant');
+  return public.coffee_my_status();
 end;
 $$;
 
-revoke all on function public.coffee_form_link() from public, anon;
-grant execute on function public.coffee_form_link() to authenticated;
+revoke all on function public.coffee_mark_sent(text[], text, text) from public, anon;
+grant execute on function public.coffee_mark_sent(text[], text, text) to authenticated;
 
 create or replace function public.coffee_iban_valid(p_iban text)
 returns boolean
@@ -782,223 +807,12 @@ begin
   update public.coffee_rewards
      set status = 'rejected', decision_reason = 'withdrawn', decided_at = now()
    where user_id = v_uid and status in ('submitted', 'under_review');
-  update public.coffee_evidence set purge_after = least(purge_after, now()) where user_id = v_uid and storage_path is not null;
   perform public.coffee_rebalance();
 end;
 $$;
 
 revoke all on function public.coffee_withdraw() from public, anon;
 grant execute on function public.coffee_withdraw() to authenticated;
-
--- ---------------------------------------------------------------------------
--- Tally webhook (service role only)
--- ---------------------------------------------------------------------------
-
--- p: { tally_submission_id, tally_form_id, token_hash, submitted_at, steps[], answers{},
---      claimed{step: cents}, evidence[{step, kind, path, mime, size, sha256}],
---      referral_email?, pre_ignored{step: reason} }
--- Returns { status, user_id, submission_id, accepted[], ignored{step: reason}, duplicate }.
-create or replace function public.coffee_ingest_submission(p jsonb)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  c public.coffee_campaign;
-  v_token public.coffee_form_tokens;
-  part public.coffee_participants;
-  v_submission uuid;
-  v_step text;
-  v_accepted text[] := '{}';
-  v_ignored jsonb := '{}'::jsonb;
-  v_window timestamptz;
-  v_checks jsonb;
-  v_referral uuid;
-  v_ev jsonb;
-  v_visit date;
-  v_status text;
-  v_post text;
-  v_base_ok boolean;
-begin
-  if exists (select 1 from public.coffee_submissions where tally_submission_id = p ->> 'tally_submission_id') then
-    return jsonb_build_object('duplicate', true);
-  end if;
-  perform public.coffee_rebalance();
-  select * into c from public.coffee_campaign where id = 'early-contributors';
-
-  select * into v_token from public.coffee_form_tokens where token_hash = p ->> 'token_hash' for update;
-  if not found or v_token.used_at is not null or v_token.expires_at < now() then
-    insert into public.coffee_submissions (tally_submission_id, tally_form_id, status, answers, submitted_at, ignored)
-    values (p ->> 'tally_submission_id', p ->> 'tally_form_id', 'unmatched',
-            coalesce(p -> 'answers', '{}'::jsonb) - 'referral_email',
-            nullif(p ->> 'submitted_at', '')::timestamptz,
-            jsonb_build_object('_all', case when v_token.token_hash is null then 'invalid_token'
-                                             when v_token.used_at is not null then 'token_used'
-                                             else 'token_expired' end))
-    returning id into v_submission;
-    return jsonb_build_object('status', 'unmatched', 'submission_id', v_submission, 'accepted', '[]'::jsonb);
-  end if;
-  update public.coffee_form_tokens set used_at = now() where token_hash = v_token.token_hash;
-
-  select * into part from public.coffee_participants where user_id = v_token.user_id for update;
-  if not found then
-    insert into public.coffee_submissions (tally_submission_id, tally_form_id, user_id, status, answers, submitted_at, ignored)
-    values (p ->> 'tally_submission_id', p ->> 'tally_form_id', v_token.user_id, 'ignored',
-            coalesce(p -> 'answers', '{}'::jsonb) - 'referral_email', nullif(p ->> 'submitted_at', '')::timestamptz,
-            jsonb_build_object('_all', 'not_participating'))
-    returning id into v_submission;
-    return jsonb_build_object('status', 'ignored', 'user_id', v_token.user_id, 'submission_id', v_submission, 'accepted', '[]'::jsonb);
-  end if;
-
-  insert into public.coffee_submissions (tally_submission_id, tally_form_id, user_id, participant_id, status, answers, submitted_at)
-  values (p ->> 'tally_submission_id', p ->> 'tally_form_id', part.user_id, part.id, 'ignored',
-          coalesce(p -> 'answers', '{}'::jsonb) - 'referral_email', nullif(p ->> 'submitted_at', '')::timestamptz)
-  returning id into v_submission;
-
-  v_ignored := coalesce(p -> 'pre_ignored', '{}'::jsonb);
-  v_window := public.coffee_window_start(part.user_id);
-  v_base_ok := exists (select 1 from public.coffee_rewards where user_id = part.user_id and step = 'contribute'
-                        and status in ('submitted', 'under_review', 'approved', 'paid'));
-
-  foreach v_step in array array['contribute', 'new_place', 'spread'] loop
-    if not (p -> 'steps') ? v_step then
-      continue;
-    end if;
-    if not public.coffee_step_open(part, v_step)
-       and not (v_step <> 'contribute' and 'contribute' = any (v_accepted)
-                and exists (select 1 from public.coffee_rewards r where r.user_id = part.user_id and r.step = v_step
-                             and (r.status = 'not_started' or (r.status = 'rejected' and r.attempts < c.max_attempts)))) then
-      v_ignored := v_ignored || jsonb_build_object(v_step,
-        case
-          when part.spot_status = 'waitlisted' then 'waitlisted'
-          when part.spot_status = 'released' then 'spot_released'
-          when c.status not in ('live', 'paused') or (c.submissions_close_at is not null and now() >= c.submissions_close_at) then 'campaign_closed'
-          when v_step <> 'contribute' and not v_base_ok then 'base_required'
-          else 'already_submitted'
-        end);
-      continue;
-    end if;
-
-    -- Signals for the reviewer. They inform the manual decision and never decide on their own.
-    v_checks := jsonb_build_object(
-      'receipt_attached', exists (select 1 from jsonb_array_elements(p -> 'evidence') e where e ->> 'step' = v_step and e ->> 'kind' = 'receipt'),
-      'receipt_reused', exists (
-        select 1 from jsonb_array_elements(p -> 'evidence') e
-         join public.coffee_evidence old on old.sha256 = e ->> 'sha256' and old.kind = 'receipt'
-         where e ->> 'step' = v_step and e ->> 'kind' = 'receipt'
-      ) or exists (
-        select 1 from jsonb_array_elements(p -> 'evidence') e1, jsonb_array_elements(p -> 'evidence') e2
-         where e1 ->> 'step' = v_step and e1 ->> 'kind' = 'receipt' and e2 ->> 'kind' = 'receipt'
-           and e2 ->> 'step' <> v_step and e1 ->> 'sha256' = e2 ->> 'sha256'
-      ),
-      'claimed_over_cap', coalesce((p -> 'claimed' ->> v_step)::integer, 0) > c.max_coffee_cents
-    );
-
-    if v_step = 'contribute' then
-      v_visit := nullif(p -> 'answers' ->> 'visit_date', '')::date;
-      v_checks := v_checks || jsonb_build_object(
-        'review_found', exists (select 1 from public.reviews r where r.user_id = part.user_id
-                                 and r.created_at >= v_window - interval '1 day'
-                                 and char_length(coalesce(r.body, r.pending_body, '')) >= 120),
-        'photo_found', exists (select 1 from public.place_photos ph where ph.uploaded_by = part.user_id
-                                and ph.created_at >= v_window - interval '1 day'),
-        'visit_date_plausible', v_visit is not null and v_visit <= current_date and v_visit >= current_date - 30
-                                and v_visit >= (v_window - interval '1 day')::date,
-        'location_screenshot', exists (select 1 from jsonb_array_elements(p -> 'evidence') e where e ->> 'kind' = 'location_screenshot'),
-        'review_screenshot', exists (select 1 from jsonb_array_elements(p -> 'evidence') e where e ->> 'kind' = 'review_screenshot'),
-        'photos_screenshot', exists (select 1 from jsonb_array_elements(p -> 'evidence') e where e ->> 'kind' = 'photos_screenshot')
-      );
-      perform public.coffee_flag_reviews(part.user_id);
-    elsif v_step = 'new_place' then
-      v_checks := v_checks || jsonb_build_object(
-        'suggestion_found', exists (select 1 from public.place_suggestions s where s.user_id = part.user_id
-                                     and s.created_at >= v_window - interval '1 day'),
-        'place_screenshot', exists (select 1 from jsonb_array_elements(p -> 'evidence') e where e ->> 'kind' = 'place_screenshot')
-      );
-    else
-      v_referral := null;
-      if nullif(trim(p ->> 'referral_email'), '') is not null then
-        select id into v_referral from auth.users where lower(email) = lower(trim(p ->> 'referral_email')) limit 1;
-        v_checks := v_checks || jsonb_build_object(
-          'mode', 'referral',
-          'referral_account_found', v_referral is not null,
-          'referral_not_self', v_referral is distinct from part.user_id,
-          'referral_created_after_join', coalesce((select u.created_at >= part.joined_at - interval '1 day' from auth.users u where u.id = v_referral), false),
-          'referral_unused', v_referral is null or not exists (
-            select 1 from public.coffee_rewards r where r.referral_user_id = v_referral and r.status <> 'rejected'),
-          'referral_not_participant_pair', v_referral is null or not exists (
-            select 1 from public.coffee_rewards r where r.user_id = v_referral and r.referral_user_id = part.user_id)
-        );
-        if v_referral = part.user_id
-           or exists (select 1 from public.coffee_rewards r where r.referral_user_id = v_referral and r.status <> 'rejected') then
-          v_referral := null;
-        end if;
-      else
-        v_post := nullif(trim(p -> 'answers' ->> 'post_url'), '');
-        v_checks := v_checks || jsonb_build_object(
-          'mode', 'post',
-          'post_url_https', coalesce(v_post ~* '^https://[^/\s]+\.[^/\s]+', false),
-          'post_not_cosurfing', coalesce(v_post !~* '^https://([a-z0-9-]+\.)*cosurfing\.app(/|$)', false),
-          'share_screenshot', exists (select 1 from jsonb_array_elements(p -> 'evidence') e where e ->> 'kind' = 'share_screenshot')
-        );
-      end if;
-    end if;
-
-    update public.coffee_rewards
-       set status = 'submitted',
-           attempts = attempts + 1,
-           submission_id = v_submission,
-           submitted_at = now(),
-           claimed_cents = nullif(p -> 'claimed' ->> v_step, '')::integer,
-           checks = v_checks,
-           referral_user_id = case when v_step = 'spread' then v_referral end,
-           approved_cents = null,
-           receipt_fingerprint = null,
-           decision_reason = null,
-           decision_note = null,
-           decided_by = null,
-           decided_at = null
-     where user_id = part.user_id and step = v_step;
-    v_accepted := v_accepted || v_step;
-  end loop;
-
-  if 'contribute' = any (v_accepted) then
-    update public.coffee_participants set spot_status = 'held', reserved_until = null where id = part.id;
-  end if;
-
-  for v_ev in select * from jsonb_array_elements(coalesce(p -> 'evidence', '[]'::jsonb)) loop
-    if (v_ev ->> 'step') = any (v_accepted) then
-      insert into public.coffee_evidence (submission_id, user_id, step, kind, storage_path, mime_type, size_bytes, sha256, duplicate_of)
-      values (v_submission, part.user_id, v_ev ->> 'step', v_ev ->> 'kind', v_ev ->> 'path', v_ev ->> 'mime',
-              nullif(v_ev ->> 'size', '')::integer, v_ev ->> 'sha256',
-              (select id from public.coffee_evidence old where old.sha256 = v_ev ->> 'sha256' order by created_at limit 1));
-    end if;
-  end loop;
-
-  v_status := case
-                when cardinality(v_accepted) = 0 then 'ignored'
-                when v_ignored = '{}'::jsonb then 'accepted'
-                else 'partial'
-              end;
-  update public.coffee_submissions
-     set status = v_status, steps = v_accepted, ignored = v_ignored
-   where id = v_submission;
-  if cardinality(v_accepted) > 0 then
-    insert into public.coffee_notices (kind, user_id, note) values ('submission_received', part.user_id, array_to_string(v_accepted, ','));
-  end if;
-
-  return jsonb_build_object(
-    'status', v_status,
-    'user_id', part.user_id,
-    'submission_id', v_submission,
-    'accepted', to_jsonb(v_accepted),
-    'ignored', v_ignored
-  );
-end;
-$$;
-
-revoke all on function public.coffee_ingest_submission(jsonb) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Admin RPCs
@@ -1011,7 +825,7 @@ immutable
 set search_path = public
 as $$
   select p_reason in (
-    'low_effort', 'not_authentic', 'evidence_missing', 'receipt_invalid', 'receipt_reused',
+    'low_effort', 'not_authentic', 'proof_not_received', 'evidence_missing', 'receipt_invalid', 'receipt_reused',
     'not_coffee', 'place_exists', 'place_inaccurate', 'referral_invalid', 'post_invalid',
     'base_not_eligible', 'campaign_full', 'other'
   );
@@ -1051,7 +865,6 @@ begin
         select status, count(*) n from public.coffee_rewards where status <> 'not_started' group by status) s), '{}'::jsonb),
     'approved_unpaid_cents', coalesce((select sum(approved_cents) from public.coffee_rewards where status = 'approved'), 0),
     'paid_cents', coalesce((select sum(amount_cents) from public.coffee_payouts), 0),
-    'unmatched_submissions', (select count(*) from public.coffee_submissions where status = 'unmatched'),
     'unsent_notices', (select count(*) from public.coffee_notices where sent_at is null and attempts < 5)
   );
 end;
@@ -1069,7 +882,10 @@ returns table (
   joined_at timestamptz,
   rewards jsonb,
   needs_action boolean,
-  last_submitted_at timestamptz
+  last_submitted_at timestamptz,
+  code text,
+  social_channel text,
+  social_handle text
 )
 language plpgsql
 security definer
@@ -1081,7 +897,8 @@ begin
     select p.id, p.user_id, u.email::text, pr.display_name, p.spot_status, p.reserved_until, p.released_reason, p.joined_at,
            coalesce((select jsonb_object_agg(r.step, r.status) from public.coffee_rewards r where r.participant_id = p.id), '{}'::jsonb),
            exists (select 1 from public.coffee_rewards r where r.participant_id = p.id and r.status in ('submitted', 'under_review', 'approved')),
-           (select max(r.submitted_at) from public.coffee_rewards r where r.participant_id = p.id)
+           (select max(r.submitted_at) from public.coffee_rewards r where r.participant_id = p.id),
+           p.code, p.social_channel, p.social_handle
       from public.coffee_participants p
       join auth.users u on u.id = p.user_id
       left join public.profiles pr on pr.id = p.user_id
@@ -1112,19 +929,10 @@ begin
       'account_created_at', (select created_at from auth.users where id = p.user_id)
     ),
     'rewards', coalesce((select jsonb_agg(to_jsonb(r) || jsonb_build_object(
-        'referral_email', (select email from auth.users where id = r.referral_user_id))
+        'referral_email', (select email from auth.users where id = r.referral_user_id),
+        'can_record', public.coffee_step_open(p, r.step))
         order by array_position(array['contribute', 'new_place', 'spread'], r.step))
       from public.coffee_rewards r where r.participant_id = p.id), '[]'::jsonb),
-    'submissions', coalesce((select jsonb_agg(jsonb_build_object(
-        'id', s.id, 'status', s.status, 'steps', s.steps, 'ignored', s.ignored, 'answers', s.answers,
-        'submitted_at', s.submitted_at, 'received_at', s.received_at) order by s.received_at desc)
-      from public.coffee_submissions s where s.participant_id = p.id), '[]'::jsonb),
-    'evidence', coalesce((select jsonb_agg(jsonb_build_object(
-        'id', e.id, 'submission_id', e.submission_id, 'step', e.step, 'kind', e.kind, 'mime_type', e.mime_type,
-        'size_bytes', e.size_bytes, 'available', e.storage_path is not null, 'duplicate_of', e.duplicate_of,
-        'duplicate_user_is_other', (select d.user_id <> e.user_id from public.coffee_evidence d where d.id = e.duplicate_of),
-        'purge_after', e.purge_after, 'created_at', e.created_at) order by e.created_at)
-      from public.coffee_evidence e where e.user_id = p.user_id), '[]'::jsonb),
     'reviews', coalesce((select jsonb_agg(jsonb_build_object(
         'id', r.id, 'place_name', pl.name, 'place_slug', pl.slug, 'rating', r.rating,
         'body', coalesce(r.body, r.pending_body), 'status', r.status, 'created_at', r.created_at,
@@ -1145,8 +953,10 @@ begin
 end;
 $$;
 
--- p_decision: 'under_review' | 'approve' | 'reject'. Approval needs the amount (max €5) and the
--- receipt details, which form a fingerprint that can only ever be approved once.
+-- p_decision: 'received' (proof arrived by direct message but the participant did not mark it as
+-- sent) | 'under_review' | 'approve' | 'reject'. Approval needs the amount (max €5) and the
+-- receipt details, which form a fingerprint that can only ever be approved once. A Step 3
+-- referral is approved with the friend's account email, which is only used for the lookup.
 create or replace function public.coffee_admin_decide(
   p_reward uuid,
   p_decision text,
@@ -1156,12 +966,13 @@ create or replace function public.coffee_admin_decide(
   p_receipt_merchant text default null,
   p_receipt_date date default null,
   p_receipt_total_cents integer default null,
-  p_receipt_number text default null
+  p_receipt_number text default null,
+  p_referral_email text default null
 )
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, auth
 as $$
 declare
   c public.coffee_campaign;
@@ -1170,8 +981,19 @@ declare
   v_note text := nullif(trim(coalesce(p_note, '')), '');
   v_fingerprint text;
   v_final boolean;
+  v_referral uuid;
+  v_referral_created timestamptz;
 begin
   perform public.coffee_require_admin();
+  if p_decision = 'received' then
+    select * into r from public.coffee_rewards where id = p_reward;
+    if not found then
+      raise exception 'not_found';
+    end if;
+    perform public.coffee_record_sent(r.participant_id, array[r.step], 'admin');
+    return;
+  end if;
+
   perform pg_advisory_xact_lock(hashtext('coffee_campaign'));
   select * into c from public.coffee_campaign where id = 'early-contributors';
   select * into r from public.coffee_rewards where id = p_reward for update;
@@ -1216,15 +1038,34 @@ begin
     if exists (select 1 from public.coffee_rewards x where x.receipt_fingerprint = v_fingerprint and x.status in ('approved', 'paid')) then
       raise exception 'receipt_already_reimbursed';
     end if;
+    if r.step = 'spread' and nullif(trim(coalesce(p_referral_email, '')), '') is not null then
+      select id, created_at into v_referral, v_referral_created
+        from auth.users where lower(email) = lower(trim(p_referral_email)) limit 1;
+      if v_referral is null then
+        raise exception 'referral_not_found';
+      end if;
+      if v_referral = r.user_id then
+        raise exception 'referral_self';
+      end if;
+      if v_referral_created < part.joined_at - interval '1 day' then
+        raise exception 'referral_too_old';
+      end if;
+      if exists (select 1 from public.coffee_rewards x where x.referral_user_id = v_referral and x.status <> 'rejected')
+         or exists (select 1 from public.coffee_rewards x where x.user_id = v_referral and x.referral_user_id = r.user_id) then
+        raise exception 'referral_used';
+      end if;
+    end if;
     update public.coffee_rewards
        set status = 'approved', approved_cents = p_approved_cents, receipt_fingerprint = v_fingerprint,
+           referral_user_id = v_referral,
+           checks = case when r.step = 'spread'
+                         then checks || jsonb_build_object('mode', case when v_referral is null then 'post' else 'referral' end)
+                         else checks end,
            decision_reason = null, decision_note = v_note, decided_by = auth.uid(), decided_at = now()
      where id = r.id;
     if r.step = 'contribute' then
       update public.coffee_participants set spot_status = 'confirmed', confirmed_at = now() where id = part.id;
     end if;
-    update public.coffee_evidence set purge_after = least(purge_after, now() + interval '30 days')
-     where submission_id = r.submission_id and step = r.step and kind = 'location_screenshot';
     insert into public.coffee_notices (kind, user_id, step, amount_cents, note)
     values ('reward_approved', r.user_id, r.step, p_approved_cents, v_note);
     return;
@@ -1244,8 +1085,6 @@ begin
      set status = 'rejected', decision_reason = p_reason, decision_note = v_note, decided_by = auth.uid(), decided_at = now(),
          referral_user_id = null, approved_cents = null, receipt_fingerprint = null
    where id = r.id;
-  update public.coffee_evidence set purge_after = least(purge_after, now() + interval '30 days')
-   where submission_id = r.submission_id and step = r.step;
 
   if r.step = 'contribute' then
     if v_final then
@@ -1308,13 +1147,11 @@ begin
   insert into public.coffee_payouts (reward_id, user_id, step, payee, amount_cents, method, reference, paid_by)
   values (r.id, r.user_id, r.step, coalesce(v_payee, (select email from auth.users where id = r.user_id), 'unknown'),
           p_paid_cents, p_method, nullif(trim(coalesce(p_reference, '')), ''), auth.uid());
-  update public.coffee_evidence set purge_after = least(purge_after, now() + interval '90 days')
-   where submission_id = r.submission_id and step = r.step;
   insert into public.coffee_notices (kind, user_id, step, amount_cents) values ('reward_paid', r.user_id, r.step, p_paid_cents);
 end;
 $$;
 
--- p_action: 'extend' (reservation + reservation_days), 'disqualify', 'release', 'purge_evidence', 'note'.
+-- p_action: 'extend' (reservation + reservation_days), 'disqualify', 'release', 'note'.
 create or replace function public.coffee_admin_participant(p_participant uuid, p_action text, p_note text default null)
 returns void
 language plpgsql
@@ -1358,8 +1195,6 @@ begin
          where participant_id = part.id and status in ('submitted', 'under_review', 'approved');
       end if;
       perform public.coffee_rebalance();
-    when 'purge_evidence' then
-      update public.coffee_evidence set purge_after = now() where user_id = part.user_id and storage_path is not null;
     else
       raise exception 'invalid_action';
   end case;
@@ -1405,23 +1240,6 @@ begin
 end;
 $$;
 
-create or replace function public.coffee_admin_unmatched()
-returns table (id uuid, received_at timestamptz, reason text, email text)
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  perform public.coffee_require_admin();
-  return query
-    select s.id, s.received_at, s.ignored ->> '_all', s.answers ->> 'email'
-      from public.coffee_submissions s
-     where s.status = 'unmatched'
-     order by s.received_at desc
-     limit 100;
-end;
-$$;
-
 do $$
 declare
   f text;
@@ -1430,11 +1248,10 @@ begin
     'coffee_admin_overview()',
     'coffee_admin_list()',
     'coffee_admin_get(uuid)',
-    'coffee_admin_decide(uuid, text, text, text, integer, text, date, integer, text)',
+    'coffee_admin_decide(uuid, text, text, text, integer, text, date, integer, text, text)',
     'coffee_admin_mark_paid(uuid, integer, text, text)',
     'coffee_admin_participant(uuid, text, text)',
-    'coffee_admin_update_campaign(text, integer, timestamptz, timestamptz, timestamptz)',
-    'coffee_admin_unmatched()'
+    'coffee_admin_update_campaign(text, integer, timestamptz, timestamptz, timestamptz)'
   ] loop
     execute format('revoke all on function public.%s from public, anon', f);
     execute format('grant execute on function public.%s to authenticated', f);
@@ -1446,8 +1263,9 @@ $$;
 -- Retention and scheduled work
 -- ---------------------------------------------------------------------------
 
--- Database side of the retention policy in /free-coffee/terms and the privacy policy. Evidence
--- files are deleted by the `coffee-jobs` edge function, which also sends the queued emails.
+-- Database side of the retention policy in /free-coffee/terms and the privacy policy. The proof
+-- itself never reaches this database; it stays in the direct messages (see docs/free-coffee.md).
+-- Queued emails are sent by the `coffee-jobs` edge function.
 create or replace function public.coffee_housekeeping()
 returns void
 language plpgsql
@@ -1456,18 +1274,16 @@ set search_path = public
 as $$
 begin
   perform public.coffee_rebalance();
-  delete from public.coffee_form_tokens where expires_at < now() - interval '7 days';
   -- Payout details: 30 days after the last approved reward was paid.
   delete from public.coffee_payout_details d
    where not exists (select 1 from public.coffee_rewards r where r.user_id = d.user_id and r.status = 'approved')
      and coalesce((select max(paid_at) from public.coffee_rewards r where r.user_id = d.user_id), d.updated_at) < now() - interval '30 days';
-  -- Submission answers (place names, links, dates, amounts) go one year after the decision.
-  update public.coffee_submissions s
-     set answers = '{}'::jsonb
-   where answers <> '{}'::jsonb
-     and received_at < now() - interval '1 year'
-     and not exists (select 1 from public.coffee_rewards r where r.submission_id = s.id and r.status in ('submitted', 'under_review', 'approved'));
-  delete from public.coffee_evidence_access where accessed_at < now() - interval '1 year';
+  -- Social handle: 90 days after the last decision, once nothing is waiting for a review or payment.
+  update public.coffee_participants p
+     set social_channel = null, social_handle = null
+   where p.social_handle is not null
+     and not exists (select 1 from public.coffee_rewards r where r.participant_id = p.id and r.status in ('submitted', 'under_review', 'approved'))
+     and coalesce((select max(coalesce(r.paid_at, r.decided_at)) from public.coffee_rewards r where r.participant_id = p.id), p.updated_at) < now() - interval '90 days';
   delete from public.coffee_notices where sent_at < now() - interval '1 year';
 end;
 $$;
@@ -1479,6 +1295,5 @@ select cron.schedule(
   'cosurfing-coffee-jobs',
   '*/10 * * * *',
   $$select public.invoke_crawler('coffee-jobs')
-     where exists (select 1 from public.coffee_notices where sent_at is null and attempts < 5)
-        or exists (select 1 from public.coffee_evidence where storage_path is not null and purge_after <= now())$$
+     where exists (select 1 from public.coffee_notices where sent_at is null and attempts < 5)$$
 );

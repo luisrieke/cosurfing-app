@@ -53,16 +53,14 @@ async function deleteAccount(sb: SupabaseClient, userId: string): Promise<{ stor
     }
   }
 
-  const [avatars, menus, wifi, coffee] = await Promise.all([
+  const [avatars, menus, wifi] = await Promise.all([
     sb.storage.from('avatars').list(userId, { limit: 1000 }),
     sb.from('place_menus').select('path').eq('user_id', userId),
     sb.from('place_wifi_notes').select('photo_path').eq('user_id', userId),
-    sb.from('coffee_evidence').select('storage_path').eq('user_id', userId),
   ]);
   await removeFiles(sb, 'avatars', (avatars.data ?? []).map((f) => `${userId}/${f.name}`));
   await removeFiles(sb, 'place-menus', (menus.data ?? []).map((r) => r.path as string));
   await removeFiles(sb, 'place-wifi', (wifi.data ?? []).map((r) => r.photo_path as string | null));
-  await removeFiles(sb, 'coffee-evidence', (coffee.data ?? []).map((r) => r.storage_path as string | null));
 
   const { error } = await sb.auth.admin.deleteUser(userId);
   if (error) throw new Error(`delete_user: ${error.message}`);

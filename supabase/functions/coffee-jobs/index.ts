@@ -1,7 +1,6 @@
 // Scheduled work for the coffee campaign, invoked by pg_cron through invoke_crawler and
-// authenticated with the crawler secret:
-//   * sends the queued participant emails (spot reserved, submission received, approved, rejected, paid)
-//   * deletes proof files whose retention ended (coffee_evidence.purge_after)
+// authenticated with the crawler secret;
+// it sends the queued participant emails (spot reserved, approved, rejected, paid).
 
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
@@ -15,7 +14,7 @@ const BATCH = 50;
 
 interface Notice {
   id: string;
-  kind: 'spot_reserved' | 'submission_received' | 'reward_approved' | 'reward_rejected' | 'reward_paid';
+  kind: 'spot_reserved' | 'reward_approved' | 'reward_rejected' | 'reward_paid';
   user_id: string;
   step: string | null;
   reason: string | null;
@@ -35,6 +34,7 @@ const STEP: Record<string, string> = {
 export const REASON: Record<string, string> = {
   low_effort: 'The review is too short or too general to help other remote workers (see “What counts as a useful review”).',
   not_authentic: 'We could not confirm that the contribution is your own, genuine experience.',
+  proof_not_received: 'We did not receive your direct message with the proof and your code.',
   evidence_missing: 'Some of the required proof is missing or cannot be read.',
   receipt_invalid: 'The receipt is unreadable, does not show an eligible coffee, or does not match the visit.',
   receipt_reused: 'This receipt was already used for another reward.',
@@ -63,11 +63,6 @@ export function compose(n: Notice): { subject: string; text: string } {
         subject: 'A spot opened up for you: your coffee is waiting ☕',
         text: `Hi,\n\na spot in the Cosurfing Early Contributors program opened up and it is now reserved for you.\n\nOpen ${page} to see what to do next. Your reservation is held for a few days; after that it goes to the next person on the waiting list.${sign}`,
       };
-    case 'submission_received':
-      return {
-        subject: 'We received your coffee submission',
-        text: `Hi,\n\nthanks! We received your proof and a person will review it. This usually takes a few days. You can follow the status at ${page}.\n\nPlease note: nothing is reimbursed before the review is done.${sign}`,
-      };
     case 'reward_approved':
       return {
         subject: `Approved: ${euros(n.amount_cents)} for your coffee`,
@@ -76,7 +71,7 @@ export function compose(n: Notice): { subject: string; text: string } {
     case 'reward_rejected': {
       const reason = REASON[n.reason ?? 'other'] ?? REASON.other;
       const next = n.can_resubmit
-        ? `You can fix this and submit ${step} once more at ${page}.`
+        ? `You can fix this, send the proof once more by direct message and mark it as sent at ${page}.`
         : 'This decision is final for this step.';
       return {
         subject: 'About your coffee submission',
@@ -122,27 +117,6 @@ async function sendNotices(sb: SupabaseClient): Promise<number> {
   return sent;
 }
 
-async function purgeEvidence(sb: SupabaseClient): Promise<number> {
-  const { data, error } = await sb
-    .from('coffee_evidence')
-    .select('id, storage_path')
-    .not('storage_path', 'is', null)
-    .lte('purge_after', new Date().toISOString())
-    .limit(500);
-  if (error) throw new Error(error.message);
-  const rows = data ?? [];
-  for (let i = 0; i < rows.length; i += 100) {
-    const chunk = rows.slice(i, i + 100);
-    const { error: removeError } = await sb.storage.from('coffee-evidence').remove(chunk.map((r) => r.storage_path as string));
-    if (removeError) throw new Error(`storage: ${removeError.message}`);
-    await sb
-      .from('coffee_evidence')
-      .update({ storage_path: null, deleted_at: new Date().toISOString() })
-      .in('id', chunk.map((r) => r.id as string));
-  }
-  return rows.length;
-}
-
 if (import.meta.main) {
   Deno.serve(async (req) => {
     if (req.method !== 'POST') return new Response('method_not_allowed', { status: 405 });
@@ -151,9 +125,8 @@ if (import.meta.main) {
     const { data: ok } = await sb.rpc('check_crawler_secret', { p_secret: secret });
     if (!secret || ok !== true) return new Response('unauthorized', { status: 401 });
     try {
-      const purged = await purgeEvidence(sb);
       const sent = await sendNotices(sb);
-      return Response.json({ purged, sent, email: emailConfigured() });
+      return Response.json({ sent, email: emailConfigured() });
     } catch (e) {
       console.error('coffee-jobs failed', e instanceof Error ? e.message : e);
       return Response.json({ error: 'failed' }, { status: 500 });
