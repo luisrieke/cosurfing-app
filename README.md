@@ -122,7 +122,6 @@ Set in Dashboard → Edge Functions → Secrets (or `supabase secrets set`). `SU
 | `RATE_LIMIT_SALT` | waitlist | Random string; IPs are only stored as salted hashes |
 | `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID_WEEKLY`, `STRIPE_PRICE_ID_YEARLY`, `STRIPE_WEBHOOK_SECRET` | billing, stripe-webhook, account, cancel | See Stripe below |
 | `REVENUECAT_WEBHOOK_AUTH` | revenuecat-webhook | Shared secret RevenueCat sends in the `Authorization` header |
-| `TALLY_SIGNING_SECRET`, `TALLY_COFFEE_FORM_ID`, `TALLY_API_KEY` | coffee-tally-webhook | See [docs/free-coffee.md](docs/free-coffee.md) |
 | `ALLOW_DEV_ENTITLEMENTS` | billing | `true` only on a development project. Enables the clearly labelled "simulate Plus" toggle. Never set in production. |
 
 ## Resend
@@ -178,7 +177,7 @@ Use `current_period_end = null` for no end date, and `status = 'inactive'` to ta
 
 ## Early Contributors coffee program
 
-`/free-coffee` reimburses up to three coffees (€5 each) to the first 50 contributors after a manual review: Tally form for proof, signed webhook into a private bucket, review and manual payout in **Admin → Coffee program**. Setup, the exact Tally form, retention and the pre-launch legal/tax checklist are in [docs/free-coffee.md](docs/free-coffee.md). It starts as a draft; nothing is visible until an admin sets it live.
+`/free-coffee` reimburses up to three coffees (€5 each) to the first 50 contributors after a manual review: participants send their proof with a personal code as a direct message to Luis on Instagram, TikTok or X and mark it as sent on the page; review and manual payout happen in **Admin → Coffee program**. Setup, the reviewing routine, retention and the pre-launch legal/tax checklist are in [docs/free-coffee.md](docs/free-coffee.md). It starts as a draft; nothing is visible until an admin sets it live.
 
 ## Maps
 
@@ -199,7 +198,7 @@ MapLibre loads its worker from a separate file that Metro cannot resolve, so `sc
 - Supabase Auth OTP template with `{{ .Token }}`, redirect URLs, custom SMTP.
 - First admin row. Places come from the crawler; add photos only when you have the rights to them.
 - Google Maps Android key, EAS project id, store listings.
-- Coffee program: Tally form + webhook secret, `EXPO_PUBLIC_COFFEE_FORM_URL`, legal/tax review (docs/free-coffee.md).
+- Coffee program: open DMs on TikTok and X, legal/tax review (docs/free-coffee.md).
 
 ## Principles baked in
 
