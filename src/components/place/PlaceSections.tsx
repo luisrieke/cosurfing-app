@@ -39,8 +39,8 @@ const toneColor: Record<Tone, string> = {
 // ---------------------------------------------------------------------------
 
 const SCORE_PARTS: { key: 'reviews' | 'wifi' | 'facts' | 'completeness' | 'category'; weight: number }[] = [
-  { key: 'reviews', weight: 55 },
-  { key: 'wifi', weight: 20 },
+  { key: 'reviews', weight: 65 },
+  { key: 'wifi', weight: 10 },
   { key: 'facts', weight: 10 },
   { key: 'completeness', weight: 10 },
   { key: 'category', weight: 5 },

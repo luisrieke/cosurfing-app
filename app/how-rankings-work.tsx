@@ -11,7 +11,7 @@ const CLAUSES: LegalClause[] = [
     title: 'How places are ranked',
     paragraphs: [
       'Within a city, places are sorted by their work score, highest first, unless you choose a different order (star rating, Wi‑Fi, number of reviews or name). Filters only narrow the list.',
-      'The work score combines five parts, each rated from 0 to 10 and weighted: reviews 55%, Wi‑Fi 20%, power outlets and calls 10%, complete information 10% and type of place 5%.',
+      'The work score combines five parts, each rated from 0 to 10 and weighted: reviews 65%, Wi‑Fi 10%, power outlets and calls 10%, complete information 10% and type of place 5%.',
       'Reviews: the average star rating, pulled toward a neutral 3.5 stars when a place has only a few reviews, so that a single review cannot push a place to the top. Without reviews this part counts as 3.5 stars and the score is marked as preliminary.',
       'Wi‑Fi: the median of speed tests run at the place (100 Mbps or more gives full points). Without speed tests we use Wi‑Fi ratings from reviews or the listing.',
       'Power outlets and calls: from reviews and the listing. Complete information: whether opening hours, website, address and price are known. Type of place: coworking 10, library and coliving 8, other places 5, because coworking spaces are built for working.',

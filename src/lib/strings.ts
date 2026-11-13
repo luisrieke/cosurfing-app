@@ -283,7 +283,7 @@ export const strings = {
       category: 'Type of place',
     },
     scoreExplainer:
-      'Reviews count most (55%), then Wi‑Fi (20%, measured speed beats claims, and Wi‑Fi that members call unreliable gets at most 4 of 10), outlets & calls (10%), complete info (10%) and the type of place (5%). Until a place has reviews, that part counts as a neutral middle value.',
+      'Reviews count most (65%), then Wi‑Fi (10%, measured speed beats claims, and Wi‑Fi that members call unreliable gets at most 4 of 10), outlets & calls (10%), complete info (10%) and the type of place (5%). Until a place has reviews, that part counts as a neutral middle value.',
     scoreInfo: 'How is the work score calculated?',
     scoreInfoTitle: 'How this score is calculated',
     scoreInfoIntro: 'Each part is rated from 0 to 10 and weighted. The weighted parts add up to the work score.',
