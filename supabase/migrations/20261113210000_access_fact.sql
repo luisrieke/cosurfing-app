@@ -35,7 +35,13 @@ as $$
              then (p_value ->> 'amount')::numeric between 0 and 10000 and coalesce(p_value ->> 'currency', '') ~ '^[A-Z]{3}$'
                   and (not (p_value ? 'note') or (jsonb_typeof(p_value -> 'note') = 'string' and char_length(p_value ->> 'note') <= 200))
            else false end
-    when 'week_pass', 'month_pass' then
+    when 'week_pass' then
+      case when jsonb_typeof(p_value) = 'object' and jsonb_typeof(p_value -> 'amount') = 'number'
+             then (p_value ->> 'amount')::numeric > 0 and (p_value ->> 'amount')::numeric <= 10000
+                  and coalesce(p_value ->> 'currency', '') ~ '^[A-Z]{3}$'
+                  and (not (p_value ? 'note') or (jsonb_typeof(p_value -> 'note') = 'string' and char_length(p_value ->> 'note') <= 200))
+           else false end
+    when 'month_pass' then
       case when jsonb_typeof(p_value) = 'object' and jsonb_typeof(p_value -> 'amount') = 'number'
              then (p_value ->> 'amount')::numeric > 0 and (p_value ->> 'amount')::numeric <= 10000
                   and coalesce(p_value ->> 'currency', '') ~ '^[A-Z]{3}$'
