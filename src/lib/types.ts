@@ -13,7 +13,7 @@ export type CallsValue = 'yes' | 'limited' | 'no' | 'unknown';
 export type InternetFeeValue = 'no' | 'yes' | 'customers' | 'unknown';
 export type YesNoUnknown = 'yes' | 'no' | 'unknown';
 /** How easy it is to get in: for everyone, after registering, or members only. */
-export type PlaceAccess = 'open' | 'registration' | 'members' | 'unknown';
+export type PlaceAccess = 'open' | 'registration' | 'application' | 'members' | 'unknown';
 export type Continent = 'AF' | 'AS' | 'EU' | 'NA' | 'SA' | 'OC' | 'AN';
 export type CrawlStatus = 'pending' | 'running' | 'done' | 'failed';
 export type WebCrawlStatus = 'pending' | 'running' | 'done' | 'failed' | 'blocked' | 'skipped' | 'parked' | 'dead';
@@ -65,9 +65,13 @@ export interface WebFact<T = unknown> {
 
 export interface WebFacts {
   day_pass?: WebFact<{ amount: number; currency: string }>;
+  week_pass?: WebFact<{ amount: number; currency: string }>;
+  month_pass?: WebFact<{ amount: number; currency: string }>;
   advertised_mbps?: WebFact<number>;
   phone_booths?: WebFact<true>;
   meeting_rooms?: WebFact<true>;
+  /** Price of one hour in a meeting room. */
+  meeting_room_hour?: WebFact<{ amount: number; currency: string }>;
   open_24_7?: WebFact<true>;
   wifi_mentioned?: WebFact<true>;
   laptops?: WebFact<'welcome' | 'not_allowed'>;
@@ -81,14 +85,19 @@ export interface WebFacts {
 export type FactKey =
   | 'open_24_7'
   | 'meeting_rooms'
+  | 'meeting_room_hour'
+  | 'meeting_room_details'
   | 'phone_booths'
   | 'wifi'
   | 'laptops'
   | 'opening_hours'
   | 'laptop_hours'
   | 'price_range'
-  | 'day_pass';
+  | 'day_pass'
+  | 'week_pass'
+  | 'month_pass';
 
+/** A pass price. For day_pass an amount of 0 means access is free and no day pass is needed. */
 export interface DayPassValue {
   amount: number;
   currency: string;

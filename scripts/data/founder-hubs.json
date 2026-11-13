@@ -1,0 +1,86 @@
+[
+ {
+  "name": "Station F",
+  "existing_slug": "station-f-paris",
+  "address": "Parvis Alan Turing 5, 75013 Paris",
+  "town": "Paris",
+  "country_code": "FR",
+  "lat": 48.8337058,
+  "lng": 2.3714683,
+  "website": "https://stationf.co/",
+  "description": "The world's biggest startup campus, in a converted railway depot in the 13th arrondissement. Home to 30+ startup programs run by STATION F and partners, with mentoring offices, events and housing for founders.",
+  "access": "members",
+  "access_note": "The startup zone is for resident startups and programs. Visitors get in with an invitation, an event ticket or a free guided visit; the food hall La Felicità is open to everyone at lunch and dinner.",
+  "sources": [
+   "https://stationf.co/",
+   "https://faq.stationf.co/hc/en-us/articles/115003119905-How-Is-the-STATION-F-Campus-Organized",
+   "https://faq.stationf.co/hc/en-us/articles/115003119945-Discover-STATION-F-Book-Your-Insider-Tour"
+  ],
+  "confidence": "high",
+  "checked_on": "2026-11-13"
+ },
+ {
+  "name": "J floor",
+  "slug": "j-floor-zurich",
+  "address": "Josefstrasse 219, 8005 Zürich",
+  "town": "Zürich",
+  "country_code": "CH",
+  "lat": 47.387638,
+  "lng": 8.5208703,
+  "website": "https://thejfloor.com/",
+  "description": "Non-profit founder community and shared workspace in Zurich for solo founders and small teams at the earliest stage, with no fees and no equity. It grew out of ETH's Student Project House and opened its own rooms in February 2026.",
+  "access": "members",
+  "access_note": "A private community with limited desks, not a drop-in space. Sign up through the website and get accepted before you come.",
+  "sources": [
+   "https://thejfloor.com/",
+   "https://blackwood.vc/insights/jan-wiegner",
+   "https://www.help.ch/firma/CHE-319.745.061/j-floor-zuerich",
+   "https://randompost.co/business/what-is-jfloor-and-wtf-is-happening-in-zurich"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-13"
+ },
+ {
+  "name": "Founders House",
+  "slug": "founders-house-stockholm",
+  "address": "Luntmakargatan 26, 111 37 Stockholm",
+  "town": "Stockholm",
+  "country_code": "SE",
+  "lat": 59.3379836,
+  "lng": 18.0630121,
+  "website": "https://founders-house.com/",
+  "description": "Non-profit hub for early-stage Nordic AI founders, based at the L26 tech hub in central Stockholm. Residents get sponsored desks or private offices with 24/7 access; members and the wider community are invited to events.",
+  "access": "members",
+  "access_note": "Desks and offices go to residents chosen in application rounds (next batch from November 2026). Members and the community can join selected events, but cannot use the workspace.",
+  "sources": [
+   "https://founders-house.com/",
+   "https://founders-house.com/join",
+   "https://founders-house.com/terms",
+   "https://l26.se/",
+   "https://www.di.se/nyheter/nagon-av-dessa-kan-vara-nasta-daniel-ek/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-13"
+ },
+ {
+  "name": "The Sandbox",
+  "slug": "the-sandbox-berlin",
+  "address": "Donaustraße 44, 12043 Berlin",
+  "town": "Berlin",
+  "country_code": "DE",
+  "lat": 52.479831,
+  "lng": 13.4393982,
+  "website": "https://sandbox.techeurope.io/",
+  "description": "Founder residency and shared space for technical builders working full-time on a new venture, inside The Delta Campus in Neukölln. Run by {Tech: Europe} with no fees, no equity and no fixed cohort.",
+  "access": "application",
+  "access_note": "Applications are always open; no booking, no drop-in. Desks are for full-time builders aiming for a 100bn€ company, not for part-time or bootstrapped side projects.",
+  "sources": [
+   "https://sandbox.techeurope.io/",
+   "https://techeurope.io/the-sandbox",
+   "https://techeurope.io/imprint",
+   "https://www.linkedin.com/posts/bela-wiertz_europes-builders-need-more-space-and-activity-7393422134636867584-dTZH"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-13"
+ }
+]

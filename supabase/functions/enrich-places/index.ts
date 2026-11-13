@@ -454,6 +454,34 @@ function findFlag(text: string, re: RegExp, url: string): Fact<true> | null {
 
 const RE_PHONE_BOOTH = /(phone[\s-]?booths?|call[\s-]?booths?|phone[\s-]?(?:room|pod)s?|skype[\s-]?rooms?|focus[\s-]?pods?|telefon(?:box|kabine|zelle)n?|cabinas? telef[óo]nicas?|cabines? t[ée]l[ée]phoniques?|cabine telefoniche)/i;
 const RE_MEETING = /(meeting[\s-]?rooms?|conference[\s-]?rooms?|besprechungsr[äa]ume?|konferenzr[äa]ume?|meetingr[äa]ume?|salas? de reuni(?:ón|ones)|salles? de r[ée]union|sale riunioni|salas? de reuni[ãa]o)/i;
+const HOUR_UNIT = String.raw`(?:/|per|pro|por|par|la|an|the|each|a)?\s?(?:hour|hr|stunde|std|hora|heure|ora|h)\b`;
+
+/** "Meeting room €25 per hour": the hourly price named close to a meeting room mention. */
+function findMeetingRoomHour(text: string, url: string): Fact<{ amount: number; currency: string }> | null {
+  const rooms = new RegExp(RE_MEETING.source, 'gi');
+  for (const m of text.matchAll(rooms)) {
+    const start = m.index!;
+    const nl = text.indexOf('\n', start);
+    const window = text.slice(start, Math.min(nl === -1 ? text.length : nl, start + 220));
+    const patterns = [
+      new RegExp(`${CURRENCY}\\s?${AMOUNT}[^\\n\\d]{0,12}?${HOUR_UNIT}`, 'i'),
+      new RegExp(`${AMOUNT}\\s?${CURRENCY}[^\\n\\d]{0,12}?${HOUR_UNIT}`, 'i'),
+    ];
+    for (let i = 0; i < patterns.length; i++) {
+      const hit = window.match(patterns[i]!);
+      if (!hit) continue;
+      const [a, b] = hit.slice(1);
+      const amount = parseAmount(i === 0 ? b! : a!);
+      const currency = normCurrency(i === 0 ? a! : b!);
+      if (!amount) continue;
+      // Plausibility: not a few cents and not a monthly rent.
+      if (['EUR', 'USD', 'GBP', 'CHF'].includes(currency) && (amount < 3 || amount > 500)) continue;
+      return { value: { amount, currency }, snippet: snippetAround(text, start, hit.index! + hit[0].length), url };
+    }
+  }
+  return null;
+}
+
 const RE_24_7 =
   /((?:24\/7|24 ?h(?:ours|rs)?|24 horas|24h\/24|rund um die uhr)[\s-]*(?:access|zugang|zugriff|acesso|acceso|accès|accesso|open|ge[öo]ffnet|aberto|abierto|ouvert|aperto)|(?:access|zugang|zugriff|acesso|acceso|accès|accesso|open|ge[öo]ffnet|aberto|abierto|ouvert|aperto)[\s:-]*(?:24\/7|24 ?h(?:ours)?|24 horas|rund um die uhr))/i;
 const RE_WIFI = /(free wi-?fi|kostenlose[sr]? (?:wlan|wi-?fi)|gratis (?:wlan|wi-?fi)|wi-?fi gratis|wi-?fi gratuit|wi-?fi grátis|fast wi-?fi|high[\s-]speed (?:wi-?fi|internet)|wi-?fi)/i;
@@ -489,6 +517,8 @@ function extractFacts(html: string, url: string, category: Place['category']): F
   if (phone) facts.phone_booths = phone;
   const meeting = findFlag(text, RE_MEETING, url);
   if (meeting) facts.meeting_rooms = meeting;
+  const meetingHour = meeting ? findMeetingRoomHour(text, url) : null;
+  if (meetingHour) facts.meeting_room_hour = meetingHour;
   const always = findFlag(text, RE_24_7, url);
   if (always) facts.open_24_7 = always;
   const wifi = findFlag(text, RE_WIFI, url);

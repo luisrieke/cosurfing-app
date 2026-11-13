@@ -46,7 +46,9 @@ export function RankedPlaceRow({
   if (place.power_outlets === 'plenty' || place.power_outlets === 'some') facts.push({ icon: 'battery-charging', label: strings.ranking.power });
   if (place.calls === 'yes') facts.push({ icon: 'video', label: strings.ranking.calls });
   const dayPass = dayPassLabel(place.day_pass_price_cents, place.web_day_pass);
-  if (dayPass) facts.push({ icon: 'tag', label: strings.ranking.dayPass(dayPass) });
+  if (dayPass) {
+    facts.push({ icon: 'tag', label: dayPass === strings.place.dayPassFree ? dayPass : strings.ranking.dayPass(dayPass) });
+  }
 
   const slow = useSlowConnection();
   const full = slow ? null : place.cover_full_url;

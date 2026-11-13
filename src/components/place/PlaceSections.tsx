@@ -6,7 +6,7 @@ import { ReportButton } from '@/components/ReportButton';
 import { Stars } from '@/components/Reviews';
 import { TransparencyLink } from '@/components/TransparencyLink';
 import { Badge, Icon, type IconName, Text } from '@/components/ui';
-import { communityFact, formatFactValue, type FactSummary } from '@/lib/facts';
+import { communityFact, factAppliesTo, formatFactValue, type FactSummary } from '@/lib/facts';
 import { dayPassLabel, formatDate, formatMbps, hostFromUrl, liveWebsite } from '@/lib/format';
 import { menuUrl } from '@/lib/storage';
 import { strings } from '@/lib/strings';
@@ -242,6 +242,7 @@ export function hardFacts(place: Place, facts: FactSummary[] = []): FactLine[] {
   const [access, accessTone] = pick(place.access, {
     open: [s.access_open, 'good'],
     registration: [s.access_registration, 'okay'],
+    application: [s.access_application, 'bad'],
     members: [s.access_members, 'bad'],
   });
   if (access) {
@@ -278,6 +279,10 @@ export function hardFacts(place: Place, facts: FactSummary[] = []): FactLine[] {
   const dayPass = community('day_pass')?.display ?? dayPassLabel(place.day_pass_price_cents, wf.day_pass);
   if (place.category === 'coworking' || (dayPass && !coliving)) {
     lines.push({ icon: 'tag', label: s.dayPass, value: dayPass, tone: dayPass ? 'neutral' : 'unknown' });
+  }
+  for (const key of ['week_pass', 'month_pass'] as const) {
+    const pass = facts.find((f) => f.key === key)?.display;
+    if (pass) lines.push({ icon: 'tag', label: s.factLabels[key], value: pass, tone: 'neutral' });
   }
   const price =
     community('price_range')?.display ??
@@ -439,6 +444,59 @@ function factCaption(f: FactSummary): string {
   const total = f.sources.length;
   if (total === 1) return f.sources[0]!.from === 'web' ? s.factFromWebsite : s.factOneEntry;
   return f.method === 'average' ? s.factAverage(f.agreeing) : s.factAgree(f.agreeing, total);
+}
+
+// ---------------------------------------------------------------------------
+// Meeting rooms: availability, price per hour and details
+// ---------------------------------------------------------------------------
+
+/** Whether the meeting rooms section is worth showing: not when members say there are none. */
+export function showMeetingRooms(place: Place, facts: FactSummary[]): boolean {
+  if (!factAppliesTo('meeting_rooms', place.category)) return false;
+  return facts.find((f) => f.key === 'meeting_rooms')?.value !== false;
+}
+
+export function MeetingRoomsCard({ facts, onHelp }: { facts: FactSummary[]; onHelp?: () => void }) {
+  const s = strings.place;
+  const rooms = facts.find((f) => f.key === 'meeting_rooms');
+  const price = facts.find((f) => f.key === 'meeting_room_hour');
+  const details = facts.find((f) => f.key === 'meeting_room_details');
+  const lines: FactLine[] = [
+    {
+      icon: 'users',
+      label: s.meetingRooms.available,
+      value: rooms ? (rooms.value === true ? strings.common.yes : strings.common.no) : null,
+      tone: rooms ? (rooms.value === true ? 'good' : 'bad') : 'unknown',
+    },
+    {
+      icon: 'tag',
+      label: s.meetingRooms.price,
+      value: price?.display ?? null,
+      tone: price ? 'neutral' : 'unknown',
+      hint: price ? factCaption(price) : undefined,
+    },
+  ];
+  // Details are free text, so they get their own block below the table once somebody wrote them.
+  if (!details) lines.push({ icon: 'info', label: s.meetingRooms.details, value: null, tone: 'unknown' });
+  return (
+    <View style={styles.box}>
+      <Text variant="caption" tone="muted">
+        {s.meetingRooms.hint}
+      </Text>
+      <FactTable lines={lines} onHelp={onHelp} />
+      {details ? (
+        <View style={styles.meetingDetails}>
+          <Text variant="smallStrong">{s.meetingRooms.details}</Text>
+          <Text variant="small" selectable>
+            {details.display}
+          </Text>
+          <Text variant="caption" tone="faint">
+            {factCaption(details)}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
 }
 
 export function VenueFactsList({ facts, web, pendingNote }: { facts: FactSummary[]; web: WebFacts; pendingNote?: string | null }) {
@@ -1045,6 +1103,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     paddingVertical: spacing.md,
+  },
+  meetingDetails: {
+    gap: 4,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.bgSubtle,
   },
   venueFactLabel: {
     flexShrink: 0,

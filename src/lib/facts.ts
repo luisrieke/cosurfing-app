@@ -10,10 +10,14 @@ export const FACT_KEYS: FactKey[] = [
   'laptop_hours',
   'open_24_7',
   'day_pass',
+  'week_pass',
+  'month_pass',
   'price_range',
   'wifi',
   'laptops',
   'meeting_rooms',
+  'meeting_room_hour',
+  'meeting_room_details',
   'phone_booths',
 ];
 
@@ -22,10 +26,14 @@ const FACT_CATEGORIES: Record<FactKey, PlaceCategory[]> = {
   laptop_hours: ['cafe', 'library'],
   open_24_7: ['coworking', 'library'],
   day_pass: ['coworking'],
+  week_pass: ['coworking'],
+  month_pass: ['coworking'],
   price_range: ['cafe', 'library'],
   wifi: ['coworking', 'cafe', 'library', 'coliving'],
   laptops: ['cafe'],
   meeting_rooms: ['coworking', 'library', 'coliving'],
+  meeting_room_hour: ['coworking', 'library', 'coliving'],
+  meeting_room_details: ['coworking', 'library', 'coliving'],
   phone_booths: ['coworking', 'library', 'coliving'],
 };
 
@@ -64,12 +72,15 @@ function priceLevel(value: string): { level: number; symbol: string } | null {
   return m ? { level: value.trim().length, symbol: m[1]! } : null;
 }
 
+/** Pass prices members enter; day_pass with an amount of 0 means free access, no pass needed. */
+export const PASS_KEYS: FactKey[] = ['day_pass', 'week_pass', 'month_pass'];
+
 function isDayPass(v: FactValue): v is DayPassValue {
   return typeof v === 'object' && v !== null && typeof (v as Partial<DayPassValue>).amount === 'number';
 }
 
 function webSource(key: FactKey, web: WebFacts): FactSource | null {
-  if (key === 'laptop_hours') return null;
+  if (key === 'laptop_hours' || key === 'week_pass' || key === 'month_pass' || key === 'meeting_room_details') return null;
   const f: WebFact | undefined = key === 'wifi' ? web.wifi_mentioned : web[key];
   if (!f) return null;
   let value = f.value as FactValue;
@@ -80,6 +91,11 @@ function webSource(key: FactKey, web: WebFacts): FactSource | null {
 /** Currency for day pass entries: the one on the venue website, otherwise euros. */
 export function dayPassCurrency(web: WebFacts): string {
   return web.day_pass?.value.currency ?? 'EUR';
+}
+
+/** Currency for meeting room prices: the one on the venue website, otherwise the day pass currency. */
+export function meetingRoomCurrency(web: WebFacts): string {
+  return web.meeting_room_hour?.value.currency ?? dayPassCurrency(web);
 }
 
 function priceSymbol(web: WebFacts): string {
@@ -93,7 +109,12 @@ export function formatFactValue(key: FactKey, value: FactValue, web: WebFacts): 
   if (key === 'wifi' && value === 'unreliable') return s.wifi_unreliable;
   if (key === 'laptops') return value === 'welcome' ? s.laptopsWelcome : s.laptopsNotAllowed;
   if (key === 'price_range' && typeof value === 'number') return priceSymbol(web).repeat(Math.min(4, Math.max(1, Math.round(value))));
-  if (isDayPass(value)) return formatMoney(value.amount, value.currency);
+  if (key === 'meeting_room_hour' && isDayPass(value)) {
+    return value.amount === 0 ? s.meetingRoomFree : s.perHour(formatMoney(value.amount, value.currency));
+  }
+  if (isDayPass(value)) {
+    return key === 'day_pass' && value.amount === 0 ? s.dayPassFree : formatMoney(value.amount, value.currency);
+  }
   if (key === 'opening_hours' && isWeeklyHours(value)) return formatWeekSummary(value);
   if (key === 'laptop_hours' && isLaptopHours(value)) return formatLaptopWeekSummary(value);
   return String(value);
@@ -123,15 +144,36 @@ function average(key: FactKey, sources: FactSource[], web: WebFacts): { value: F
     if (levels.length === 0) return null;
     return { value: levels.reduce((a, b) => a + b, 0) / levels.length, count: levels.length };
   }
-  if (key === 'day_pass') {
+  if (key === 'meeting_room_hour') {
+    const currency = meetingRoomCurrency(web);
+    const amounts = sources
+      .map((s) => s.value)
+      .filter((v): v is DayPassValue => isDayPass(v) && v.currency === currency)
+      .map((v) => v.amount);
+    if (amounts.length === 0) return null;
+    const paid = amounts.filter((a) => a > 0);
+    // Most say the rooms are free (included in the membership).
+    if (amounts.length - paid.length > paid.length) {
+      return { value: { amount: 0, currency }, count: amounts.length - paid.length };
+    }
+    const mean = paid.reduce((a, b) => a + b, 0) / paid.length;
+    return { value: { amount: Math.round(mean * 100) / 100, currency }, count: paid.length };
+  }
+  if (PASS_KEYS.includes(key)) {
     const currency = dayPassCurrency(web);
     const amounts = sources
       .map((s) => s.value)
       .filter((v): v is DayPassValue => isDayPass(v) && v.currency === currency)
       .map((v) => v.amount);
     if (amounts.length === 0) return null;
-    const mean = amounts.reduce((a, b) => a + b, 0) / amounts.length;
-    return { value: { amount: Math.round(mean * 100) / 100, currency }, count: amounts.length };
+    const paid = amounts.filter((a) => a > 0);
+    // Most say the day pass is not needed: free access.
+    if (key === 'day_pass' && amounts.length - paid.length > paid.length) {
+      return { value: { amount: 0, currency }, count: amounts.length - paid.length };
+    }
+    if (paid.length === 0) return null;
+    const mean = paid.reduce((a, b) => a + b, 0) / paid.length;
+    return { value: { amount: Math.round(mean * 100) / 100, currency }, count: paid.length };
   }
   return null;
 }

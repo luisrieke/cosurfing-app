@@ -39,6 +39,7 @@ src/
 scripts/
   import-cities.mjs      GeoNames ≥500k + nomad hotspots + Wikimedia cover photos → cities + crawl queue
   import-colivings.mjs   scripts/data/colivings.json → idempotent SQL upsert (nearest city within 40 km)
+  import-founder-hubs.mjs      scripts/data/founder-hubs.json → idempotent SQL upsert of startup campuses / founder communities (coworking, access "members")
   replace-collage-covers.mjs   Finds collage covers of imported cities and writes SQL that swaps in single photos
 supabase/
   migrations/            Schema, RLS, RPCs, crawler schedule (applied to the project)
@@ -70,6 +71,7 @@ The old seeded example places have been removed from the project; if any remain 
 | Places and their tags (Wi‑Fi, outlets, hours, website…) | OpenStreetMap via [QLever](https://qlever.cs.uni-freiburg.de) SPARQL, Overpass as fallback | ODbL, "© OpenStreetMap contributors" on every page with OSM data, plus an "edit on OSM" link |
 | Day pass, advertised Mbit/s, phone booths, 24/7, laptop policy | The venue's own public website (`enrich-places`) | Each fact is stored with the sentence and URL it came from and shown with its source |
 | Colivings | Researched by hand from each operator's own website: `scripts/data/colivings.json` (with the pages checked in `sources`), imported with `scripts/import-colivings.mjs` | Coordinates geocoded with OSM Nominatim (ODbL); descriptions are our own words |
+| Founder hubs (STATION F, J floor, Founders House, The Sandbox) | Researched by hand from each hub's own pages: `scripts/data/founder-hubs.json` (with the pages checked in `sources`), imported with `scripts/import-founder-hubs.mjs`. Listed as coworking with access "members", or "application" for hubs you can only join by applying (The Sandbox) | Coordinates geocoded with OSM Nominatim (ODbL); descriptions are our own words |
 | Reviews, detail ratings, speed tests | Users | Speed tests use Cloudflare's public speed endpoints. `submit_speed_test` checks GPS distance, accuracy and network type on the server; only tests confirmed on site count toward a place's medians |
 
 **Pipeline.** `scripts/import-cities.mjs` writes the cities and queues one crawl job per city. pg_cron then runs:

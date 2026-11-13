@@ -11,6 +11,7 @@ import { OwnerCta } from '@/components/place/OwnerCta';
 import {
   DetailRatings,
   FactTable,
+  MeetingRoomsCard,
   MenuGallery,
   OfferList,
   RatingDistribution,
@@ -23,6 +24,7 @@ import {
   hoursText,
   laptopAnswer,
   mobileFacts,
+  showMeetingRooms,
   wifiFacts,
 } from '@/components/place/PlaceSections';
 import { PlusUpsell } from '@/components/PlusUpsell';
@@ -454,6 +456,26 @@ export default function PlaceScreen() {
             </View>
           </View>
 
+          {!coliving && place.access === 'members' ? (
+            <View style={styles.notices}>
+              <Notice
+                tone="warning"
+                title={strings.place.membersOnlyTitle}
+                body={place.access_note ? `${strings.place.membersOnlyBody} ${place.access_note}` : strings.place.membersOnlyBody}
+              />
+            </View>
+          ) : null}
+
+          {!coliving && place.access === 'application' ? (
+            <View style={styles.notices}>
+              <Notice
+                tone="warning"
+                title={strings.place.applicationOnlyTitle}
+                body={place.access_note ? `${strings.place.applicationOnlyBody} ${place.access_note}` : strings.place.applicationOnlyBody}
+              />
+            </View>
+          ) : null}
+
           {coliving ? (
             <View style={styles.notices}>
               <Notice
@@ -569,6 +591,19 @@ export default function PlaceScreen() {
                   {testHistory('mobile', place.mobile_speed_test_count, strings.mobile.empty)}
                 </View>
               </Section>
+
+              {showMeetingRooms(place, venueFacts) ? (
+                <Section
+                  title={strings.place.meetingRooms.title}
+                  right={
+                    canReview ? (
+                      <Button title={strings.place.meetingRooms.add} size="sm" variant="secondary" icon="edit-3" onPress={goReview} />
+                    ) : undefined
+                  }
+                >
+                  <MeetingRoomsCard facts={venueFacts} onHelp={canReview ? goReview : undefined} />
+                </Section>
+              ) : null}
 
               {venueFacts.length > 0 || canReview ? (
                 <Section

@@ -1,3 +1,5 @@
+import { strings } from './strings';
+
 export function formatDate(value: string | null | undefined): string {
   if (!value) return '';
   const d = new Date(value);
@@ -41,8 +43,8 @@ export function dayPassLabel(
   cents: number | null | undefined,
   web: { value: { amount: number; currency: string } } | null | undefined,
 ): string | null {
-  if (cents !== null && cents !== undefined) return formatEuroCents(cents);
-  if (web?.value) return formatMoney(web.value.amount, web.value.currency);
+  if (cents !== null && cents !== undefined) return cents === 0 ? strings.place.dayPassFree : formatEuroCents(cents);
+  if (web?.value) return web.value.amount === 0 ? strings.place.dayPassFree : formatMoney(web.value.amount, web.value.currency);
   return null;
 }
 

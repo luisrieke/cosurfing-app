@@ -235,6 +235,7 @@
   { "name": "Innsbruck", "country_code": "AT", "lat": 47.2692, "lng": 11.4041, "population": 130000, "wiki": "Innsbruck" },
   { "name": "Adelboden", "country_code": "CH", "lat": 46.4925, "lng": 7.56, "population": 3500, "wiki": "Adelboden", "timezone": "Europe/Zurich" },
   { "name": "Glarus", "country_code": "CH", "lat": 47.0404, "lng": 9.068, "population": 12500, "wiki": "Glarus", "timezone": "Europe/Zurich" },
+  { "name": "Zürich", "country_code": "CH", "lat": 47.3769, "lng": 8.5417, "population": 440000, "wiki": "Zurich", "timezone": "Europe/Zurich" },
   { "name": "Martigny", "country_code": "CH", "lat": 46.1028, "lng": 7.0726, "population": 20000, "wiki": "Martigny" },
   { "name": "Sion", "country_code": "CH", "lat": 46.2331, "lng": 7.3606, "population": 35000, "wiki": "Sion, Switzerland" },
   { "name": "Manizales", "country_code": "CO", "lat": 5.0703, "lng": -75.5138, "population": 450000, "wiki": "Manizales" },

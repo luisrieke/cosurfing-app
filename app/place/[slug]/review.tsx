@@ -28,7 +28,15 @@ import {
   weekError,
   type WeeklyHours,
 } from '@/lib/hours';
-import { FACT_KEYS, dayPassCurrency, factAppliesTo, formatFactValue, summarizeFacts, type FactSummary } from '@/lib/facts';
+import {
+  FACT_KEYS,
+  dayPassCurrency,
+  factAppliesTo,
+  formatFactValue,
+  meetingRoomCurrency,
+  summarizeFacts,
+  type FactSummary,
+} from '@/lib/facts';
 import {
   MAX_MENU_PHOTOS_PER_UPLOAD,
   MAX_USER_PHOTOS_PER_UPLOAD,
@@ -96,6 +104,10 @@ function factChoices(key: FactKey, web: WebFacts): { value: FactValue; label: st
     case 'opening_hours':
     case 'laptop_hours':
     case 'day_pass':
+    case 'week_pass':
+    case 'month_pass':
+    case 'meeting_room_hour':
+    case 'meeting_room_details':
       return [];
     default:
       return yesNo;
@@ -110,16 +122,38 @@ interface FactDraft {
   legacyHours: string | null;
   laptop: LaptopWeek | null;
   dayPass: string;
+  /** Access is free, no day pass needed (saved as a day pass of 0). */
+  dayFree: boolean;
+  weekPass: string;
+  monthPass: string;
+  /** Price of one hour in a meeting room; 0 means free for members. */
+  meetingHour: string;
+  meetingDetails: string;
+}
+
+const amountText = (v: FactValue | undefined): string =>
+  v && typeof v === 'object' && 'amount' in v ? String(v.amount) : '';
+
+const PASS_DRAFT_FIELD = { day_pass: 'dayPass', week_pass: 'weekPass', month_pass: 'monthPass' } as const;
+const isPassKey = (key: FactKey): key is keyof typeof PASS_DRAFT_FIELD => key in PASS_DRAFT_FIELD;
+
+function passText(v: FactValue | undefined): string {
+  return v && typeof v === 'object' && 'amount' in v && v.amount > 0 ? String(v.amount) : '';
 }
 
 function toDraft(input: FactInput): FactDraft {
-  const { opening_hours, laptop_hours, day_pass, ...choices } = input;
+  const { opening_hours, laptop_hours, day_pass, week_pass, month_pass, meeting_room_hour, meeting_room_details, ...choices } = input;
   return {
     choices,
     hours: isWeeklyHours(opening_hours) ? normalizeWeek(opening_hours) : null,
     legacyHours: typeof opening_hours === 'string' ? opening_hours : null,
     laptop: isLaptopHours(laptop_hours) ? fullLaptopWeek(laptop_hours) : null,
-    dayPass: day_pass && typeof day_pass === 'object' && 'amount' in day_pass ? String(day_pass.amount) : '',
+    dayPass: passText(day_pass),
+    dayFree: Boolean(day_pass && typeof day_pass === 'object' && 'amount' in day_pass && day_pass.amount === 0),
+    weekPass: passText(week_pass),
+    monthPass: passText(month_pass),
+    meetingHour: amountText(meeting_room_hour),
+    meetingDetails: typeof meeting_room_details === 'string' ? meeting_room_details : '',
   };
 }
 
@@ -134,9 +168,18 @@ function withConfirmedFact(draft: FactDraft, f: FactSummary, web: WebFacts): Fac
     case 'laptop_hours':
       return isLaptopHours(v) ? { ...draft, laptop: fullLaptopWeek(v) } : null;
     case 'day_pass':
-      return v && typeof v === 'object' && 'currency' in v && v.currency === dayPassCurrency(web)
-        ? { ...draft, dayPass: String(v.amount) }
+    case 'week_pass':
+    case 'month_pass': {
+      if (!v || typeof v !== 'object' || !('currency' in v) || v.currency !== dayPassCurrency(web)) return null;
+      if (f.key === 'day_pass') return v.amount === 0 ? { ...draft, dayFree: true, dayPass: '' } : { ...draft, dayFree: false, dayPass: String(v.amount) };
+      return { ...draft, [PASS_DRAFT_FIELD[f.key]]: String(v.amount) };
+    }
+    case 'meeting_room_hour':
+      return v && typeof v === 'object' && 'currency' in v && v.currency === meetingRoomCurrency(web)
+        ? { ...draft, meetingHour: String(v.amount) }
         : null;
+    case 'meeting_room_details':
+      return typeof v === 'string' ? { ...draft, meetingDetails: v } : null;
     case 'price_range':
       return typeof v === 'number'
         ? { ...draft, choices: { ...draft.choices, price_range: Math.min(4, Math.max(1, Math.round(v))) } }
@@ -149,8 +192,17 @@ function withConfirmedFact(draft: FactDraft, f: FactSummary, web: WebFacts): Fac
 function sameFactValue(a: FactDraft, b: FactDraft, key: FactKey): boolean {
   if (key === 'opening_hours') return sameWeek(a.hours, b.hours);
   if (key === 'laptop_hours') return laptopKey(a.laptop) === laptopKey(b.laptop);
-  if (key === 'day_pass') {
-    const amount = (d: FactDraft) => (d.dayPass.trim() ? Number(d.dayPass.trim().replace(',', '.')) : NaN);
+  if (key === 'meeting_room_hour') {
+    const amount = (d: FactDraft) => (d.meetingHour.trim() ? Number(d.meetingHour.trim().replace(',', '.')) : NaN);
+    return amount(a) === amount(b);
+  }
+  if (key === 'meeting_room_details') return a.meetingDetails.trim() === b.meetingDetails.trim();
+  if (isPassKey(key)) {
+    const amount = (d: FactDraft) => {
+      if (key === 'day_pass' && d.dayFree) return 0;
+      const text = d[PASS_DRAFT_FIELD[key]].trim();
+      return text ? Number(text.replace(',', '.')) : NaN;
+    };
     return amount(a) === amount(b);
   }
   return a.choices[key] === b.choices[key];
@@ -317,14 +369,46 @@ function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; t
         if (answer) factInput.laptops = answer;
       }
     }
-    const dayPass = facts.dayPass.trim().replace(',', '.');
-    if (dayPass) {
-      const amount = Number(dayPass);
-      if (!Number.isFinite(amount) || amount < 0 || amount > 10_000) {
-        setFactError({ key: 'day_pass', message: strings.review.invalidDayPass });
+    const currency = dayPassCurrency(place.web_facts ?? {});
+    if (facts.dayFree) {
+      factInput.day_pass = { amount: 0, currency };
+    } else {
+      const dayPass = facts.dayPass.trim().replace(',', '.');
+      if (dayPass) {
+        const amount = Number(dayPass);
+        if (!Number.isFinite(amount) || amount < 0 || amount > 10_000) {
+          setFactError({ key: 'day_pass', message: strings.review.invalidDayPass });
+          return;
+        }
+        factInput.day_pass = { amount, currency };
+      }
+    }
+    for (const key of ['week_pass', 'month_pass'] as const) {
+      const text = facts[PASS_DRAFT_FIELD[key]].trim().replace(',', '.');
+      if (!text) continue;
+      const amount = Number(text);
+      if (!Number.isFinite(amount) || amount <= 0 || amount > 10_000) {
+        setFactError({ key, message: strings.review.invalidPass });
         return;
       }
-      factInput.day_pass = { amount, currency: dayPassCurrency(place.web_facts ?? {}) };
+      factInput[key] = { amount, currency };
+    }
+    const meetingHour = facts.meetingHour.trim().replace(',', '.');
+    if (meetingHour) {
+      const amount = Number(meetingHour);
+      if (!Number.isFinite(amount) || amount < 0 || amount > 10_000) {
+        setFactError({ key: 'meeting_room_hour', message: strings.review.invalidMeetingRoomPrice });
+        return;
+      }
+      factInput.meeting_room_hour = { amount, currency: meetingRoomCurrency(place.web_facts ?? {}) };
+    }
+    const meetingDetails = facts.meetingDetails.trim();
+    if (meetingDetails) {
+      if (meetingDetails.length < 3 || meetingDetails.length > 300) {
+        setFactError({ key: 'meeting_room_details', message: strings.review.invalidMeetingRoomDetails });
+        return;
+      }
+      factInput.meeting_room_details = meetingDetails;
     }
     setFactError(null);
     setPhotoError(null);
@@ -656,17 +740,69 @@ function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; t
               {factError.message}
             </Text>
           ) : null;
-          if (key === 'day_pass') {
+          if (isPassKey(key)) {
             const currency = dayPassCurrency(web);
+            const field = PASS_DRAFT_FIELD[key];
+            return (
+              <View key={key} style={styles.block}>
+                {key === 'day_pass' ? (
+                  <>
+                    <Text variant="small">{`${label} (${currency})`}</Text>
+                    <View style={styles.chips}>
+                      <Chip
+                        label={strings.review.dayPassFree}
+                        selected={facts.dayFree}
+                        onPress={() => {
+                          setFacts((f) => ({ ...f, dayFree: !f.dayFree, dayPass: '' }));
+                          if (factError?.key === key) setFactError(null);
+                        }}
+                      />
+                    </View>
+                  </>
+                ) : null}
+                {key === 'day_pass' && facts.dayFree ? null : (
+                  <Input
+                    label={key === 'day_pass' ? undefined : `${label} (${currency})`}
+                    value={facts[field]}
+                    onChangeText={(v) => setFacts((f) => ({ ...f, [field]: v }))}
+                    placeholder={strings.review.dayPassPlaceholder(currency)}
+                    keyboardType="decimal-pad"
+                    maxLength={10}
+                    error={factError?.key === key ? factError.message : null}
+                  />
+                )}
+                {currentRow}
+              </View>
+            );
+          }
+          if (key === 'meeting_room_hour') {
+            const currency = meetingRoomCurrency(web);
             return (
               <View key={key} style={styles.block}>
                 <Input
                   label={`${label} (${currency})`}
-                  value={facts.dayPass}
-                  onChangeText={(v) => setFacts((f) => ({ ...f, dayPass: v }))}
-                  placeholder={strings.review.dayPassPlaceholder(currency)}
+                  value={facts.meetingHour}
+                  onChangeText={(v) => setFacts((f) => ({ ...f, meetingHour: v }))}
+                  placeholder={strings.review.meetingRoomPricePlaceholder(currency)}
+                  hint={strings.review.meetingRoomHint}
                   keyboardType="decimal-pad"
                   maxLength={10}
+                  error={factError?.key === key ? factError.message : null}
+                />
+                {currentRow}
+              </View>
+            );
+          }
+          if (key === 'meeting_room_details') {
+            return (
+              <View key={key} style={styles.block}>
+                <Input
+                  label={label}
+                  value={facts.meetingDetails}
+                  onChangeText={(v) => setFacts((f) => ({ ...f, meetingDetails: v }))}
+                  placeholder={strings.review.meetingRoomDetailsPlaceholder}
+                  multiline
+                  maxLength={300}
                   error={factError?.key === key ? factError.message : null}
                 />
                 {currentRow}
