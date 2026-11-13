@@ -1,5 +1,5 @@
 -- Community facts: weekly and monthly pass prices next to the day pass. A day_pass of amount 0 means
--- access is free and no day pass is needed. Keep keys in sync with src/lib/facts.ts.
+-- access is free and no day pass is needed. A pass value may carry an optional comment ('note', max 200). Keep keys in sync with src/lib/facts.ts.
 create or replace function public.place_fact_value_ok(p_key text, p_value jsonb)
 returns boolean
 language sql
@@ -26,11 +26,19 @@ as $$
     when 'day_pass' then
       case when jsonb_typeof(p_value) = 'object' and jsonb_typeof(p_value -> 'amount') = 'number'
              then (p_value ->> 'amount')::numeric between 0 and 10000 and coalesce(p_value ->> 'currency', '') ~ '^[A-Z]{3}$'
+                  and (not (p_value ? 'note') or (jsonb_typeof(p_value -> 'note') = 'string' and char_length(p_value ->> 'note') <= 200))
            else false end
-    when 'week_pass', 'month_pass' then
+    when 'week_pass' then
       case when jsonb_typeof(p_value) = 'object' and jsonb_typeof(p_value -> 'amount') = 'number'
              then (p_value ->> 'amount')::numeric > 0 and (p_value ->> 'amount')::numeric <= 10000
                   and coalesce(p_value ->> 'currency', '') ~ '^[A-Z]{3}$'
+                  and (not (p_value ? 'note') or (jsonb_typeof(p_value -> 'note') = 'string' and char_length(p_value ->> 'note') <= 200))
+           else false end
+    when 'month_pass' then
+      case when jsonb_typeof(p_value) = 'object' and jsonb_typeof(p_value -> 'amount') = 'number'
+             then (p_value ->> 'amount')::numeric > 0 and (p_value ->> 'amount')::numeric <= 10000
+                  and coalesce(p_value ->> 'currency', '') ~ '^[A-Z]{3}$'
+                  and (not (p_value ? 'note') or (jsonb_typeof(p_value -> 'note') = 'string' and char_length(p_value ->> 'note') <= 200))
            else false end
     else false
   end;

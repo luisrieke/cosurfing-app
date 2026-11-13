@@ -29,6 +29,8 @@ import {
   type WeeklyHours,
 } from '@/lib/hours';
 import {
+  ACCESS_VALUES,
+  accessLabel,
   FACT_KEYS,
   dayPassCurrency,
   factAppliesTo,
@@ -60,7 +62,7 @@ import {
 } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
-import type { FactInput, FactKey, FactValue, PlaceMenu, ReviewInput, WebFacts } from '@/lib/types';
+import type { DayPassValue, FactInput, FactKey, FactValue, PlaceMenu, ReviewInput, WebFacts } from '@/lib/types';
 
 type DetailKey = 'wifi_rating' | 'power_rating' | 'quiet_rating' | 'comfort_rating' | 'value_rating';
 
@@ -94,6 +96,8 @@ function factChoices(key: FactKey, web: WebFacts): { value: FactValue; label: st
   switch (key) {
     case 'wifi':
       return [yesNo[0]!, { value: 'unreliable', label: strings.review.wifiUnreliable }, yesNo[1]!];
+    case 'access':
+      return ACCESS_VALUES.map((value) => ({ value, label: accessLabel(value) }));
     case 'laptops':
       return [
         { value: 'welcome', label: strings.place.laptopsWelcome },
@@ -126,6 +130,10 @@ interface FactDraft {
   dayFree: boolean;
   weekPass: string;
   monthPass: string;
+  /** Optional comments on the pass prices. */
+  dayNote: string;
+  weekNote: string;
+  monthNote: string;
   /** Price of one hour in a meeting room; 0 means free for members. */
   meetingHour: string;
   meetingDetails: string;
@@ -135,6 +143,8 @@ const amountText = (v: FactValue | undefined): string =>
   v && typeof v === 'object' && 'amount' in v ? String(v.amount) : '';
 
 const PASS_DRAFT_FIELD = { day_pass: 'dayPass', week_pass: 'weekPass', month_pass: 'monthPass' } as const;
+const PASS_NOTE_FIELD = { day_pass: 'dayNote', week_pass: 'weekNote', month_pass: 'monthNote' } as const;
+const noteText = (v: FactValue | undefined): string => (v && typeof v === 'object' && 'note' in v && typeof v.note === 'string' ? v.note : '');
 const isPassKey = (key: FactKey): key is keyof typeof PASS_DRAFT_FIELD => key in PASS_DRAFT_FIELD;
 
 function passText(v: FactValue | undefined): string {
@@ -152,6 +162,9 @@ function toDraft(input: FactInput): FactDraft {
     dayFree: Boolean(day_pass && typeof day_pass === 'object' && 'amount' in day_pass && day_pass.amount === 0),
     weekPass: passText(week_pass),
     monthPass: passText(month_pass),
+    dayNote: noteText(day_pass),
+    weekNote: noteText(week_pass),
+    monthNote: noteText(month_pass),
     meetingHour: amountText(meeting_room_hour),
     meetingDetails: typeof meeting_room_details === 'string' ? meeting_room_details : '',
   };
@@ -171,8 +184,9 @@ function withConfirmedFact(draft: FactDraft, f: FactSummary, web: WebFacts): Fac
     case 'week_pass':
     case 'month_pass': {
       if (!v || typeof v !== 'object' || !('currency' in v) || v.currency !== dayPassCurrency(web)) return null;
-      if (f.key === 'day_pass') return v.amount === 0 ? { ...draft, dayFree: true, dayPass: '' } : { ...draft, dayFree: false, dayPass: String(v.amount) };
-      return { ...draft, [PASS_DRAFT_FIELD[f.key]]: String(v.amount) };
+      const withNote = { ...draft, [PASS_NOTE_FIELD[f.key]]: noteText(v) };
+      if (f.key === 'day_pass') return v.amount === 0 ? { ...withNote, dayFree: true, dayPass: '' } : { ...withNote, dayFree: false, dayPass: String(v.amount) };
+      return { ...withNote, [PASS_DRAFT_FIELD[f.key]]: String(v.amount) };
     }
     case 'meeting_room_hour':
       return v && typeof v === 'object' && 'currency' in v && v.currency === meetingRoomCurrency(web)
@@ -203,7 +217,8 @@ function sameFactValue(a: FactDraft, b: FactDraft, key: FactKey): boolean {
       const text = d[PASS_DRAFT_FIELD[key]].trim();
       return text ? Number(text.replace(',', '.')) : NaN;
     };
-    return amount(a) === amount(b);
+    const note = (d: FactDraft) => d[PASS_NOTE_FIELD[key]].trim();
+    return amount(a) === amount(b) && note(a) === note(b);
   }
   return a.choices[key] === b.choices[key];
 }
@@ -370,8 +385,12 @@ function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; t
       }
     }
     const currency = dayPassCurrency(place.web_facts ?? {});
+    const withNote = (key: 'day_pass' | 'week_pass' | 'month_pass', amount: number): DayPassValue => {
+      const note = facts[PASS_NOTE_FIELD[key]].trim();
+      return note ? { amount, currency, note } : { amount, currency };
+    };
     if (facts.dayFree) {
-      factInput.day_pass = { amount: 0, currency };
+      factInput.day_pass = withNote('day_pass', 0);
     } else {
       const dayPass = facts.dayPass.trim().replace(',', '.');
       if (dayPass) {
@@ -380,7 +399,7 @@ function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; t
           setFactError({ key: 'day_pass', message: strings.review.invalidDayPass });
           return;
         }
-        factInput.day_pass = { amount, currency };
+        factInput.day_pass = withNote('day_pass', amount);
       }
     }
     for (const key of ['week_pass', 'month_pass'] as const) {
@@ -391,7 +410,14 @@ function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; t
         setFactError({ key, message: strings.review.invalidPass });
         return;
       }
-      factInput[key] = { amount, currency };
+      factInput[key] = withNote(key, amount);
+    }
+    const orphanNote = (['day_pass', 'week_pass', 'month_pass'] as const).find(
+      (k) => facts[PASS_NOTE_FIELD[k]].trim() && factInput[k] === undefined,
+    );
+    if (orphanNote) {
+      setFactError({ key: orphanNote, message: strings.review.passNoteNeedsPrice });
+      return;
     }
     const meetingHour = facts.meetingHour.trim().replace(',', '.');
     if (meetingHour) {
@@ -771,6 +797,13 @@ function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; t
                     error={factError?.key === key ? factError.message : null}
                   />
                 )}
+                <Input
+                  label={strings.review.passNote}
+                  value={facts[PASS_NOTE_FIELD[key]]}
+                  onChangeText={(v) => setFacts((f) => ({ ...f, [PASS_NOTE_FIELD[key]]: v }))}
+                  placeholder={strings.review.passNotePlaceholder}
+                  maxLength={200}
+                />
                 {currentRow}
               </View>
             );

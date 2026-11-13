@@ -64,9 +64,9 @@ export interface WebFact<T = unknown> {
 }
 
 export interface WebFacts {
-  day_pass?: WebFact<{ amount: number; currency: string }>;
-  week_pass?: WebFact<{ amount: number; currency: string }>;
-  month_pass?: WebFact<{ amount: number; currency: string }>;
+  day_pass?: WebFact<DayPassValue>;
+  week_pass?: WebFact<DayPassValue>;
+  month_pass?: WebFact<DayPassValue>;
   advertised_mbps?: WebFact<number>;
   phone_booths?: WebFact<true>;
   meeting_rooms?: WebFact<true>;
@@ -83,6 +83,7 @@ export interface WebFacts {
 
 /** Hard facts members can add or correct (see place_facts). */
 export type FactKey =
+  | 'access'
   | 'open_24_7'
   | 'meeting_rooms'
   | 'meeting_room_hour'
@@ -101,6 +102,8 @@ export type FactKey =
 export interface DayPassValue {
   amount: number;
   currency: string;
+  /** Optional comment, e.g. which desk the price is for. */
+  note?: string;
 }
 
 /**
@@ -259,6 +262,8 @@ export interface Place {
   min_stay: string | null;
   access: PlaceAccess;
   access_note: string | null;
+  /** The address comes from registers or press, not from the place itself: the page warns visitors. */
+  address_unconfirmed: boolean;
 }
 
 /** Row of `list_cities`. */

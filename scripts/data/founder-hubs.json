@@ -38,7 +38,12 @@
    "https://randompost.co/business/what-is-jfloor-and-wtf-is-happening-in-zurich"
   ],
   "confidence": "medium",
-  "checked_on": "2026-11-13"
+  "checked_on": "2026-11-13",
+  "address_unconfirmed": true,
+  "open_questions": [
+   "Confirm the street address (Josefstrasse 219, 8005 Zürich is the registered seat and where press places it; the website names none) and whether they use a second space.",
+   "Day passes or visits for non-members?"
+  ]
  },
  {
   "name": "Founders House",
@@ -60,7 +65,12 @@
    "https://www.di.se/nyheter/nagon-av-dessa-kan-vara-nasta-daniel-ek/"
   ],
   "confidence": "medium",
-  "checked_on": "2026-11-13"
+  "checked_on": "2026-11-13",
+  "address_unconfirmed": true,
+  "open_questions": [
+   "Confirm the street address: Luntmakargatan 26 (L26 website, Dagens Industri) vs 34 (privacy policy and Luma events); the website names none.",
+   "Day passes or visits for non-members?"
+  ]
  },
  {
   "name": "The Sandbox",
@@ -81,6 +91,29 @@
    "https://www.linkedin.com/posts/bela-wiertz_europes-builders-need-more-space-and-activity-7393422134636867584-dTZH"
   ],
   "confidence": "medium",
+  "checked_on": "2026-11-13"
+ },
+ {
+  "name": "Founders House Helsinki (Kasvutalo)",
+  "slug": "founders-house-helsinki",
+  "address": "Malminrinne 6, 00100 Helsinki",
+  "town": "Helsinki",
+  "country_code": "FI",
+  "lat": 60.1679413,
+  "lng": 24.9310286,
+  "website": "https://founders-house.fi/",
+  "description": "Selective, non-profit founder community with free workspace on the top floor of Kasvutalo (formerly Sähkötalo), Alvar Aalto's 1973 building in Kamppi. Room for up to 15 founding teams, no equity and no program. Opened in February 2026.",
+  "access": "members",
+  "access_note": "Residents are picked in competitive application rounds and only contacted if taken forward. Open to founders based in Finland or relocating there. Not a drop-in space.",
+  "sources": [
+   "https://founders-house.fi/",
+   "https://tech.eu/2026/02/26/founders-house-launches-in-helsinki-to-build-finland-s-next-global-tech-giants/",
+   "https://slush.org/newsroom/slush-and-dozens-of-startups-are-building-helsinkis-new-growth-hub",
+   "https://www.stadissa.fi/tapahtumat/116874/nimble-game-jam",
+   "https://www.linkedin.com/posts/founders-house-helsinki_wanted-the-01-resident-applications-activity-7503450849877217280-lgIp"
+  ],
+  "confidence": "high",
+  "notes": "The website's own coordinates (24.925 E) are about 350 m west of the building; the pin uses the geocoded Malminrinne 6 instead.",
   "checked_on": "2026-11-13"
  }
 ]

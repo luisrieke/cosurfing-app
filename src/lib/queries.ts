@@ -820,6 +820,7 @@ export const PLACE_INPUT_FIELDS = [
   'min_stay',
   'access',
   'access_note',
+  'address_unconfirmed',
 ] as const;
 
 /** Fields an admin can edit. Scores, counters and crawler state are maintained by the database. */
@@ -946,6 +947,50 @@ export async function adminGetPlacesToVerify(): Promise<PlaceToVerify[]> {
     .limit(200);
   throwIf(error);
   return (data ?? []) as PlaceToVerify[];
+}
+
+export type OutreachStage = 'to_contact' | 'emailed' | 'replied' | 'confirmed' | 'no_response';
+
+export const OUTREACH_STAGES: OutreachStage[] = ['to_contact', 'emailed', 'replied', 'confirmed', 'no_response'];
+
+export interface OutreachPlace {
+  id: string;
+  name: string;
+  address: string | null;
+  website: string | null;
+  city: { name: string } | null;
+  stage: OutreachStage;
+}
+
+// Published places with their outreach stage. A place without a row has not been contacted yet.
+export async function adminGetOutreach(): Promise<OutreachPlace[]> {
+  const sb = requireSupabase();
+  const pageSize = 1000;
+  const rows: unknown[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await sb
+      .from('places')
+      .select('id, name, address, website, city:cities(name), outreach:place_outreach(stage)')
+      .eq('status', 'published')
+      .order('name', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, from + pageSize - 1);
+    throwIf(error);
+    rows.push(...(data ?? []));
+    if ((data ?? []).length < pageSize) break;
+  }
+  type Row = Omit<OutreachPlace, 'stage'> & { outreach: { stage: OutreachStage } | { stage: OutreachStage }[] | null };
+  return (rows as Row[]).map(
+    ({ outreach, ...place }) => {
+      const row = Array.isArray(outreach) ? outreach[0] : outreach;
+      return { ...place, stage: row?.stage ?? 'to_contact' };
+    },
+  );
+}
+
+export async function adminSetOutreachStage(placeId: string, stage: OutreachStage): Promise<void> {
+  const { error } = await requireSupabase().from('place_outreach').upsert({ place_id: placeId, stage }, { onConflict: 'place_id' });
+  throwIf(error);
 }
 
 export async function adminReviewPlace(placeId: string, decision: 'exists' | 'closed', website?: string): Promise<void> {
@@ -1153,9 +1198,10 @@ export async function adminGetCounts(): Promise<{
   toVerify: number;
   pendingPhotos: number;
   contributions: number;
+  outreachOpen: number;
 }> {
   const sb = requireSupabase();
-  const [s, r, cr, d, v, p, c] = await Promise.all([
+  const [s, r, cr, d, v, p, c, pub, done] = await Promise.all([
     sb.from('place_suggestions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     sb.from('place_reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
     sb.from('content_reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
@@ -1163,8 +1209,10 @@ export async function adminGetCounts(): Promise<{
     sb.from('places').select('id', { count: 'exact', head: true }).eq('status', 'needs_review'),
     sb.from('place_photos').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     sb.rpc('pending_contribution_count'),
+    sb.from('places').select('id', { count: 'exact', head: true }).eq('status', 'published'),
+    sb.from('place_outreach').select('place_id, place:places!inner(status)', { count: 'exact', head: true }).eq('stage', 'confirmed').eq('place.status', 'published'),
   ]);
-  for (const res of [s, r, cr, d, v, p]) throwIf(res.error);
+  for (const res of [s, r, cr, d, v, p, pub, done]) throwIf(res.error);
   throwIf(c.error);
   return {
     suggestions: s.count ?? 0,
@@ -1173,5 +1221,6 @@ export async function adminGetCounts(): Promise<{
     toVerify: v.count ?? 0,
     pendingPhotos: p.count ?? 0,
     contributions: Number(c.data ?? 0),
+    outreachOpen: Math.max(0, (pub.count ?? 0) - (done.count ?? 0)),
   };
 }

@@ -5,6 +5,7 @@
  * idempotent SQL statement (run it in the Supabase SQL editor or through the Supabase MCP).
  *
  *   node scripts/import-founder-hubs.mjs > /tmp/founder-hubs.sql
+ *   node scripts/import-founder-hubs.mjs --only founders-house-helsinki > /tmp/one.sql   # some entries only
  *
  * Founder hubs are not a category of their own: they are coworking spaces whose `access` is
  * "members" and whose access note says how to get in. They are researched by hand from each hub's
@@ -15,6 +16,8 @@
  * - Every other entry is added as a published coworking space in the nearest active city within
  *   MAX_CITY_KM. Entries without such a city are listed in the `skipped` column of the result:
  *   add their town to scripts/data/nomad-hotspots.json and import it with import-cities.mjs first.
+ * - `address_unconfirmed: true` makes the place page warn that the address is not final (the hub
+ *   publishes none, we took it from registers or press). `open_questions` lists what to ask the hub.
  * - Re-running updates the entries again, but only places with source "admin" (or the existing
  *   place named in `existing_slug`); other places are never touched.
  */
@@ -38,7 +41,14 @@ function slugify(input) {
     .replace(/-+$/, '');
 }
 
-const entries = JSON.parse(readFileSync(path.join(root, 'scripts/data/founder-hubs.json'), 'utf8'));
+const args = process.argv.slice(2);
+const onlyArg = args.indexOf('--only');
+const only = onlyArg >= 0 ? new Set(args[onlyArg + 1].split(',')) : null;
+
+const entries = JSON.parse(readFileSync(path.join(root, 'scripts/data/founder-hubs.json'), 'utf8')).filter(
+  (e) => !only || only.has(e.existing_slug ?? e.slug),
+);
+if (only && entries.length === 0) throw new Error('--only matches no entry');
 const seen = new Set();
 const items = entries.map((e) => {
   const slug = e.existing_slug ?? e.slug ?? slugify(`${e.name} ${e.town}`);
@@ -58,6 +68,7 @@ const items = entries.map((e) => {
     website: e.website ?? null,
     access: e.access,
     access_note: e.access_note ?? null,
+    address_unconfirmed: e.address_unconfirmed === true,
     checked_on: e.checked_on,
   };
 });
@@ -67,7 +78,8 @@ const json = JSON.stringify(items).replace(/'/g, "''");
 process.stdout.write(`with items as (
   select * from jsonb_to_recordset('${json}'::jsonb) as x(
     slug text, existing boolean, name text, description text, address text, lat double precision,
-    lng double precision, website text, access text, access_note text, checked_on date
+    lng double precision, website text, access text, access_note text, address_unconfirmed boolean,
+    checked_on date
   )
 ),
 updated as (
@@ -96,10 +108,10 @@ located as (
 upserted as (
   insert into public.places (
     city_id, slug, name, category, status, source, description, address, lat, lng, website,
-    access, access_note, last_verified_at
+    access, access_note, address_unconfirmed, last_verified_at
   )
   select city_id, slug, name, 'coworking', 'published', 'admin', description, address, lat, lng, website,
-         access, access_note, checked_on
+         access, access_note, address_unconfirmed, checked_on
     from located
    where city_id is not null
   on conflict (slug) do update set
@@ -112,6 +124,7 @@ upserted as (
     website = excluded.website,
     access = excluded.access,
     access_note = excluded.access_note,
+    address_unconfirmed = excluded.address_unconfirmed,
     last_verified_at = excluded.last_verified_at
    where places.category = 'coworking' and places.source = 'admin'
   returning slug

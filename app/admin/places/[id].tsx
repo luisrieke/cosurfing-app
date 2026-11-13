@@ -106,6 +106,7 @@ const emptyInput = (cityId: string): PlaceInput => ({
   min_stay: null,
   access: 'unknown',
   access_note: null,
+  address_unconfirmed: false,
 });
 
 const ownLaptopSource = (s: PlaceInput['laptop_source']) => s === 'venue' || s === 'team';
@@ -436,6 +437,10 @@ function Editor({ placeId }: { placeId: string | null }) {
           placeholder="2026-10-19"
           autoCapitalize="none"
         />
+        <Pressable style={styles.checkbox} onPress={() => update('address_unconfirmed', !form.address_unconfirmed)} accessibilityRole="checkbox" accessibilityState={{ checked: form.address_unconfirmed }}>
+          <Icon name={form.address_unconfirmed ? 'check-square' : 'square'} size={20} color={form.address_unconfirmed ? colors.warning : colors.textMuted} />
+          <Text variant="small">{f.addressUnconfirmed}</Text>
+        </Pressable>
         <Pressable style={styles.checkbox} onPress={() => update('is_example', !form.is_example)} accessibilityRole="checkbox" accessibilityState={{ checked: form.is_example }}>
           <Icon name={form.is_example ? 'check-square' : 'square'} size={20} color={form.is_example ? colors.warning : colors.textMuted} />
           <Text variant="small">{f.isExample}</Text>

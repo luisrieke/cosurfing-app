@@ -2,10 +2,11 @@ import { formatMoney } from './format';
 import { isLaptopHours, isWeeklyHours } from './hours';
 import { formatLaptopWeekSummary, formatWeekSummary } from './hoursText';
 import { strings } from './strings';
-import type { DayPassValue, FactKey, FactValue, PlaceCategory, PlaceFactEntry, WebFact, WebFacts } from './types';
+import type { DayPassValue, FactKey, FactValue, PlaceAccess, PlaceCategory, PlaceFactEntry, WebFact, WebFacts } from './types';
 
 /** Order of the facts list. Keep in sync with the place_facts check constraint. */
 export const FACT_KEYS: FactKey[] = [
+  'access',
   'opening_hours',
   'laptop_hours',
   'open_24_7',
@@ -22,6 +23,7 @@ export const FACT_KEYS: FactKey[] = [
 ];
 
 const FACT_CATEGORIES: Record<FactKey, PlaceCategory[]> = {
+  access: ['coworking', 'cafe', 'library', 'coliving'],
   opening_hours: ['coworking', 'cafe', 'library'],
   laptop_hours: ['cafe', 'library'],
   open_24_7: ['coworking', 'library'],
@@ -56,6 +58,8 @@ export interface FactSource {
 
 export interface FactSummary {
   key: FactKey;
+  /** Comment on a pass price: the newest member comment, otherwise the one from the website. */
+  note: string | null;
   value: FactValue;
   display: string;
   /** How the value was combined: the mean for prices, the most common answer otherwise. */
@@ -79,8 +83,13 @@ function isDayPass(v: FactValue): v is DayPassValue {
   return typeof v === 'object' && v !== null && typeof (v as Partial<DayPassValue>).amount === 'number';
 }
 
+/** The comment on a pass price value, if any. */
+export function passNote(v: FactValue): string | null {
+  return isDayPass(v) && typeof v.note === 'string' && v.note.trim() ? v.note.trim() : null;
+}
+
 function webSource(key: FactKey, web: WebFacts): FactSource | null {
-  if (key === 'laptop_hours' || key === 'week_pass' || key === 'month_pass' || key === 'meeting_room_details') return null;
+  if (key === 'laptop_hours' || key === 'meeting_room_details' || key === 'access') return null;
   const f: WebFact | undefined = key === 'wifi' ? web.wifi_mentioned : web[key];
   if (!f) return null;
   let value = f.value as FactValue;
@@ -98,6 +107,31 @@ export function meetingRoomCurrency(web: WebFacts): string {
   return web.meeting_room_hour?.value.currency ?? dayPassCurrency(web);
 }
 
+/** How easy it is to get in: the order members choose from, easiest first. */
+export const ACCESS_VALUES: Exclude<PlaceAccess, 'unknown'>[] = ['open', 'registration', 'application', 'members'];
+
+export function accessLabel(access: PlaceAccess): string {
+  const s = strings.place;
+  switch (access) {
+    case 'open':
+      return s.access_open;
+    case 'registration':
+      return s.access_registration;
+    case 'application':
+      return s.access_application;
+    case 'members':
+      return s.access_members;
+    default:
+      return strings.common.unknown;
+  }
+}
+
+/** What members say about access, if they said anything; otherwise what we have on the place. */
+export function effectiveAccess(access: PlaceAccess, summaries: FactSummary[]): PlaceAccess {
+  const member = summaries.find((f) => f.key === 'access' && f.sources.some((src) => src.from === 'user'));
+  return member && ACCESS_VALUES.some((v) => v === member.value) ? (member.value as PlaceAccess) : access;
+}
+
 function priceSymbol(web: WebFacts): string {
   const raw = web.price_range?.value;
   return (raw && priceLevel(raw)?.symbol) || '€';
@@ -107,6 +141,7 @@ export function formatFactValue(key: FactKey, value: FactValue, web: WebFacts): 
   const s = strings.place;
   if (typeof value === 'boolean') return value ? strings.common.yes : strings.common.no;
   if (key === 'wifi' && value === 'unreliable') return s.wifi_unreliable;
+  if (key === 'access' && typeof value === 'string') return accessLabel(value as PlaceAccess);
   if (key === 'laptops') return value === 'welcome' ? s.laptopsWelcome : s.laptopsNotAllowed;
   if (key === 'price_range' && typeof value === 'number') return priceSymbol(web).repeat(Math.min(4, Math.max(1, Math.round(value))));
   if (key === 'meeting_room_hour' && isDayPass(value)) {
@@ -202,6 +237,7 @@ export function summarizeFacts(web: WebFacts, entries: PlaceFactEntry[]): FactSu
     const combined = avg ?? majority(sources);
     out.push({
       key,
+      note: PASS_KEYS.includes(key) ? (sources.map((s) => passNote(s.value)).find(Boolean) ?? null) : null,
       value: combined.value,
       display: formatFactValue(key, combined.value, web),
       method: avg ? 'average' : 'majority',

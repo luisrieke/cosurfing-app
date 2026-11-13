@@ -48,6 +48,13 @@ export default function AdminHome() {
           onPress={() => router.push('/admin/verify')}
         />
         <AdminRow
+          icon="mail"
+          title={strings.admin.outreach}
+          subtitle={strings.admin.outreachRow}
+          meta={counts.data && counts.data.outreachOpen > 0 ? <Badge label={strings.admin.outreachOpen(counts.data.outreachOpen)} tone="accent" /> : null}
+          onPress={() => router.push('/admin/outreach')}
+        />
+        <AdminRow
           icon="image"
           title={strings.admin.photos}
           subtitle="Approve photos uploaded by users"

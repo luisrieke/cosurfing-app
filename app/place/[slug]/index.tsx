@@ -43,7 +43,7 @@ import { useNow } from '@/hooks/useNow';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
 import { env, isSupabaseConfigured } from '@/lib/env';
-import { summarizeFacts } from '@/lib/facts';
+import { effectiveAccess, summarizeFacts } from '@/lib/facts';
 import { formatDate, formatRating, hostFromUrl, liveWebsite } from '@/lib/format';
 import { canShowInterstitial, markInterstitialShown, dismissInterstitial, recordPlaceView, signUpHref } from '@/lib/funnel';
 import { openDirections } from '@/lib/geo';
@@ -245,6 +245,8 @@ export default function PlaceScreen() {
   const more = (moreQuery.data?.items ?? []).filter((p) => p.id !== place.id).slice(0, 5);
   const webFacts = place.web_facts ?? {};
   const venueFacts = summarizeFacts(webFacts, factsQuery.data ?? []);
+  const access = effectiveAccess(place.access, venueFacts);
+  const accessNote = access === place.access ? place.access_note : null;
   const listingHours = hoursText(place, venueFacts);
   const laptop = laptopAnswer(place, venueFacts);
   const showHours = !coliving || Boolean(place.hours || listingHours || hoursPhotos.length > 0);
@@ -456,22 +458,28 @@ export default function PlaceScreen() {
             </View>
           </View>
 
-          {!coliving && place.access === 'members' ? (
+          {place.address_unconfirmed ? (
+            <View style={styles.notices}>
+              <Notice tone="warning" title={strings.place.addressUnconfirmedTitle} body={strings.place.addressUnconfirmedBody} />
+            </View>
+          ) : null}
+
+          {!coliving && access === 'members' ? (
             <View style={styles.notices}>
               <Notice
                 tone="warning"
                 title={strings.place.membersOnlyTitle}
-                body={place.access_note ? `${strings.place.membersOnlyBody} ${place.access_note}` : strings.place.membersOnlyBody}
+                body={accessNote ? `${strings.place.membersOnlyBody} ${accessNote}` : strings.place.membersOnlyBody}
               />
             </View>
           ) : null}
 
-          {!coliving && place.access === 'application' ? (
+          {!coliving && access === 'application' ? (
             <View style={styles.notices}>
               <Notice
                 tone="warning"
                 title={strings.place.applicationOnlyTitle}
-                body={place.access_note ? `${strings.place.applicationOnlyBody} ${place.access_note}` : strings.place.applicationOnlyBody}
+                body={accessNote ? `${strings.place.applicationOnlyBody} ${accessNote}` : strings.place.applicationOnlyBody}
               />
             </View>
           ) : null}

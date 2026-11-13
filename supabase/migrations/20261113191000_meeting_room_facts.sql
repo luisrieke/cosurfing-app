@@ -1,8 +1,8 @@
 -- Community facts for meeting rooms: the price per hour and free-text details (capacity, equipment,
 -- how to book). The yes/no "meeting_rooms" fact already exists. Keep keys in sync with src/lib/facts.ts.
 --
--- NOTE: this replaces place_fact_value_ok. Any later migration that redefines it has to keep the
--- 'meeting_room_hour' and 'meeting_room_details' branches below.
+-- NOTE: this replaces place_fact_value_ok on top of 20261113190000_week_month_pass_facts.sql. Any later
+-- migration that redefines it has to keep the pass and meeting room branches below.
 
 create or replace function public.place_fact_value_ok(p_key text, p_value jsonb)
 returns boolean
@@ -30,6 +30,19 @@ as $$
     when 'day_pass' then
       case when jsonb_typeof(p_value) = 'object' and jsonb_typeof(p_value -> 'amount') = 'number'
              then (p_value ->> 'amount')::numeric between 0 and 10000 and coalesce(p_value ->> 'currency', '') ~ '^[A-Z]{3}$'
+                  and (not (p_value ? 'note') or (jsonb_typeof(p_value -> 'note') = 'string' and char_length(p_value ->> 'note') <= 200))
+           else false end
+    when 'week_pass' then
+      case when jsonb_typeof(p_value) = 'object' and jsonb_typeof(p_value -> 'amount') = 'number'
+             then (p_value ->> 'amount')::numeric > 0 and (p_value ->> 'amount')::numeric <= 10000
+                  and coalesce(p_value ->> 'currency', '') ~ '^[A-Z]{3}$'
+                  and (not (p_value ? 'note') or (jsonb_typeof(p_value -> 'note') = 'string' and char_length(p_value ->> 'note') <= 200))
+           else false end
+    when 'month_pass' then
+      case when jsonb_typeof(p_value) = 'object' and jsonb_typeof(p_value -> 'amount') = 'number'
+             then (p_value ->> 'amount')::numeric > 0 and (p_value ->> 'amount')::numeric <= 10000
+                  and coalesce(p_value ->> 'currency', '') ~ '^[A-Z]{3}$'
+                  and (not (p_value ? 'note') or (jsonb_typeof(p_value -> 'note') = 'string' and char_length(p_value ->> 'note') <= 200))
            else false end
     -- Price of one hour in a meeting room; 0 means the rooms are free for members.
     when 'meeting_room_hour' then

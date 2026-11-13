@@ -6,7 +6,7 @@ import { ReportButton } from '@/components/ReportButton';
 import { Stars } from '@/components/Reviews';
 import { TransparencyLink } from '@/components/TransparencyLink';
 import { Badge, Icon, type IconName, Text } from '@/components/ui';
-import { communityFact, factAppliesTo, formatFactValue, type FactSummary } from '@/lib/facts';
+import { communityFact, effectiveAccess, factAppliesTo, formatFactValue, passNote, type FactSummary } from '@/lib/facts';
 import { dayPassLabel, formatDate, formatMbps, hostFromUrl, liveWebsite } from '@/lib/format';
 import { menuUrl } from '@/lib/storage';
 import { strings } from '@/lib/strings';
@@ -238,8 +238,9 @@ export function hardFacts(place: Place, facts: FactSummary[] = []): FactLine[] {
     if (place.min_stay) lines.push({ icon: 'moon', label: s.minStay, value: place.min_stay, tone: 'neutral' });
   }
 
-  // Only shown once somebody checked it: members cannot fill this in, so an empty row would only nag.
-  const [access, accessTone] = pick(place.access, {
+  // Members' answer wins over what we have; only shown once somebody checked it.
+  const accessValue = effectiveAccess(place.access, facts);
+  const [access, accessTone] = pick(accessValue, {
     open: [s.access_open, 'good'],
     registration: [s.access_registration, 'okay'],
     application: [s.access_application, 'bad'],
@@ -247,11 +248,11 @@ export function hardFacts(place: Place, facts: FactSummary[] = []): FactLine[] {
   });
   if (access) {
     lines.push({
-      icon: place.access === 'open' ? 'unlock' : 'lock',
+      icon: accessValue === 'open' ? 'unlock' : 'lock',
       label: s.access,
       value: access,
       tone: accessTone,
-      hint: place.access_note ?? undefined,
+      hint: accessValue === place.access ? (place.access_note ?? undefined) : undefined,
     });
   }
 
@@ -278,11 +279,12 @@ export function hardFacts(place: Place, facts: FactSummary[] = []): FactLine[] {
 
   const dayPass = community('day_pass')?.display ?? dayPassLabel(place.day_pass_price_cents, wf.day_pass);
   if (place.category === 'coworking' || (dayPass && !coliving)) {
-    lines.push({ icon: 'tag', label: s.dayPass, value: dayPass, tone: dayPass ? 'neutral' : 'unknown' });
+    const dayNote = facts.find((f) => f.key === 'day_pass')?.note ?? (wf.day_pass ? passNote(wf.day_pass.value) : null);
+    lines.push({ icon: 'tag', label: s.dayPass, value: dayPass, tone: dayPass ? 'neutral' : 'unknown', hint: dayPass ? (dayNote ?? undefined) : undefined });
   }
   for (const key of ['week_pass', 'month_pass'] as const) {
-    const pass = facts.find((f) => f.key === key)?.display;
-    if (pass) lines.push({ icon: 'tag', label: s.factLabels[key], value: pass, tone: 'neutral' });
+    const pass = facts.find((f) => f.key === key);
+    if (pass) lines.push({ icon: 'tag', label: s.factLabels[key], value: pass.display, tone: 'neutral', hint: pass.note ?? undefined });
   }
   const price =
     community('price_range')?.display ??
@@ -532,6 +534,11 @@ export function VenueFactsList({ facts, web, pendingNote }: { facts: FactSummary
                   <Text variant="caption" tone="faint" align="right">
                     {factCaption(f)}
                   </Text>
+                  {f.note ? (
+                    <Text variant="caption" tone="muted" align="right">
+                      {f.note}
+                    </Text>
+                  ) : null}
                 </View>
                 <Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={colors.textFaint} />
               </Pressable>
@@ -548,6 +555,11 @@ export function VenueFactsList({ facts, web, pendingNote }: { facts: FactSummary
                         </Text>
                         <Text variant="smallStrong">{formatFactValue(f.key, src.value, web)}</Text>
                       </View>
+                      {passNote(src.value) ? (
+                        <Text variant="small" tone="muted" style={styles.sourceMeta}>
+                          {passNote(src.value)}
+                        </Text>
+                      ) : null}
                       {src.at ? (
                         <Text variant="caption" tone="faint" style={styles.sourceMeta}>
                           {formatDate(src.at)}
