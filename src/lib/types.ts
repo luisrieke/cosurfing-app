@@ -12,6 +12,8 @@ export type FocusValue = 'great' | 'okay' | 'poor' | 'unknown';
 export type CallsValue = 'yes' | 'limited' | 'no' | 'unknown';
 export type InternetFeeValue = 'no' | 'yes' | 'customers' | 'unknown';
 export type YesNoUnknown = 'yes' | 'no' | 'unknown';
+/** How easy it is to get in: for everyone, after registering, or members only. */
+export type PlaceAccess = 'open' | 'registration' | 'members' | 'unknown';
 export type Continent = 'AF' | 'AS' | 'EU' | 'NA' | 'SA' | 'OC' | 'AN';
 export type CrawlStatus = 'pending' | 'running' | 'done' | 'failed';
 export type WebCrawlStatus = 'pending' | 'running' | 'done' | 'failed' | 'blocked' | 'skipped' | 'parked' | 'dead';
@@ -246,6 +248,8 @@ export interface Place {
   non_guest_work: YesNoUnknown;
   non_guest_note: string | null;
   min_stay: string | null;
+  access: PlaceAccess;
+  access_note: string | null;
 }
 
 /** Row of `list_cities`. */

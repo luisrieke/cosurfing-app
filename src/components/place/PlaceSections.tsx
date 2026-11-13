@@ -238,6 +238,22 @@ export function hardFacts(place: Place, facts: FactSummary[] = []): FactLine[] {
     if (place.min_stay) lines.push({ icon: 'moon', label: s.minStay, value: place.min_stay, tone: 'neutral' });
   }
 
+  // Only shown once somebody checked it: members cannot fill this in, so an empty row would only nag.
+  const [access, accessTone] = pick(place.access, {
+    open: [s.access_open, 'good'],
+    registration: [s.access_registration, 'okay'],
+    members: [s.access_members, 'bad'],
+  });
+  if (access) {
+    lines.push({
+      icon: place.access === 'open' ? 'unlock' : 'lock',
+      label: s.access,
+      value: access,
+      tone: accessTone,
+      hint: place.access_note ?? undefined,
+    });
+  }
+
   const [power, powerTone] = pick(place.power_outlets, {
     plenty: [s.power_plenty, 'good'],
     some: [s.power_some, 'okay'],

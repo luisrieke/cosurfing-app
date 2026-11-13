@@ -41,6 +41,7 @@ import type {
   FocusValue,
   InternetFeeValue,
   Place,
+  PlaceAccess,
   PlaceCategory,
   PlaceStatus,
   PowerValue,
@@ -103,6 +104,8 @@ const emptyInput = (cityId: string): PlaceInput => ({
   non_guest_work: 'unknown',
   non_guest_note: null,
   min_stay: null,
+  access: 'unknown',
+  access_note: null,
 });
 
 const ownLaptopSource = (s: PlaceInput['laptop_source']) => s === 'venue' || s === 'team';
@@ -407,6 +410,8 @@ function Editor({ placeId }: { placeId: string | null }) {
       ) : null}
 
       <Section title={strings.place.facts}>
+        <EnumField label={f.access} value={form.access} options={['open', 'registration', 'members', 'unknown'] as PlaceAccess[]} onChange={(v) => update('access', v)} />
+        <Input label={f.accessNote} optional value={form.access_note ?? ''} onChangeText={(v) => update('access_note', v)} />
         <EnumField label={f.wifi} value={form.wifi} options={['yes', 'no', 'unknown'] as WifiValue[]} onChange={(v) => update('wifi', v)} />
         <EnumField label={f.internetFee} value={form.internet_fee} options={['no', 'customers', 'yes', 'unknown'] as InternetFeeValue[]} onChange={(v) => update('internet_fee', v)} />
         <EnumField label={f.power} value={form.power_outlets} options={['plenty', 'some', 'none', 'unknown'] as PowerValue[]} onChange={(v) => update('power_outlets', v)} />

@@ -37,7 +37,7 @@ import { formatMbps } from '@/lib/format';
 import { localWeekMinute, matchesTimeFilter } from '@/lib/hours';
 import { canShowInterstitial, dismissInterstitial, markInterstitialShown, signUpHref } from '@/lib/funnel';
 import { LevelMark, UserAvatar } from '@/components/UserBadge';
-import { getCityContributors, getCityRanking, getPlacesToRate, requestCityCrawl } from '@/lib/queries';
+import { getCityContributors, getCityRanking, requestCityCrawl } from '@/lib/queries';
 import { coverUrl } from '@/lib/storage';
 import { strings } from '@/lib/strings';
 import { colors, layout, radius, spacing } from '@/lib/theme';
@@ -72,7 +72,6 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
   const [view, setView] = useState<'list' | 'map'>('list');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [interstitial, setInterstitial] = useState(false);
-  const [findingPlace, setFindingPlace] = useState(false);
   const q = useDebounced(query.trim(), 250);
   const mapRef = useRef<MapHandle | null>(null);
   const location = useUserLocation();
@@ -147,21 +146,13 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
     if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 1200) ranking.loadMore();
   };
 
-  const rateSomething = async () => {
+  // Signed-in visitors first pick the places they know; the reviews follow one by one.
+  const rateSomething = () => {
     if (!user) {
-      router.push(signUpHref(`/${city.slug}`));
+      router.push(signUpHref(`/${city.slug}/rate`));
       return;
     }
-    setFindingPlace(true);
-    try {
-      const next = await getPlacesToRate(city.id, 1);
-      if (next[0]) router.push(`/place/${next[0].slug}/review`);
-      else router.push(suggestRoute(suggestTarget));
-    } catch {
-      router.push(suggestRoute(suggestTarget));
-    } finally {
-      setFindingPlace(false);
-    }
+    router.push(`/${city.slug}/rate`);
   };
 
   const counts: Record<PlaceCategory | 'all', number> = {
@@ -221,8 +212,7 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
         <Button
           title={user ? strings.city.rateCtaButton : strings.nav.signUp}
           icon="star"
-          onPress={() => void rateSomething()}
-          loading={findingPlace}
+          onPress={rateSomething}
         />
       </Glass>
       {sideBySide ? (
@@ -428,7 +418,7 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
                     title={strings.city.noReviewedTitle}
                     body={strings.city.noReviewedBody}
                     actionLabel={user ? strings.city.rateCtaButton : strings.nav.signUp}
-                    onAction={() => void rateSomething()}
+                    onAction={rateSomething}
                   />
                 ) : filtered ? (
                   <EmptyState icon="filter" title={strings.city.noMatchTitle} body={strings.city.noMatchBody} />

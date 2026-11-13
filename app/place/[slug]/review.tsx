@@ -195,16 +195,30 @@ function CurrentValueRow({ text, state, onConfirm }: { text: string; state: Conf
 }
 
 export default function ReviewRoute() {
-  const { slug } = useLocalSearchParams<{ slug: string }>();
+  const { slug, queue: queueParam, of } = useLocalSearchParams<{ slug: string; queue?: string; of?: string }>();
+  // Places the visitor picked on the "which places do you know?" screen, still to review after this one.
+  const queue = (queueParam ?? '').split(',').filter(Boolean);
+  const total = Math.max(queue.length + 1, Number(of) || 0);
+  const search = queue.length > 0 ? `?queue=${encodeURIComponent(queue.join(','))}&of=${total}` : '';
   return (
-    <RequireAuth title={strings.review.title} message={strings.place.signInToReview} redirect={`/place/${slug}/review`}>
-      <ReviewScreen key={slug} slug={slug!} />
+    <RequireAuth title={strings.review.title} message={strings.place.signInToReview} redirect={`/place/${slug}/review${search}`}>
+      <ReviewScreen key={slug} slug={slug!} queue={queue} total={total} />
     </RequireAuth>
   );
 }
 
-function ReviewScreen({ slug }: { slug: string }) {
+function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; total: number }) {
   const router = useRouter();
+  const inQueue = total > 1;
+  const position = total - queue.length;
+  const nextSlug = queue[0] ?? null;
+  const goNext = () => {
+    if (!nextSlug) return;
+    router.replace({
+      pathname: '/place/[slug]/review',
+      params: { slug: nextSlug, queue: queue.slice(1).join(','), of: String(total) },
+    });
+  };
   const { user, refresh, isAdmin, isLocalGuide } = useAuth();
   const photosGoLive = isAdmin || isLocalGuide;
   const placeQuery = useQuery(`place:${slug}`, () => getPlaceBySlug(slug));
@@ -250,8 +264,9 @@ function ReviewScreen({ slug }: { slug: string }) {
   const nextQuery = useQuery(
     `to-rate:${place?.city_id}`,
     () => getPlacesToRate(place!.city_id, 6),
-    Boolean(place && done),
+    Boolean(place && done && !nextSlug),
   );
+  const nextPlaceQuery = useQuery(`place:${nextSlug}`, () => getPlaceBySlug(nextSlug!), Boolean(nextSlug && done));
 
   const back = () => (router.canGoBack() ? router.back() : router.replace(`/place/${slug}`));
   const set = <K extends keyof ReviewInput>(key: K, value: ReviewInput[K]) => setForm((f) => ({ ...f, [key]: value }));
@@ -463,45 +478,63 @@ function ReviewScreen({ slug }: { slug: string }) {
           />
         ) : null}
 
-        <View style={styles.block}>
-          <Text variant="heading">{strings.review.nextTitle}</Text>
-          <Text tone="muted">{strings.review.nextBody}</Text>
-        </View>
-        {nextQuery.loading ? (
-          <Skeleton height={160} />
-        ) : next.length === 0 ? (
-          <Notice tone="success" body={strings.review.nextNone} />
+        {nextSlug ? (
+          <>
+            <View style={styles.block}>
+              <Text variant="heading">{nextPlaceQuery.data ? strings.review.queueNext(nextPlaceQuery.data.name) : strings.review.nextTitle}</Text>
+              <Text tone="muted">{strings.review.nextBody}</Text>
+            </View>
+            <Button title={strings.review.queueNextButton(queue.length)} icon="arrow-right" size="lg" fullWidth onPress={goNext} />
+            <Button title={strings.review.nextSkip} variant="ghost" onPress={() => router.replace(`/place/${slug}`)} />
+          </>
+        ) : inQueue ? (
+          <>
+            <Notice tone="success" body={strings.review.queueFinished} />
+            <Button title={strings.review.nextSkip} size="lg" fullWidth onPress={() => router.replace(`/place/${slug}`)} />
+          </>
         ) : (
-          <View style={styles.nextList}>
-            {next.map((p) => (
-              <Pressable
-                key={p.id}
-                onPress={() => router.replace(`/place/${p.slug}/review`)}
-                accessibilityRole="button"
-                style={({ pressed }) => [styles.nextItem, pressed && styles.pressed]}
-              >
-                <View style={styles.nextText}>
-                  <Text variant="bodyStrong" numberOfLines={1}>
-                    {p.name}
-                  </Text>
-                  <View style={styles.nextMeta}>
-                    <CategoryBadge category={p.category} />
-                    {p.address ? (
-                      <Text variant="caption" tone="muted" numberOfLines={1} style={styles.shrink}>
-                        {p.address}
+          <>
+            <View style={styles.block}>
+              <Text variant="heading">{strings.review.nextTitle}</Text>
+              <Text tone="muted">{strings.review.nextBody}</Text>
+            </View>
+            {nextQuery.loading ? (
+              <Skeleton height={160} />
+            ) : next.length === 0 ? (
+              <Notice tone="success" body={strings.review.nextNone} />
+            ) : (
+              <View style={styles.nextList}>
+                {next.map((p) => (
+                  <Pressable
+                    key={p.id}
+                    onPress={() => router.replace(`/place/${p.slug}/review`)}
+                    accessibilityRole="button"
+                    style={({ pressed }) => [styles.nextItem, pressed && styles.pressed]}
+                  >
+                    <View style={styles.nextText}>
+                      <Text variant="bodyStrong" numberOfLines={1}>
+                        {p.name}
                       </Text>
-                    ) : null}
-                  </View>
-                </View>
-                <ScoreBadge score={p.work_score} size="sm" />
-                <Text variant="smallStrong" tone="accent">
-                  {strings.place.rateThis}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+                      <View style={styles.nextMeta}>
+                        <CategoryBadge category={p.category} />
+                        {p.address ? (
+                          <Text variant="caption" tone="muted" numberOfLines={1} style={styles.shrink}>
+                            {p.address}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                    <ScoreBadge score={p.work_score} size="sm" />
+                    <Text variant="smallStrong" tone="accent">
+                      {strings.place.rateThis}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+            <Button title={strings.review.nextSkip} variant="ghost" onPress={() => router.replace(`/place/${slug}`)} />
+          </>
         )}
-        <Button title={strings.review.nextSkip} variant="ghost" onPress={() => router.replace(`/place/${slug}`)} />
       </Screen>
     );
   }
@@ -531,6 +564,11 @@ function ReviewScreen({ slug }: { slug: string }) {
       </Head>
       <TopBar title={own ? strings.place.editReview : strings.place.writeReview} onBack={back} />
       <View style={styles.intro}>
+        {inQueue ? (
+          <Text variant="smallStrong" tone="accent">
+            {strings.review.queueProgress(position, total)}
+          </Text>
+        ) : null}
         <CategoryBadge category={place.category} />
         <Text variant="title">{place.name}</Text>
         <Text tone="muted">{place.address ?? place.city.name}</Text>
@@ -852,6 +890,9 @@ function ReviewScreen({ slug }: { slug: string }) {
         loading={busy}
         onPress={submit}
       />
+      {nextSlug ? (
+        <Button title={strings.review.queueSkip} variant="ghost" icon="skip-forward" onPress={goNext} disabled={busy} />
+      ) : null}
       {own ? <Button title={strings.review.delete} variant="danger" icon="trash-2" onPress={remove} disabled={busy} /> : null}
     </Screen>
   );

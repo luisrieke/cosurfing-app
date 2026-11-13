@@ -818,6 +818,8 @@ export const PLACE_INPUT_FIELDS = [
   'non_guest_work',
   'non_guest_note',
   'min_stay',
+  'access',
+  'access_note',
 ] as const;
 
 /** Fields an admin can edit. Scores, counters and crawler state are maintained by the database. */
