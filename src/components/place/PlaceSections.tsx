@@ -925,7 +925,15 @@ export function RatingDistribution({ reviews, avg }: { reviews: PlaceReview[]; a
 // Speed test history (members only)
 // ---------------------------------------------------------------------------
 
-export function SpeedTestHistory({ tests }: { tests: SpeedTest[] }) {
+export function SpeedTestHistory({
+  tests,
+  onDelete,
+  canDelete,
+}: {
+  tests: SpeedTest[];
+  onDelete?: (test: SpeedTest) => void;
+  canDelete?: (test: SpeedTest) => boolean;
+}) {
   return (
     <View style={styles.table}>
       {tests.map((t, i) => (
@@ -953,6 +961,16 @@ export function SpeedTestHistory({ tests }: { tests: SpeedTest[] }) {
                 {t.ping_ms !== null ? ` · ${t.ping_ms} ms` : ''}
               </Text>
             </View>
+            {onDelete && canDelete?.(t) ? (
+              <Pressable
+                onPress={() => onDelete(t)}
+                accessibilityRole="button"
+                accessibilityLabel={strings.place.deleteSpeedTest}
+                hitSlop={8}
+              >
+                <Icon name="trash-2" size={15} color={colors.textMuted} />
+              </Pressable>
+            ) : null}
           </View>
           {t.note ? (
             <View style={styles.testNote}>

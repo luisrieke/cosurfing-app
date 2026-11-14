@@ -1,7 +1,7 @@
 import Head from 'expo-router/head';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 
 import { RankedPlaceRow } from '@/components/city/RankedPlaceRow';
 import { LaptopHoursCard, OpeningHoursCard } from '@/components/hours';
@@ -50,6 +50,7 @@ import { openDirections } from '@/lib/geo';
 import { deletePlaceMenu, deleteWifiNote } from '@/lib/photoUpload';
 import {
   deleteOffer,
+  deleteSpeedTest,
   getCityRanking,
   getPlaceBySlug,
   getPlaceFacts,
@@ -67,10 +68,28 @@ import {
 } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, layout, radius, spacing } from '@/lib/theme';
-import { defaultRankingFilters, type PlaceMenu, type PlaceOffer, type PlaceWifiNote, type SpeedTestKind } from '@/lib/types';
+import {
+  defaultRankingFilters,
+  type PlaceMenu,
+  type PlaceOffer,
+  type PlaceWifiNote,
+  type SpeedTest,
+  type SpeedTestKind,
+} from '@/lib/types';
 
 const INTERSTITIAL_AFTER_VIEWS = 2;
 const INTERSTITIAL_DELAY_MS = 4_000;
+
+function confirm(message: string, onYes: () => void) {
+  if (Platform.OS === 'web') {
+    if (window.confirm(message)) onYes();
+    return;
+  }
+  Alert.alert(message, undefined, [
+    { text: strings.common.cancel, style: 'cancel' },
+    { text: strings.common.delete, style: 'destructive', onPress: onYes },
+  ]);
+}
 
 export default function PlaceScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -84,6 +103,7 @@ export default function PlaceScreen() {
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [offerError, setOfferError] = useState<string | null>(null);
   const [wifiError, setWifiError] = useState<string | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
   const [scoreInfo, setScoreInfo] = useState(false);
 
   const placeQuery = useQuery(`place:${slug}`, () => getPlaceBySlug(slug!), Boolean(slug) && isSupabaseConfigured);
@@ -375,6 +395,17 @@ export default function PlaceScreen() {
     void placeQuery.refetch(true);
     void testsQuery.refetch(true);
   };
+  const removeSpeedTest = (test: SpeedTest) => {
+    confirm(strings.place.confirmDeleteSpeedTest, async () => {
+      setTestError(null);
+      try {
+        await deleteSpeedTest(test.id);
+        await Promise.all([testsQuery.refetch(true), placeQuery.refetch(true)]);
+      } catch (e) {
+        setTestError(e instanceof Error ? e.message : strings.common.somethingWentWrong);
+      }
+    });
+  };
   const speedTest = <SpeedTestPanel placeId={place.id} onSaved={onTestSaved} />;
   const mobileSpeedTest = <SpeedTestPanel placeId={place.id} kind="mobile" onSaved={onTestSaved} />;
 
@@ -388,7 +419,13 @@ export default function PlaceScreen() {
     }
     if (testsQuery.loading && !testsQuery.data) return <Skeleton height={80} />;
     const tests = (testsQuery.data ?? []).filter((t) => (t.kind ?? 'wifi') === kind);
-    return tests.length === 0 ? <Text tone="muted">{empty}</Text> : <SpeedTestHistory tests={tests} />;
+    if (tests.length === 0) return <Text tone="muted">{empty}</Text>;
+    return (
+      <>
+        {testError ? <Notice tone="danger" body={testError} /> : null}
+        <SpeedTestHistory tests={tests} onDelete={removeSpeedTest} canDelete={(t) => t.is_own} />
+      </>
+    );
   };
 
   return (
