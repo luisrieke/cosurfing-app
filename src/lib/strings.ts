@@ -751,6 +751,7 @@ export const strings = {
     addPlace: 'Add a place',
     missingHere: 'Missing a place here?',
     provisional: 'No reviews yet',
+    reviewedByYou: 'You reviewed this place',
     categories: { coworking: 'Coworking', cafe: 'Cafés', library: 'Libraries', coliving: 'Colivings' },
     toggleCategory: (label: string, shown: boolean) => (shown ? `Hide ${label} on the map` : `Show ${label} on the map`),
     allHidden: 'All place types are hidden. Tap one above to show it again.',
