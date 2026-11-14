@@ -30,7 +30,7 @@ function viewportFromRegion(r: Region, width: number): MapViewport {
 }
 
 export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
-  { center, zoom, markers, clusters, selectedId, onSelect, onClusterPress, userLocation, onMoveEnd, style },
+  { center, zoom, markers, clusters, selectedId, onSelect, onClusterPress, userLocation, onMoveEnd, interactive = true, style },
   ref,
 ) {
   const mapRef = useRef<MapView | null>(null);
@@ -85,6 +85,9 @@ export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
         toolbarEnabled={false}
         pitchEnabled={false}
         rotateEnabled={false}
+        scrollEnabled={interactive}
+        zoomEnabled={interactive}
+        pointerEvents={interactive ? 'auto' : 'none'}
       >
         {markers.map((m) => (
           <Marker
