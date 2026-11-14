@@ -385,6 +385,8 @@ export const strings = {
     callsOkShare: (pct: number, n: number) => `${pct}% say calls are fine (${n} ${n === 1 ? 'answer' : 'answers'})`,
     speedTests: 'Speed tests',
     speedTestsEmpty: 'No speed tests yet. Be the first to measure the Wi‑Fi here.',
+    deleteSpeedTest: 'Delete speed test',
+    confirmDeleteSpeedTest: 'Delete your speed test? It will no longer count towards this place. This cannot be undone.',
     onSite: 'on site',
     notOnSite: 'location not confirmed',
     starDistribution: 'Rating distribution',

@@ -185,6 +185,12 @@ export async function saveSpeedTest(input: {
   return { verification: row?.verification ?? 'no_location', distanceM: row?.distance_m ?? null };
 }
 
+/** Deletes one of the member's own tests; the place medians and profile points are recomputed by trigger. */
+export async function deleteSpeedTest(testId: string): Promise<void> {
+  const { error } = await requireSupabase().from('speed_tests').delete().eq('id', testId);
+  throwIf(error);
+}
+
 /** Position of a place in its city's "best for work" ranking. */
 export async function getPlaceRank(placeId: string): Promise<number> {
   const { data, error } = await requireSupabase().rpc('get_place_rank', { p_place_id: placeId });
