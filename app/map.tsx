@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import Head from 'expo-router/head';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -14,12 +15,13 @@ import { Button, CategoryBadge, categoryIcon, Chip, Glass, glassSurface, Icon, I
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useNow, useTimeFilterRefresh } from '@/hooks/useNow';
 import { useQuery } from '@/hooks/useQuery';
+import { useSlowConnection } from '@/hooks/useSlowConnection';
 import { useUserLocation } from '@/hooks/useUserLocation';
+import { useAuth } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/env';
 import { distanceKm, formatDistance } from '@/lib/geo';
 import { localWeekMinute, matchesTimeFilter } from '@/lib/hours';
-import { useAuth } from '@/lib/auth';
-import { getMapCities, getMyReviewedPlaces, getPlacesInBounds } from '@/lib/queries';
+import { getMapCities, getMyReviewedPlaces, getPlaceCover, getPlacesInBounds } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
 import type { LatLng, MapPlace, PlaceCategory } from '@/lib/types';
@@ -86,6 +88,7 @@ export default function MapScreen() {
   const mapRef = useRef<MapHandle | null>(null);
   const location = useUserLocation();
   const { user } = useAuth();
+  const slow = useSlowConnection();
 
   const [initial] = useState(() => {
     const lat = parseNumber(params.lat);
@@ -175,6 +178,11 @@ export default function MapScreen() {
     [visible, mine],
   );
   const selected = visible.find((p) => p.id === selectedId) ?? null;
+  const cover = useQuery(`map-cover:${selected?.id}`, () => getPlaceCover(selected!.id), Boolean(selected));
+  // While the next place's photo loads, the previous place's must not linger.
+  const coverData = cover.loading ? null : (cover.data ?? null);
+  const coverFull = slow ? null : (coverData?.full_url ?? null);
+  const reviewedByMe = selected !== null && (mine?.has(selected.id) ?? false);
   const areaCity = selected?.city ?? mostCommonCity(visible);
   const suggestTarget: SuggestTarget = { city: areaCity?.slug };
 
@@ -285,7 +293,27 @@ export default function MapScreen() {
               accessibilityLabel={selected.name}
               style={styles.placeRow}
             >
-              <ScoreBadge score={selected.work_score} size="md" />
+              <View style={styles.thumbWrap}>
+                <View style={[styles.thumb, { backgroundColor: `${pinColor(selected.category)}18` }]}>
+                  {coverData ? (
+                    <>
+                      <Image source={{ uri: coverData.preview_url }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={6} />
+                      {coverFull ? (
+                        <Image
+                          source={{ uri: coverFull }}
+                          style={StyleSheet.absoluteFill}
+                          contentFit="cover"
+                          transition={200}
+                          recyclingKey={selected.id}
+                        />
+                      ) : null}
+                    </>
+                  ) : (
+                    <Icon name={categoryIcon(selected.category)} size={24} color={pinColor(selected.category)} />
+                  )}
+                </View>
+                <ScoreBadge score={selected.work_score} size="sm" style={styles.thumbScore} />
+              </View>
               <View style={styles.placeText}>
                 <Text variant="bodyStrong" numberOfLines={1}>
                   {selected.name}
@@ -314,6 +342,14 @@ export default function MapScreen() {
                   now={now}
                   showWork={workNow || selected.laptop_hours !== null}
                 />
+                {reviewedByMe ? (
+                  <View style={styles.reviewedByMe}>
+                    <Icon name="check-circle" size={13} color={colors.success} />
+                    <Text variant="caption" numberOfLines={1} style={{ color: colors.success }}>
+                      {strings.map.reviewedByYou}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
               <Icon name="chevron-right" size={20} color={colors.textMuted} />
             </Pressable>
@@ -433,10 +469,32 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     minWidth: 0,
   },
+  thumbWrap: {
+    paddingRight: 6,
+    paddingBottom: 6,
+  },
+  thumb: {
+    width: 72,
+    height: 72,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbScore: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+  },
   placeText: {
     flex: 1,
     minWidth: 0,
     gap: 2,
+  },
+  reviewedByMe: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   placeMeta: {
     flexDirection: 'row',

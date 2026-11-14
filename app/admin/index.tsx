@@ -62,6 +62,13 @@ export default function AdminHome() {
           onPress={() => router.push('/admin/photos')}
         />
         <AdminRow
+          icon="camera"
+          title={strings.admin.cityCovers}
+          subtitle={strings.admin.cityCoversRow}
+          meta={counts.data && counts.data.pendingCityCovers > 0 ? <Badge label={`${counts.data.pendingCityCovers} ${strings.admin.pending}`} tone="accent" /> : null}
+          onPress={() => router.push('/admin/city-covers')}
+        />
+        <AdminRow
           icon="inbox"
           title={strings.admin.suggestions}
           subtitle="Places suggested by users"
@@ -74,6 +81,12 @@ export default function AdminHome() {
           subtitle="Wrong information reported by users"
           meta={counts.data && counts.data.reports > 0 ? <Badge label={`${counts.data.reports} open`} tone="danger" /> : null}
           onPress={() => router.push('/admin/reports')}
+        />
+        <AdminRow
+          icon="coffee"
+          title="Coffee program"
+          subtitle="Review proof, approve and record coffee reimbursements"
+          onPress={() => router.push('/admin/coffee')}
         />
         <AdminRow icon="message-square" title={strings.admin.reviews} subtitle="Hide or restore reviews" onPress={() => router.push('/admin/reviews')} />
         <AdminRow icon="mail" title={strings.admin.waitlist} subtitle="Entries per city, CSV export, email retries" onPress={() => router.push('/admin/waitlist')} />

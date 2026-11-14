@@ -2,7 +2,9 @@ import { type Href, useRouter } from 'expo-router';
 import { Linking, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui';
-import { isWebPaymentsConfigured } from '@/lib/env';
+import { useQuery } from '@/hooks/useQuery';
+import { getCoffeeCampaign, isCampaignOpen } from '@/lib/coffee';
+import { isSupabaseConfigured, isWebPaymentsConfigured } from '@/lib/env';
 import { strings } from '@/lib/strings';
 import { colors, layout, spacing } from '@/lib/theme';
 
@@ -18,9 +20,15 @@ export const LEGAL_LINKS: { label: string; href: Href }[] = [
 
 export function SiteFooter({ extra }: { extra?: string | null }) {
   const router = useRouter();
+  const coffee = useQuery('coffee-campaign', () => getCoffeeCampaign(), isSupabaseConfigured);
   return (
     <View style={styles.footer}>
       <View style={styles.inner}>
+        {isCampaignOpen(coffee.data) ? (
+          <Text variant="caption" tone="accent" onPress={() => router.push('/free-coffee')} accessibilityRole="link">
+            {strings.coffee.footerLink}
+          </Text>
+        ) : null}
         <Text
           variant="caption"
           tone="faint"

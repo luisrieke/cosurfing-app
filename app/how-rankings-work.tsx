@@ -3,7 +3,7 @@ import { LegalPage, type LegalClause } from '@/components/LegalPage';
 const SUMMARY = [
   'Places are ranked by their work score from 0 to 10. Nobody can pay for a better position.',
   'Reviews come only from people with a verified email address. New contributors’ reviews are checked by a person before they go live.',
-  'We do not check whether a reviewer actually visited or paid at a place.',
+  'We do not check whether a reviewer actually visited or paid at a place, except for reviews in our labelled Early Contributors program.',
 ];
 
 const CLAUSES: LegalClause[] = [
@@ -32,8 +32,9 @@ const CLAUSES: LegalClause[] = [
     title: 'How we check reviews',
     paragraphs: [
       'Only people with an account can review, and every account needs a verified email address. Each account can write one review per place, which it can update.',
-      'Reviews from new contributors are checked by a person before they are published. Contributors with a clean record (Local Guides) publish directly; we check their reviews afterwards. We remove reviews that are fake, written in exchange for a benefit, offensive or not about the place, and anyone can report a review.',
-      'We do not verify whether the reviewer visited or paid at the place. Speed tests are only counted as verified when the device was at the place.',
+      'Reviews from new contributors are checked by a person before they are published. Contributors with a clean record (Local Guides) publish directly; we check their reviews afterwards. We remove reviews that are fake, written in exchange for a benefit from a venue or a competitor, offensive or not about the place, and anyone can report a review.',
+      'Early Contributors program: during our launch, Cosurfing reimburses a coffee (up to €5) to a limited number of contributors who write a detailed review based on a real visit. The reward never depends on the rating, negative reviews are equally eligible, and the venues are not involved. These reviews are labelled “Early Contributor” on the place page and count toward the ranking like any other review. For them, we check a receipt from the visit before reimbursing the coffee.',
+      'Apart from that program, we do not verify whether the reviewer visited or paid at the place. Speed tests are only counted as verified when the device was at the place.',
       'All reviews that follow our rules are shown, positive and negative. Reviews with text come first, then ratings without text, each newest first.',
     ],
   },

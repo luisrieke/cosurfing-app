@@ -1,0 +1,66 @@
+{
+  "version": "5",
+  "specifiers": {
+    "jsr:@deno/installer-shell-setup@*": "0.3.4",
+    "jsr:@std/assert@1": "1.0.19",
+    "jsr:@std/internal@^1.0.12": "1.0.14"
+  },
+  "jsr": {
+    "@deno/installer-shell-setup@0.3.4": {
+      "integrity": "48665d1a737d487cce6874bc97bba70a5aeffa7053aca3f60df93c6fab8963b4"
+    },
+    "@std/assert@1.0.19": {
+      "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
+      "dependencies": [
+        "jsr:@std/internal"
+      ]
+    },
+    "@std/internal@1.0.14": {
+      "integrity": "291516b3d4c35024d6ffbc0a9df5bf4c64116e05b50012cf846710152d2ffdf7"
+    }
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@expo/metro-runtime@~58.0.14",
+        "npm:@expo/vector-icons@^15.0.2",
+        "npm:@react-native-async-storage/async-storage@2.2.0",
+        "npm:@supabase/supabase-js@^2.118.0",
+        "npm:@types/geojson@^7946.0.16",
+        "npm:@types/react@19.3",
+        "npm:eslint-config-expo@^58.0.4",
+        "npm:eslint@^9.39.5",
+        "npm:expo-blur@~58.0.5",
+        "npm:expo-constants@~58.0.12",
+        "npm:expo-font@~58.0.9",
+        "npm:expo-image-manipulator@~58.0.15",
+        "npm:expo-image-picker@~58.0.10",
+        "npm:expo-image@~58.0.16",
+        "npm:expo-linear-gradient@~58.0.3",
+        "npm:expo-linking@~58.0.13",
+        "npm:expo-location@~58.0.18",
+        "npm:expo-network@~58.0.4",
+        "npm:expo-router@~58.0.24",
+        "npm:expo-splash-screen@~58.0.10",
+        "npm:expo-status-bar@~58.0.3",
+        "npm:expo-system-ui@~58.0.6",
+        "npm:expo-web-browser@~58.0.6",
+        "npm:expo@~58.0.16",
+        "npm:heic-to@^1.6.7",
+        "npm:maplibre-gl@^6.15.0",
+        "npm:react-dom@19.3.0",
+        "npm:react-native-gesture-handler@3.3",
+        "npm:react-native-maps@1.29.11",
+        "npm:react-native-purchases@^10.15.0",
+        "npm:react-native-reanimated@4.7.1",
+        "npm:react-native-safe-area-context@~5.10.1",
+        "npm:react-native-screens@4.30",
+        "npm:react-native-web@~0.21.4",
+        "npm:react-native-worklets@0.13.0",
+        "npm:react-native@0.88.0",
+        "npm:react@19.3.0",
+        "npm:typescript@~6.0.3"
+      ]
+    }
+  }
+}

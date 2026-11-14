@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AdminList, AdminRow } from '@/components/admin/AdminShell';
+import { CoffeeAccountCard } from '@/components/coffee/CoffeeAccountCard';
 import { RequireAuth } from '@/components/RequireAuth';
 import { Stars } from '@/components/Reviews';
 import { LegalLinks } from '@/components/SiteFooter';
@@ -182,6 +183,8 @@ function AccountScreen() {
           </AdminList>
         </Section>
       ) : null}
+
+      {user ? <CoffeeAccountCard userId={user.id} /> : null}
 
       <Card style={styles.plusCard}>
         <View style={styles.plusRow}>
