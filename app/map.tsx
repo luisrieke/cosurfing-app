@@ -1,6 +1,6 @@
 import Head from 'expo-router/head';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -18,7 +18,8 @@ import { useUserLocation } from '@/hooks/useUserLocation';
 import { isSupabaseConfigured } from '@/lib/env';
 import { distanceKm, formatDistance } from '@/lib/geo';
 import { localWeekMinute, matchesTimeFilter } from '@/lib/hours';
-import { getMapCities, getPlacesInBounds } from '@/lib/queries';
+import { useAuth } from '@/lib/auth';
+import { getMapCities, getMyReviewedPlaces, getPlacesInBounds } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
 import type { LatLng, MapPlace, PlaceCategory } from '@/lib/types';
@@ -84,6 +85,7 @@ export default function MapScreen() {
   const { isDesktop } = useBreakpoint();
   const mapRef = useRef<MapHandle | null>(null);
   const location = useUserLocation();
+  const { user } = useAuth();
 
   const [initial] = useState(() => {
     const lat = parseNumber(params.lat);
@@ -159,9 +161,18 @@ export default function MapScreen() {
     };
     return shown.filter((p) => matchesTimeFilter(p.hours, p.laptop_hours, p.category, minuteIn(p.timezone), { openNow, workNow }));
   }, [zoomedIn, places, hidden, reviewed, filterNow, openNow, workNow]);
+  const mineQuery = useQuery(`my-reviewed-places:${user?.id}`, () => getMyReviewedPlaces(user!.id), Boolean(user) && isSupabaseConfigured);
+  const refetchMine = mineQuery.refetch;
+  useFocusEffect(
+    useCallback(() => {
+      if (user) void refetchMine(true);
+    }, [user, refetchMine]),
+  );
+  const mine = mineQuery.data;
   const markers = useMemo(
-    () => visible.map((p) => ({ id: p.id, lat: p.lat, lng: p.lng, category: p.category, name: p.name })),
-    [visible],
+    () =>
+      visible.map((p) => ({ id: p.id, lat: p.lat, lng: p.lng, category: p.category, name: p.name, mine: mine?.get(p.id) })),
+    [visible, mine],
   );
   const selected = visible.find((p) => p.id === selectedId) ?? null;
   const areaCity = selected?.city ?? mostCommonCity(visible);

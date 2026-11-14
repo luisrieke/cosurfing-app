@@ -16,6 +16,7 @@ import type {
   FactInput,
   MapCity,
   MapPlace,
+  MyPlaceContribution,
   NetworkType,
   Place,
   PlaceFactEntry,
@@ -688,6 +689,24 @@ export async function getMyReviews(userId: string): Promise<(PlaceReview & { pla
     .order('updated_at', { ascending: false });
   throwIf(error);
   return (data ?? []) as unknown as (PlaceReview & { place: Place })[];
+}
+
+/** Places the user reviewed, marked `'photos'` when they also uploaded photos there that were not rejected. */
+export async function getMyReviewedPlaces(userId: string): Promise<Map<string, MyPlaceContribution>> {
+  const sb = requireSupabase();
+  const [reviews, photos] = await Promise.all([
+    sb.from('reviews').select('place_id').eq('user_id', userId),
+    sb.from('place_photos').select('place_id').eq('uploaded_by', userId).neq('status', 'rejected'),
+  ]);
+  throwIf(reviews.error);
+  throwIf(photos.error);
+  const withPhotos = new Set((photos.data ?? []).map((r) => r.place_id as string));
+  const result = new Map<string, MyPlaceContribution>();
+  for (const r of reviews.data ?? []) {
+    const placeId = r.place_id as string;
+    result.set(placeId, withPhotos.has(placeId) ? 'photos' : 'reviewed');
+  }
+  return result;
 }
 
 export async function createSuggestion(input: {

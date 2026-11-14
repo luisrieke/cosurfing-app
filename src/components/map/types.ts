@@ -1,6 +1,6 @@
 import type { ViewStyle } from 'react-native';
 
-import type { LatLng, PlaceCategory } from '@/lib/types';
+import type { LatLng, MyPlaceContribution, PlaceCategory } from '@/lib/types';
 
 export interface MapMarker {
   id: string;
@@ -8,6 +8,8 @@ export interface MapMarker {
   lng: number;
   category: PlaceCategory;
   name: string;
+  /** Drawn as a green ring: light for a review, dark for a review with photos. */
+  mine?: MyPlaceContribution;
 }
 
 /** Several places drawn as one bubble, used when the map is zoomed out too far for single pins. */
