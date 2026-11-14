@@ -21,7 +21,7 @@ import { useAuth } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/env';
 import { distanceKm, formatDistance } from '@/lib/geo';
 import { localWeekMinute, matchesTimeFilter } from '@/lib/hours';
-import { getMapCities, getMyReviewedPlaceIds, getPlaceCover, getPlacesInBounds } from '@/lib/queries';
+import { getMapCities, getMyReviewedPlaces, getPlaceCover, getPlacesInBounds } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
 import type { LatLng, MapPlace, PlaceCategory } from '@/lib/types';
@@ -164,23 +164,25 @@ export default function MapScreen() {
     };
     return shown.filter((p) => matchesTimeFilter(p.hours, p.laptop_hours, p.category, minuteIn(p.timezone), { openNow, workNow }));
   }, [zoomedIn, places, hidden, reviewed, filterNow, openNow, workNow]);
+  const mineQuery = useQuery(`my-reviewed-places:${user?.id}`, () => getMyReviewedPlaces(user!.id), Boolean(user) && isSupabaseConfigured);
+  const refetchMine = mineQuery.refetch;
+  useFocusEffect(
+    useCallback(() => {
+      if (user) void refetchMine(true);
+    }, [user, refetchMine]),
+  );
+  const mine = mineQuery.data;
   const markers = useMemo(
-    () => visible.map((p) => ({ id: p.id, lat: p.lat, lng: p.lng, category: p.category, name: p.name })),
-    [visible],
+    () =>
+      visible.map((p) => ({ id: p.id, lat: p.lat, lng: p.lng, category: p.category, name: p.name, mine: mine?.get(p.id) })),
+    [visible, mine],
   );
   const selected = visible.find((p) => p.id === selectedId) ?? null;
   const cover = useQuery(`map-cover:${selected?.id}`, () => getPlaceCover(selected!.id), Boolean(selected));
   // While the next place's photo loads, the previous place's must not linger.
   const coverData = cover.loading ? null : (cover.data ?? null);
   const coverFull = slow ? null : (coverData?.full_url ?? null);
-  const myReviewed = useQuery(`my-reviewed:${user?.id}`, () => getMyReviewedPlaceIds(user!.id), Boolean(user));
-  const refetchMyReviewed = myReviewed.refetch;
-  useFocusEffect(
-    useCallback(() => {
-      if (user) void refetchMyReviewed(true);
-    }, [user, refetchMyReviewed]),
-  );
-  const reviewedByMe = selected !== null && (myReviewed.data?.has(selected.id) ?? false);
+  const reviewedByMe = selected !== null && (mine?.has(selected.id) ?? false);
   const areaCity = selected?.city ?? mostCommonCity(visible);
   const suggestTarget: SuggestTarget = { city: areaCity?.slug };
 
