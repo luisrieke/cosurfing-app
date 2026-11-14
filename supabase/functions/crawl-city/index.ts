@@ -326,8 +326,11 @@ async function crawlOne(sb: SupabaseClient, job: Job) {
       p_started_at: startedAt,
     });
     if (error) throw new Error(error.message);
+    // The upsert resets names to the OSM name; same-name places in this city get their street appended again.
+    const { data: renamed, error: renameError } = await sb.rpc('disambiguate_place_names', { p_city_id: job.city_id });
     const stats = {
       ...(data as Record<string, number>),
+      renamed: renameError ? null : (renamed as number),
       source,
       all_cafes,
       osm_elements: elements.length,
