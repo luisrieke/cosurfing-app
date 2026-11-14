@@ -15,6 +15,8 @@ import { ReportButton } from '@/components/ReportButton';
 import { Icon, Text, categoryIcon } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useSlowConnection } from '@/hooks/useSlowConnection';
+import { useAuth } from '@/lib/auth';
+import { adminStarPhoto } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
 import type { PlaceCategory, PlacePhoto } from '@/lib/types';
@@ -30,8 +32,10 @@ interface PhotoGalleryProps {
 export function PhotoGallery({ photos, category, width, height, loading }: PhotoGalleryProps) {
   const [index, setIndex] = useState(0);
   const [reached, setReached] = useState(0);
+  const [stars, setStars] = useState<Record<string, number>>({});
   const scrollRef = useRef<ScrollViewInstance>(null);
   const { isDesktop } = useBreakpoint();
+  const { isAdmin } = useAuth();
   const reach = useSlowConnection() ? 0 : 1;
   const loadUpTo = Math.max(reached, index) + reach;
   const showArrows = Platform.OS === 'web' && isDesktop && photos.length > 1;
@@ -40,6 +44,17 @@ export function PhotoGallery({ photos, category, width, height, loading }: Photo
     const i = Math.round(e.nativeEvent.contentOffset.x / Math.max(width, 1));
     if (i !== index) setIndex(i);
     if (i > reached) setReached(i);
+  };
+
+  const current = photos[index];
+  const starOf = (photo: PlacePhoto) => stars[photo.id] ?? photo.stars ?? 0;
+
+  // Optimistic so fast repeated taps each count; the order only changes on the next load.
+  const star = (photo: PlacePhoto) => {
+    setStars((s) => ({ ...s, [photo.id]: (s[photo.id] ?? photo.stars ?? 0) + 1 }));
+    adminStarPhoto(photo.id).catch(() => {
+      setStars((s) => ({ ...s, [photo.id]: (s[photo.id] ?? 1) - 1 }));
+    });
   };
 
   const goTo = (i: number) => {
@@ -108,9 +123,25 @@ export function PhotoGallery({ photos, category, width, height, loading }: Photo
           <Icon name="chevron-right" size={22} color={colors.text} />
         </Pressable>
       ) : null}
-      {photos[index] ? (
-        <View style={styles.report}>
-          <ReportButton type="photo" id={photos[index].id} color="#fff" />
+      {current ? (
+        <View style={styles.actions}>
+          {isAdmin ? (
+            <Pressable
+              onPress={() => star(current)}
+              accessibilityRole="button"
+              accessibilityLabel={strings.place.starPhoto}
+              hitSlop={8}
+              style={[styles.chip, styles.starChip]}
+            >
+              <Icon name="star" size={13} color="#fff" />
+              <Text variant="caption" style={styles.starCount}>
+                {starOf(current)}
+              </Text>
+            </Pressable>
+          ) : null}
+          <View style={styles.chip}>
+            <ReportButton type="photo" id={current.id} color="#fff" />
+          </View>
         </View>
       ) : null}
       {photos.length > 1 ? (
@@ -129,13 +160,27 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgMuted,
     overflow: 'hidden',
   },
-  report: {
+  actions: {
     position: 'absolute',
     top: spacing.md,
     right: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  chip: {
     padding: 6,
     borderRadius: 14,
     backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  starChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+  },
+  starCount: {
+    color: '#fff',
   },
   placeholder: {
     alignItems: 'center',

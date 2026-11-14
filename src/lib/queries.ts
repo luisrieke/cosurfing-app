@@ -392,7 +392,7 @@ export async function getPlaceById(id: string): Promise<Place | null> {
 export async function getPlacePhotos(placeId: string): Promise<PlacePhoto[]> {
   const { data, error } = await requireSupabase().rpc('get_place_photos', { p_place_id: placeId });
   throwIf(error);
-  const rows = (data ?? []) as { id: string; sort_order: number; preview_path: string; full_path: string }[];
+  const rows = (data ?? []) as { id: string; sort_order: number; preview_path: string; full_path: string; stars: number | null }[];
   const signed = await signedPhotoUrls(rows.map((r) => r.full_path));
   return rows.map((r) => ({
     id: r.id,
@@ -401,7 +401,15 @@ export async function getPlacePhotos(placeId: string): Promise<PlacePhoto[]> {
     preview_url: previewUrl(r.preview_path),
     full_path: r.full_path,
     full_url: signed.get(r.full_path) ?? null,
+    stars: r.stars ?? null,
   }));
+}
+
+/** Admin only: adds one star to a photo and returns the new count. */
+export async function adminStarPhoto(id: string): Promise<number> {
+  const { data, error } = await requireSupabase().rpc('star_place_photo', { p_photo_id: id });
+  throwIf(error);
+  return (data as number | null) ?? 0;
 }
 
 export async function getPlaceReviews(placeId: string): Promise<PlaceReview[]> {
