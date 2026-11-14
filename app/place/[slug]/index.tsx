@@ -112,13 +112,17 @@ export default function PlaceScreen() {
   const refetchOffers = offersQuery.refetch;
   const refetchMenus = menusQuery.refetch;
   const refetchWifiNotes = wifiNotesQuery.refetch;
+  const refetchPlace = placeQuery.refetch;
+  const refetchFacts = factsQuery.refetch;
   useFocusEffect(
     useCallback(() => {
       if (!placeId) return;
       void refetchOffers(true);
       void refetchMenus(true);
       void refetchWifiNotes(true);
-    }, [placeId, refetchOffers, refetchMenus, refetchWifiNotes]),
+      void refetchPlace(true);
+      void refetchFacts(true);
+    }, [placeId, refetchOffers, refetchMenus, refetchWifiNotes, refetchPlace, refetchFacts]),
   );
 
   useEffect(() => {
@@ -235,6 +239,7 @@ export default function PlaceScreen() {
   const reviewHref = `/place/${slug}/review` as const;
   const costsHref = `/place/${slug}/costs` as const;
   const wifiHref = `/place/${slug}/wifi` as const;
+  const hoursHref = `/place/${slug}/hours` as const;
   const wifiNotes = wifiNotesQuery.data ?? [];
   const lockedWifiNotes = wifiNotes.filter((n) => n.is_locked).length;
   const offers = offersQuery.data ?? [];
@@ -264,6 +269,10 @@ export default function PlaceScreen() {
 
   const goWifi = () => {
     if (requireUser(wifiHref)) router.push(wifiHref);
+  };
+
+  const goHours = () => {
+    if (requireUser(hoursHref)) router.push(hoursHref);
   };
 
   const removeOffer = async (offer: PlaceOffer) => {
@@ -525,7 +534,14 @@ export default function PlaceScreen() {
               </Section>
 
               {showHours ? (
-                <Section title={strings.place.openingHours}>
+                <Section
+                  title={strings.place.openingHours}
+                  right={
+                    canReview ? (
+                      <Button title={strings.hours.edit} size="sm" variant="secondary" icon="edit-3" onPress={goHours} />
+                    ) : undefined
+                  }
+                >
                   <OpeningHoursCard
                     hours={place.hours}
                     status={place.hours_status}
@@ -534,7 +550,7 @@ export default function PlaceScreen() {
                     text={listingHours}
                     timezone={place.city.timezone}
                     now={now}
-                    onAdd={canReview && hoursPhotos.length === 0 ? goReview : undefined}
+                    onAdd={canReview && hoursPhotos.length === 0 ? goHours : undefined}
                   />
                   {!coliving ? (
                     <LaptopHoursCard
@@ -546,7 +562,7 @@ export default function PlaceScreen() {
                       now={now}
                       answer={laptop.answer}
                       answerBanned={laptop.banned}
-                      onAdd={canReview ? goReview : undefined}
+                      onAdd={canReview ? goHours : undefined}
                     />
                   ) : null}
                   {hoursPhotos.length > 0 ? (
