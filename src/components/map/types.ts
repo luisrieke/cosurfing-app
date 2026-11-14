@@ -48,6 +48,8 @@ export interface MapProps {
   onMoveEnd?: (viewport: MapViewport) => void;
   /** Show zoom controls (desktop web). */
   showControls?: boolean;
+  /** False renders a static preview that ignores pan, zoom and taps (default true). */
+  interactive?: boolean;
   style?: ViewStyle;
 }
 

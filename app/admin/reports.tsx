@@ -9,6 +9,7 @@ import { Badge, Button, Chip, Notice, Skeleton, Text } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
 import { formatDateTime } from '@/lib/format';
+import { REPORT_KINDS } from '@/lib/placeReports';
 import { adminGetReports, adminSetReportStatus } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { spacing } from '@/lib/theme';
@@ -66,7 +67,9 @@ export default function AdminReports() {
               meta={
                 <>
                   <Badge label={r.status} tone={r.status === 'open' ? 'danger' : 'success'} />
-                  {r.kind === 'closed' ? <Badge label={strings.report.kindClosed} tone="warning" /> : null}
+                  {r.kind !== 'other' ? (
+                    <Badge label={REPORT_KINDS[r.kind]?.label ?? r.kind} tone={r.kind === 'closed' ? 'warning' : 'accent'} />
+                  ) : null}
                   <Text variant="caption" tone="faint">
                     {formatDateTime(r.created_at)}
                   </Text>

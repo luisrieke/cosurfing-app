@@ -7,26 +7,28 @@ import { RequireAuth } from '@/components/RequireAuth';
 import { Button, Chip, EmptyState, Input, Notice, Screen, Skeleton, Text, TopBar } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
+import { isReportKind, REPORT_KIND_ORDER, REPORT_KINDS } from '@/lib/placeReports';
 import { createReport, getPlaceBySlug } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { spacing } from '@/lib/theme';
-import type { PlaceReport } from '@/lib/types';
+import type { PlaceReportKind } from '@/lib/types';
 
 export default function ReportRoute() {
-  const { slug } = useLocalSearchParams<{ slug: string }>();
+  const { slug, kind } = useLocalSearchParams<{ slug: string; kind?: string }>();
+  const redirect = isReportKind(kind) ? `/place/${slug}/report?kind=${kind}` : `/place/${slug}/report`;
   return (
-    <RequireAuth title={strings.report.title} message={strings.place.signInToReport} redirect={`/place/${slug}/report`}>
-      <ReportScreen slug={slug!} />
+    <RequireAuth title={strings.report.title} message={strings.place.signInToReport} redirect={redirect}>
+      <ReportScreen slug={slug!} initialKind={isReportKind(kind) ? kind : 'other'} />
     </RequireAuth>
   );
 }
 
-function ReportScreen({ slug }: { slug: string }) {
+function ReportScreen({ slug, initialKind }: { slug: string; initialKind: PlaceReportKind }) {
   const router = useRouter();
   const { user } = useAuth();
   const placeQuery = useQuery(`place:${slug}`, () => getPlaceBySlug(slug));
   const place = placeQuery.data ?? null;
-  const [kind, setKind] = useState<PlaceReport['kind']>('other');
+  const [kind, setKind] = useState<PlaceReportKind>(initialKind);
   const [body, setBody] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -71,10 +73,13 @@ function ReportScreen({ slug }: { slug: string }) {
     );
   }
 
+  const info = REPORT_KINDS[kind];
+  const current = info.current?.(place) ?? null;
+
   return (
     <Screen>
       <Head>
-        <title>{`Report · ${place.name} · Cosurfing`}</title>
+        <title>{`${strings.report.title} · ${place.name} · Cosurfing`}</title>
       </Head>
       <TopBar title={strings.report.title} onBack={back} />
       <View style={styles.intro}>
@@ -89,19 +94,32 @@ function ReportScreen({ slug }: { slug: string }) {
         </>
       ) : (
         <>
-          <View style={styles.kinds}>
-            <Chip label={strings.report.kindOther} selected={kind === 'other'} onPress={() => setKind('other')} />
-            <Chip
-              label={strings.report.kindClosed}
-              icon="x-circle"
-              selected={kind === 'closed'}
-              onPress={() => setKind('closed')}
-            />
+          <View style={styles.block}>
+            <Text variant="smallStrong">{strings.report.whatWrong}</Text>
+            <View style={styles.kinds}>
+              {REPORT_KIND_ORDER.map((k) => (
+                <Chip
+                  key={k}
+                  label={REPORT_KINDS[k].label}
+                  icon={REPORT_KINDS[k].icon}
+                  selected={kind === k}
+                  onPress={() => {
+                    setKind(k);
+                    setError(null);
+                  }}
+                />
+              ))}
+            </View>
           </View>
+          {current ? (
+            <Text variant="small" tone="muted">
+              {strings.report.currentValue(current)}
+            </Text>
+          ) : null}
           <Input
             value={body}
             onChangeText={setBody}
-            placeholder={kind === 'closed' ? strings.report.closedPlaceholder : strings.report.placeholder}
+            placeholder={info.placeholder}
             multiline
             maxLength={1000}
             error={error}
@@ -117,6 +135,9 @@ function ReportScreen({ slug }: { slug: string }) {
 const styles = StyleSheet.create({
   intro: {
     gap: spacing.xs,
+  },
+  block: {
+    gap: spacing.sm,
   },
   kinds: {
     flexDirection: 'row',

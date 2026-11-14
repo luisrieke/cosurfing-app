@@ -89,7 +89,7 @@ function buildCluster(cluster: MapCluster): HTMLButtonElement {
 }
 
 export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
-  { center, zoom, markers, clusters, selectedId, onSelect, onClusterPress, userLocation, onMoveEnd, showControls, style },
+  { center, zoom, markers, clusters, selectedId, onSelect, onClusterPress, userLocation, onMoveEnd, showControls, interactive = true, style },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -114,6 +114,7 @@ export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
     center: [center.lng, center.lat] as [number, number],
     zoom,
     showControls,
+    interactive,
   }));
 
   useEffect(() => {
@@ -127,8 +128,9 @@ export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
       zoom: initialView.zoom,
       attributionControl: { compact: true },
       cooperativeGestures: false,
+      interactive: initialView.interactive,
     });
-    if (initialView.showControls) {
+    if (initialView.showControls && initialView.interactive) {
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     }
     map.on('click', () => onSelectRef.current(null));

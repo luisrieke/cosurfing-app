@@ -8,6 +8,7 @@ import { LaptopHoursCard, OpeningHoursCard } from '@/components/hours';
 import { PhotoGallery } from '@/components/PhotoGallery';
 import { AddPhotos } from '@/components/place/AddPhotos';
 import { OwnerCta } from '@/components/place/OwnerCta';
+import { PlaceMapPreview } from '@/components/place/PlaceMapPreview';
 import {
   DetailRatings,
   FactTable,
@@ -67,7 +68,14 @@ import {
 } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, layout, radius, spacing } from '@/lib/theme';
-import { defaultRankingFilters, type PlaceMenu, type PlaceOffer, type PlaceWifiNote, type SpeedTestKind } from '@/lib/types';
+import {
+  defaultRankingFilters,
+  type PlaceMenu,
+  type PlaceOffer,
+  type PlaceReportKind,
+  type PlaceWifiNote,
+  type SpeedTestKind,
+} from '@/lib/types';
 
 const INTERSTITIAL_AFTER_VIEWS = 2;
 const INTERSTITIAL_DELAY_MS = 4_000;
@@ -265,6 +273,13 @@ export default function PlaceScreen() {
   const goWifi = () => {
     if (requireUser(wifiHref)) router.push(wifiHref);
   };
+
+  const goReport = (kind?: PlaceReportKind) => {
+    const href = kind ? (`/place/${slug}/report?kind=${kind}` as const) : (`/place/${slug}/report` as const);
+    if (requireUser(href)) router.push(href);
+  };
+
+  const mapPreview = <PlaceMapPreview place={place} onWrongPin={canReview ? () => goReport('location') : undefined} />;
 
   const removeOffer = async (offer: PlaceOffer) => {
     setOfferError(null);
@@ -519,6 +534,7 @@ export default function PlaceScreen() {
               ) : null}
 
               {!wide ? scoreCard : null}
+              {!wide ? <Section title={strings.placeMap.title}>{mapPreview}</Section> : null}
 
               <Section title={strings.place.hardFacts}>
                 <FactTable lines={hardFacts(place, venueFacts)} onHelp={canReview ? goReview : undefined} />
@@ -785,43 +801,49 @@ export default function PlaceScreen() {
                 </Section>
               ) : null}
 
-              <View style={styles.footerLinks}>
-                {place.osm_type && place.osm_id ? (
-                  <>
-                    <Text variant="caption" tone="faint">
-                      {strings.place.osmAttribution}
-                      {place.osm_seen_at ? ` · ${strings.place.checkedOn(formatDate(place.osm_seen_at))}` : ''}
+              {canReview ? (
+                <View style={styles.correctionCard}>
+                  <View style={styles.correctionText}>
+                    <Text variant="bodyStrong">{strings.report.cardTitle}</Text>
+                    <Text variant="small" tone="muted">
+                      {strings.report.cardBody}
                     </Text>
-                    <Pressable
-                      onPress={() => Linking.openURL(`https://www.openstreetmap.org/${place.osm_type}/${place.osm_id}`)}
-                      accessibilityRole="link"
-                      style={styles.inlineLink}
-                    >
-                      <Icon name="edit-2" size={13} color={colors.textMuted} />
-                      <Text variant="caption" tone="muted">
-                        {strings.place.editOnOsm}
-                      </Text>
-                    </Pressable>
-                  </>
-                ) : null}
-                <Pressable
-                  style={styles.inlineLink}
-                  onPress={() => {
-                    if (requireUser(`/place/${slug}/report`)) router.push(`/place/${slug}/report`);
-                  }}
-                  accessibilityRole="button"
-                >
-                  <Icon name="flag" size={13} color={colors.textMuted} />
-                  <Text variant="caption" tone="muted">
-                    {strings.place.reportIssue}
+                  </View>
+                  <Button
+                    title={strings.report.cardCta}
+                    icon="edit-3"
+                    variant="secondary"
+                    size="sm"
+                    onPress={() => goReport()}
+                    style={styles.selfStart}
+                  />
+                </View>
+              ) : null}
+
+              {place.osm_type && place.osm_id ? (
+                <View style={styles.footerLinks}>
+                  <Text variant="caption" tone="faint">
+                    {strings.place.osmAttribution}
+                    {place.osm_seen_at ? ` · ${strings.place.checkedOn(formatDate(place.osm_seen_at))}` : ''}
                   </Text>
-                </Pressable>
-              </View>
+                  <Pressable
+                    onPress={() => Linking.openURL(`https://www.openstreetmap.org/${place.osm_type}/${place.osm_id}`)}
+                    accessibilityRole="link"
+                    style={styles.inlineLink}
+                  >
+                    <Icon name="edit-2" size={13} color={colors.textMuted} />
+                    <Text variant="caption" tone="muted">
+                      {strings.place.editOnOsm}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
             </View>
 
             {wide ? (
               <View style={styles.side}>
                 {scoreCard}
+                {mapPreview}
                 {speedTest}
                 {mobileSpeedTest}
               </View>
@@ -967,6 +989,17 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   mobileHeader: {
+    gap: 2,
+  },
+  correctionCard: {
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  correctionText: {
     gap: 2,
   },
   footerLinks: {

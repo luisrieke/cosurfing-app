@@ -592,12 +592,14 @@ export interface PlaceSuggestion {
   created_at: string;
 }
 
+export type PlaceReportKind = 'other' | 'closed' | 'name' | 'address' | 'location' | 'hours' | 'contact';
+
 export interface PlaceReport {
   id: string;
   place_id: string;
   user_id: string;
   body: string;
-  kind: 'other' | 'closed';
+  kind: PlaceReportKind;
   status: 'open' | 'resolved';
   created_at: string;
 }
