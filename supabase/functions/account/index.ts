@@ -1,6 +1,6 @@
 // Account self-service for signed-in users. `delete` removes the auth user; database rows go
-// with it through `on delete cascade`, except place photos, which stay without the uploader's
-// name (`uploaded_by` is set null) as covered by the Terms of Use. Storage files are not
+// with it through `on delete cascade`, except place photos and approved city covers, which stay
+// without the uploader's name (`uploaded_by` is set null) as covered by the Terms of Use. Storage files are not
 // covered by the cascade, so they are removed here first.
 
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
@@ -53,14 +53,30 @@ async function deleteAccount(sb: SupabaseClient, userId: string): Promise<{ stor
     }
   }
 
-  const [avatars, menus, wifi] = await Promise.all([
+  const [avatars, menus, wifi, covers] = await Promise.all([
     sb.storage.from('avatars').list(userId, { limit: 1000 }),
     sb.from('place_menus').select('path').eq('user_id', userId),
     sb.from('place_wifi_notes').select('photo_path').eq('user_id', userId),
+    sb.from('city_cover_submissions').select('id, city_id, full_path, thumb_path, status').eq('uploaded_by', userId),
   ]);
   await removeFiles(sb, 'avatars', (avatars.data ?? []).map((f) => `${userId}/${f.name}`));
   await removeFiles(sb, 'place-menus', (menus.data ?? []).map((r) => r.path as string));
   await removeFiles(sb, 'place-wifi', (wifi.data ?? []).map((r) => r.photo_path as string | null));
+  // Approved city covers stay (see the Terms) but lose the uploader's name; pending ones go with the account.
+  const pendingCovers = (covers.data ?? []).filter((r) => r.status === 'pending');
+  await removeFiles(sb, 'city-covers', pendingCovers.flatMap((r) => [r.full_path as string, r.thumb_path as string]));
+  if (pendingCovers.length > 0) {
+    const { error } = await sb.from('city_cover_submissions').delete().in('id', pendingCovers.map((r) => r.id as string));
+    if (error) throw new Error(`city_covers: ${error.message}`);
+  }
+  for (const r of (covers.data ?? []).filter((c) => c.status === 'approved')) {
+    const { error } = await sb
+      .from('cities')
+      .update({ cover_attribution: 'Photo: a Cosurfer, via Cosurfing' })
+      .eq('id', r.city_id as string)
+      .like('cover_url', `%/city-covers/${r.full_path as string}`);
+    if (error) throw new Error(`city_cover_credit: ${error.message}`);
+  }
 
   const { error } = await sb.auth.admin.deleteUser(userId);
   if (error) throw new Error(`delete_user: ${error.message}`);

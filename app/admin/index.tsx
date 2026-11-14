@@ -62,6 +62,13 @@ export default function AdminHome() {
           onPress={() => router.push('/admin/photos')}
         />
         <AdminRow
+          icon="camera"
+          title={strings.admin.cityCovers}
+          subtitle={strings.admin.cityCoversRow}
+          meta={counts.data && counts.data.pendingCityCovers > 0 ? <Badge label={`${counts.data.pendingCityCovers} ${strings.admin.pending}`} tone="accent" /> : null}
+          onPress={() => router.push('/admin/city-covers')}
+        />
+        <AdminRow
           icon="inbox"
           title={strings.admin.suggestions}
           subtitle="Places suggested by users"

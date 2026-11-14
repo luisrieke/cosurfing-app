@@ -722,6 +722,30 @@ export const strings = {
       n === 1 ? 'Thanks! Your photo will appear after review.' : `Thanks! Your ${n} photos will appear after review.`,
     thanksLive: (n: number) => (n === 1 ? 'Thanks! Your photo is live.' : `Thanks! Your ${n} photos are live.`),
   },
+  cityCover: {
+    title: (city: string) => `Got a better photo of ${city}?`,
+    body: (city: string) =>
+      `Help make this page look like ${city}. Upload a photo that sums up the city, and the best one becomes the cover at the top of this page.`,
+    button: 'Suggest a cover photo',
+    guideTitle: 'What makes a great cover photo',
+    guideIntro: (city: string) =>
+      `The cover should say “${city}” at first glance. Think of the picture people have in mind when they hear the name: it is fine, even welcome, if it is a bit of a cliché.`,
+    guide: (city: string) => [
+      `Show a landmark or a view typical of ${city}: a famous building, the skyline, the old town, the harbour or a well-known square.`,
+      'Landscape format, sharp and bright. Daylight or blue hour works best; the top and bottom get cropped on wide screens.',
+      'Only photos you took yourself. No recognizable people up close, no text, logos, watermarks or collages.',
+    ],
+    reviewNote: (city: string) =>
+      `We review every photo. If yours is picked, it becomes the cover of ${city} with your name in the photo credit.`,
+    liveNote: 'As an admin, your photo replaces the cover right away.',
+    choose: 'Choose photo',
+    uploading: 'Uploading…',
+    thanks: (city: string) => `Thanks! We will check your photo of ${city} soon.`,
+    thanksLive: 'Thanks! Your photo is now the cover.',
+    portrait: 'Please use a landscape photo (wider than tall), so it fits the cover.',
+    tooSmall: 'This photo is too small for a cover. Please use one that is at least 1200 pixels wide.',
+    limitReached: 'You already have 3 cover photos waiting for review. Please wait until they are checked.',
+  },
   suggestCta: {
     title: 'Missing a place?',
     cityTitle: (city: string) => `Missing a place in ${city}?`,
@@ -1119,6 +1143,12 @@ export const strings = {
     approvePhoto: 'Approve',
     rejectPhoto: 'Reject',
     uploadedBy: (name: string) => `By ${name}`,
+    cityCovers: 'City covers',
+    cityCoversRow: 'Approve cover photos suggested for city pages',
+    cityCoversHint:
+      'Cover photos suggested by members. Approving one replaces the city’s current cover (shown small for comparison); rejected ones are deleted.',
+    currentCover: 'Current cover',
+    approveCover: 'Use as cover',
   },
   attribution: {
     osm: 'Place data © OpenStreetMap contributors, ODbL',
