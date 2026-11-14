@@ -37,6 +37,9 @@ export const colors = {
   successSoft: '#E4E8D6',
   warning: '#A8642A',
   warningSoft: '#F6E7D3',
+  /** Map pin rings for places the signed-in user reviewed (light) or reviewed with photos (dark). */
+  mineReviewed: '#8ED16B',
+  mineWithPhotos: '#1E7A3A',
   overlay: 'rgba(42, 33, 26, 0.45)',
   star: '#D99A2B',
   glass: 'rgba(255, 253, 249, 0.42)',

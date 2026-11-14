@@ -16,6 +16,7 @@ import type {
   FactInput,
   MapCity,
   MapPlace,
+  MyPlaceContribution,
   NetworkType,
   Place,
   PlaceFactEntry,
@@ -183,6 +184,12 @@ export async function saveSpeedTest(input: {
   throwIf(error);
   const row = (data as { verification: SpeedTestVerification; distance_m: number | null }[] | null)?.[0];
   return { verification: row?.verification ?? 'no_location', distanceM: row?.distance_m ?? null };
+}
+
+/** Deletes one of the member's own tests; the place medians and profile points are recomputed by trigger. */
+export async function deleteSpeedTest(testId: string): Promise<void> {
+  const { error } = await requireSupabase().from('speed_tests').delete().eq('id', testId);
+  throwIf(error);
 }
 
 /** Position of a place in its city's "best for work" ranking. */
@@ -690,12 +697,6 @@ export async function deleteReview(userId: string, placeId: string): Promise<voi
   throwIf(error);
 }
 
-export async function getMyReviewedPlaceIds(userId: string): Promise<Set<string>> {
-  const { data, error } = await requireSupabase().from('reviews').select('place_id').eq('user_id', userId);
-  throwIf(error);
-  return new Set(((data ?? []) as { place_id: string }[]).map((r) => r.place_id));
-}
-
 export async function getMyReviews(userId: string): Promise<(PlaceReview & { place: Place })[]> {
   const { data, error } = await requireSupabase()
     .from('reviews')
@@ -704,6 +705,24 @@ export async function getMyReviews(userId: string): Promise<(PlaceReview & { pla
     .order('updated_at', { ascending: false });
   throwIf(error);
   return (data ?? []) as unknown as (PlaceReview & { place: Place })[];
+}
+
+/** Places the user reviewed, marked `'photos'` when they also uploaded photos there that were not rejected. */
+export async function getMyReviewedPlaces(userId: string): Promise<Map<string, MyPlaceContribution>> {
+  const sb = requireSupabase();
+  const [reviews, photos] = await Promise.all([
+    sb.from('reviews').select('place_id').eq('user_id', userId),
+    sb.from('place_photos').select('place_id').eq('uploaded_by', userId).neq('status', 'rejected'),
+  ]);
+  throwIf(reviews.error);
+  throwIf(photos.error);
+  const withPhotos = new Set((photos.data ?? []).map((r) => r.place_id as string));
+  const result = new Map<string, MyPlaceContribution>();
+  for (const r of reviews.data ?? []) {
+    const placeId = r.place_id as string;
+    result.set(placeId, withPhotos.has(placeId) ? 'photos' : 'reviewed');
+  }
+  return result;
 }
 
 export async function createSuggestion(input: {
