@@ -9,7 +9,7 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { Platform } from 'react-native';
 
-import { AVATAR_BUCKET, MENU_BUCKET, PHOTO_BUCKET, PREVIEW_BUCKET, UPLOAD_CACHE_CONTROL, WIFI_BUCKET } from './storage';
+import { AVATAR_BUCKET, CITY_COVER_BUCKET, MENU_BUCKET, PHOTO_BUCKET, PREVIEW_BUCKET, UPLOAD_CACHE_CONTROL, WIFI_BUCKET } from './storage';
 import { requireSupabase } from './supabase';
 import { TERMS_VERSION } from './terms';
 import type { MenuKind } from './types';
@@ -21,6 +21,11 @@ export const AVATAR_SIZE = 512;
 /** Wide enough that small print on a menu stays readable. */
 export const MENU_WIDTH = 1800;
 export const MAX_MENU_PHOTOS_PER_UPLOAD = 5;
+/** City heroes span the full page width on desktop. */
+export const CITY_COVER_WIDTH = 2000;
+export const CITY_COVER_THUMB_WIDTH = 500;
+/** Narrower photos lose too much when cropped into the wide city hero. */
+export const CITY_COVER_MIN_WIDTH = 1200;
 
 /**
  * `onSelected` fires as soon as the user has picked files, before they are read and converted
@@ -261,6 +266,71 @@ export async function deleteWifiNote(note: { id: string; photo_path: string | nu
   const { error } = await sb.from('place_wifi_notes').delete().eq('id', note.id);
   if (error) throw new Error(error.message);
   if (note.photo_path) await sb.storage.from(WIFI_BUCKET).remove([note.photo_path]);
+}
+
+export class CityCoverLimitError extends Error {
+  constructor() {
+    super('city_cover_limit_reached');
+    this.name = 'CityCoverLimitError';
+  }
+}
+
+export class CityCoverShapeError extends Error {
+  constructor(readonly reason: 'portrait' | 'too_small') {
+    super(`city_cover_${reason}`);
+    this.name = 'CityCoverShapeError';
+  }
+}
+
+export interface CityCoverSubmission {
+  id: string;
+  full_path: string;
+  thumb_path: string;
+}
+
+/** Uploads a cover suggestion to city-covers/{city}/{user}/… and inserts a pending city_cover_submissions row. */
+export async function uploadCityCover(cityId: string, userId: string, sourceUri: string): Promise<CityCoverSubmission> {
+  const sb = requireSupabase();
+  const original = await ImageManipulator.manipulate(sourceUri).renderAsync();
+  if (original.height >= original.width) throw new CityCoverShapeError('portrait');
+  if (original.width < CITY_COVER_MIN_WIDTH) throw new CityCoverShapeError('too_small');
+
+  const [fullUri, thumbUri] = await Promise.all([
+    resizeToJpeg(sourceUri, Math.min(original.width, CITY_COVER_WIDTH), 0.82),
+    resizeToJpeg(sourceUri, CITY_COVER_THUMB_WIDTH, 0.75),
+  ]);
+  const [fullBytes, thumbBytes] = await Promise.all([readBytes(fullUri), readBytes(thumbUri)]);
+  const base = `${cityId}/${userId}/${randomId()}`;
+  const fullPath = `${base}.jpg`;
+  const thumbPath = `${base}-thumb.jpg`;
+  const bucket = sb.storage.from(CITY_COVER_BUCKET);
+
+  const full = await bucket.upload(fullPath, fullBytes, { contentType: 'image/jpeg', cacheControl: UPLOAD_CACHE_CONTROL, upsert: false });
+  if (full.error) throw new Error(full.error.message);
+  const thumb = await bucket.upload(thumbPath, thumbBytes, { contentType: 'image/jpeg', cacheControl: UPLOAD_CACHE_CONTROL, upsert: false });
+  if (thumb.error) {
+    await bucket.remove([fullPath]);
+    throw new Error(thumb.error.message);
+  }
+
+  const { data, error } = await sb
+    .from('city_cover_submissions')
+    .insert({
+      city_id: cityId,
+      uploaded_by: userId,
+      full_path: fullPath,
+      thumb_path: thumbPath,
+      rights_accepted_at: new Date().toISOString(),
+      terms_version: TERMS_VERSION,
+    })
+    .select('id, full_path, thumb_path')
+    .single();
+  if (error) {
+    await bucket.remove([fullPath, thumbPath]);
+    if (error.message.includes('city_cover_limit_reached')) throw new CityCoverLimitError();
+    throw new Error(error.message);
+  }
+  return data as CityCoverSubmission;
 }
 
 export async function deleteAvatar(path: string): Promise<void> {

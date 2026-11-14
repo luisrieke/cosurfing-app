@@ -43,6 +43,7 @@ import { strings } from '@/lib/strings';
 import { colors, layout, radius, spacing } from '@/lib/theme';
 import type { City, PlaceCategory, RankedPlace, RankingFilters, RankingSort } from '@/lib/types';
 
+import { CityCoverUpload } from './CityCoverUpload';
 import { RankedPlaceRow } from './RankedPlaceRow';
 
 const PAGE_SIZE = 30;
@@ -504,6 +505,7 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
             </View>
             {sidebar}
           </View>
+          <CityCoverUpload city={city} onCoverChanged={onRefreshCity} style={styles.coverUpload} />
         </View>
         <SiteFooter extra={city.cover_attribution ? strings.city.coverCredit(city.cover_attribution) : null} />
       </ScrollView>
@@ -655,6 +657,9 @@ const styles = StyleSheet.create({
   },
   suggestCta: {
     marginTop: spacing.md,
+  },
+  coverUpload: {
+    marginTop: spacing.xl,
   },
   sidebar: {
     gap: spacing.lg,

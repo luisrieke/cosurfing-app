@@ -8,6 +8,7 @@ export const PHOTO_BUCKET = 'place-photos';
 export const AVATAR_BUCKET = 'avatars';
 export const MENU_BUCKET = 'place-menus';
 export const WIFI_BUCKET = 'place-wifi';
+export const CITY_COVER_BUCKET = 'city-covers';
 
 export function previewUrl(path: string): string {
   return `${env.supabaseUrl}/storage/v1/object/public/${PREVIEW_BUCKET}/${path}`;
@@ -21,7 +22,12 @@ export function menuUrl(path: string): string {
   return `${env.supabaseUrl}/storage/v1/object/public/${MENU_BUCKET}/${path}`;
 }
 
-/** City covers are hosted on Wikimedia; serving them through our Netlify Image CDN keeps visitors' IPs away from third parties. Only hosts allowed in netlify.toml `remote_images` work. */
+/** Member-submitted city covers; once approved this URL becomes `cities.cover_url`. */
+export function cityCoverFileUrl(path: string): string {
+  return `${env.supabaseUrl}/storage/v1/object/public/${CITY_COVER_BUCKET}/${path}`;
+}
+
+/** City covers are hosted on Wikimedia or (member submissions) Supabase Storage; serving them through our Netlify Image CDN keeps visitors' IPs away from third parties. Only hosts allowed in netlify.toml `remote_images` work. */
 export function coverUrl(url: string, width: number): string {
   return `${env.siteUrl.replace(/\/$/, '')}/.netlify/images?url=${encodeURIComponent(url)}&w=${width}&q=75`;
 }

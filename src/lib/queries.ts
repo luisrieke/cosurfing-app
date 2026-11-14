@@ -1,5 +1,5 @@
 import type { WeeklyHours } from './hours';
-import { previewUrl, signedPhotoUrls, signedWifiUrls } from './storage';
+import { CITY_COVER_BUCKET, cityCoverFileUrl, previewUrl, signedPhotoUrls, signedWifiUrls } from './storage';
 import { requireSupabase } from './supabase';
 import { TERMS_VERSION } from './terms';
 import type {
@@ -931,6 +931,44 @@ export async function adminApprovePhoto(id: string): Promise<void> {
   throwIf(error);
 }
 
+export interface PendingCityCover {
+  id: string;
+  city_id: string;
+  full_path: string;
+  thumb_path: string;
+  created_at: string;
+  city: Pick<City, 'id' | 'name' | 'slug' | 'country_name' | 'cover_thumb_url'> | null;
+  uploader: { display_name: string | null } | null;
+}
+
+export async function adminGetPendingCityCovers(): Promise<PendingCityCover[]> {
+  const { data, error } = await requireSupabase()
+    .from('city_cover_submissions')
+    .select('id, city_id, full_path, thumb_path, created_at, city:cities(id, name, slug, country_name, cover_thumb_url), uploader:profiles(display_name)')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true })
+    .limit(100);
+  throwIf(error);
+  return (data ?? []) as unknown as PendingCityCover[];
+}
+
+export async function approveCityCover(submission: { id: string; full_path: string; thumb_path: string }): Promise<void> {
+  const { error } = await requireSupabase().rpc('approve_city_cover', {
+    p_submission_id: submission.id,
+    p_cover_url: cityCoverFileUrl(submission.full_path),
+    p_thumb_url: cityCoverFileUrl(submission.thumb_path),
+  });
+  throwIf(error);
+}
+
+/** Rejected covers are deleted together with their files. */
+export async function rejectCityCover(submission: { id: string; full_path: string; thumb_path: string }): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = await sb.from('city_cover_submissions').delete().eq('id', submission.id);
+  throwIf(error);
+  await sb.storage.from(CITY_COVER_BUCKET).remove([submission.full_path, submission.thumb_path]);
+}
+
 export type PlaceToVerify = Place & {
   city: Pick<City, 'id' | 'name' | 'slug'> | null;
   closed_reports: { count: number }[];
@@ -1197,22 +1235,24 @@ export async function adminGetCounts(): Promise<{
   drafts: number;
   toVerify: number;
   pendingPhotos: number;
+  pendingCityCovers: number;
   contributions: number;
   outreachOpen: number;
 }> {
   const sb = requireSupabase();
-  const [s, r, cr, d, v, p, c, pub, done] = await Promise.all([
+  const [s, r, cr, d, v, p, cc, c, pub, done] = await Promise.all([
     sb.from('place_suggestions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     sb.from('place_reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
     sb.from('content_reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
     sb.from('places').select('id', { count: 'exact', head: true }).eq('status', 'draft'),
     sb.from('places').select('id', { count: 'exact', head: true }).eq('status', 'needs_review'),
     sb.from('place_photos').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    sb.from('city_cover_submissions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     sb.rpc('pending_contribution_count'),
     sb.from('places').select('id', { count: 'exact', head: true }).eq('status', 'published'),
     sb.from('place_outreach').select('place_id, place:places!inner(status)', { count: 'exact', head: true }).eq('stage', 'confirmed').eq('place.status', 'published'),
   ]);
-  for (const res of [s, r, cr, d, v, p, pub, done]) throwIf(res.error);
+  for (const res of [s, r, cr, d, v, p, cc, pub, done]) throwIf(res.error);
   throwIf(c.error);
   return {
     suggestions: s.count ?? 0,
@@ -1220,6 +1260,7 @@ export async function adminGetCounts(): Promise<{
     drafts: d.count ?? 0,
     toVerify: v.count ?? 0,
     pendingPhotos: p.count ?? 0,
+    pendingCityCovers: cc.count ?? 0,
     contributions: Number(c.data ?? 0),
     outreachOpen: Math.max(0, (pub.count ?? 0) - (done.count ?? 0)),
   };
