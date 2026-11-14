@@ -366,6 +366,16 @@ export async function parseOpeningHoursText(
   };
 }
 
+/** The first approved photo of a place, as the ranking shows it: a public preview plus a signed full-size URL when readable. */
+export async function getPlaceCover(placeId: string): Promise<{ preview_url: string; full_url: string | null } | null> {
+  const { data, error } = await requireSupabase().rpc('get_place_photos', { p_place_id: placeId });
+  throwIf(error);
+  const first = ((data ?? []) as { preview_path: string; full_path: string | null }[])[0];
+  if (!first) return null;
+  const signed = first.full_path ? await signedPhotoUrls([first.full_path]) : new Map<string, string>();
+  return { preview_url: previewUrl(first.preview_path), full_url: first.full_path ? (signed.get(first.full_path) ?? null) : null };
+}
+
 export async function getPlaceById(id: string): Promise<Place | null> {
   const { data, error } = await requireSupabase().from('places').select('*').eq('id', id).maybeSingle();
   throwIf(error);
@@ -678,6 +688,12 @@ export async function updateProfile(
 export async function deleteReview(userId: string, placeId: string): Promise<void> {
   const { error } = await requireSupabase().from('reviews').delete().eq('user_id', userId).eq('place_id', placeId);
   throwIf(error);
+}
+
+export async function getMyReviewedPlaceIds(userId: string): Promise<Set<string>> {
+  const { data, error } = await requireSupabase().from('reviews').select('place_id').eq('user_id', userId);
+  throwIf(error);
+  return new Set(((data ?? []) as { place_id: string }[]).map((r) => r.place_id));
 }
 
 export async function getMyReviews(userId: string): Promise<(PlaceReview & { place: Place })[]> {
