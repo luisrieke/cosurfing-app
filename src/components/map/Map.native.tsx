@@ -7,6 +7,7 @@ import type { LatLng } from '@/lib/types';
 
 import { ClusterBubble } from './ClusterBubble';
 import { Pin } from './Pin';
+import { pinLabel } from './pinSvg';
 import type { MapHandle, MapProps, MapViewport } from './types';
 
 function regionFromZoom(center: LatLng, zoom: number, width: number, height: number): Region {
@@ -87,7 +88,8 @@ export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
       >
         {markers.map((m) => (
           <Marker
-            key={m.id}
+            // The ring is part of the key: with tracksViewChanges off, the marker only redraws on remount.
+            key={`${m.id}:${m.mine ?? ''}`}
             coordinate={{ latitude: m.lat, longitude: m.lng }}
             anchor={{ x: 0.5, y: 1 }}
             onPress={(e) => {
@@ -95,9 +97,9 @@ export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
               onSelect(m.id);
             }}
             tracksViewChanges={m.id === selectedId}
-            accessibilityLabel={m.name}
+            accessibilityLabel={pinLabel(m.name, m.mine)}
           >
-            <Pin category={m.category} selected={m.id === selectedId} />
+            <Pin category={m.category} selected={m.id === selectedId} mine={m.mine} />
           </Marker>
         ))}
         {(clusters ?? []).map((c) => (

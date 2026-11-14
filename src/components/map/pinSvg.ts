@@ -1,5 +1,6 @@
+import { strings } from '@/lib/strings';
 import { colors } from '@/lib/theme';
-import type { PlaceCategory } from '@/lib/types';
+import type { MyPlaceContribution, PlaceCategory } from '@/lib/types';
 
 /** Feather icon paths (MIT) used for pins on all platforms. */
 export const pinIconPaths: Record<PlaceCategory, string> = {
@@ -13,4 +14,16 @@ export const pinIconPaths: Record<PlaceCategory, string> = {
 
 export function pinColor(category: PlaceCategory): string {
   return colors[category];
+}
+
+export function pinRingColor(mine: MyPlaceContribution | undefined): string | null {
+  if (mine === 'photos') return colors.mineWithPhotos;
+  if (mine === 'reviewed') return colors.mineReviewed;
+  return null;
+}
+
+export function pinLabel(name: string, mine: MyPlaceContribution | undefined): string {
+  if (mine === 'photos') return strings.map.pinMineWithPhotos(name);
+  if (mine === 'reviewed') return strings.map.pinMineReviewed(name);
+  return name;
 }

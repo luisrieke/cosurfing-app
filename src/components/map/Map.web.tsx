@@ -7,7 +7,7 @@ import { colors } from '@/lib/theme';
 import type { PlaceCategory } from '@/lib/types';
 
 import { clusterCountLabel, clusterSize } from './cluster';
-import { pinColor, pinIconPaths } from './pinSvg';
+import { pinColor, pinIconPaths, pinLabel } from './pinSvg';
 import type { MapCluster, MapHandle, MapProps } from './types';
 
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron';
@@ -36,6 +36,8 @@ const css = `
 .cs-pin svg { width: 16px; height: 16px; stroke: #fff; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .cs-marker--selected .cs-pin { transform: scale(1.25); }
 .cs-marker--selected .cs-pin__body { border-color: ${colors.text}; }
+.cs-marker--reviewed .cs-pin__body { box-shadow: 0 0 0 3px ${colors.mineReviewed}, 0 2px 6px rgba(42,33,26,0.3); }
+.cs-marker--photos .cs-pin__body { box-shadow: 0 0 0 3px ${colors.mineWithPhotos}, 0 2px 6px rgba(42,33,26,0.3); }
 .cs-cluster { display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; padding: 0; background: transparent; cursor: pointer; font-family: inherit; }
 .cs-cluster__bubble { display: flex; align-items: center; justify-content: center; border-radius: 999px; background: ${colors.accent}; color: #fff; font-weight: 700; font-size: 13px; border: 2px solid #fff; box-shadow: 0 0 0 4px ${colors.accent}33, 0 2px 6px rgba(42,33,26,0.3); }
 .cs-cluster__label { max-width: 140px; padding: 1px 6px; border-radius: 6px; background: rgba(255,255,255,0.85); color: ${colors.text}; font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -94,7 +96,7 @@ export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
-  const markerRefs = useRef<Map<string, { marker: maplibregl.Marker; el: HTMLDivElement }>>(
+  const markerRefs = useRef<Map<string, { marker: maplibregl.Marker; el: HTMLDivElement; button: HTMLButtonElement }>>(
     new Map(),
   );
   const clusterRefs = useRef<Map<string, maplibregl.Marker>>(new Map());
@@ -177,7 +179,7 @@ export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
       const marker = new maplibregl.Marker({ element: root, anchor: 'bottom', offset: [0, 2] })
         .setLngLat([m.lng, m.lat])
         .addTo(map);
-      existing.set(m.id, { marker, el: root });
+      existing.set(m.id, { marker, el: root, button });
     }
   }, [markers]);
 
@@ -208,12 +210,17 @@ export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
     }
   }, [clusters]);
 
-  // Selected state. Runs after the marker sync above, so pins created in the same
-  // commit get the class too; iterating `markers` makes that dependency explicit.
+  // Selected and own-review state. Runs after the marker sync above, so pins created in the
+  // same commit get the classes too; iterating `markers` makes that dependency explicit.
   useEffect(() => {
     const store = markerRefs.current;
     for (const m of markers) {
-      store.get(m.id)?.el.classList.toggle('cs-marker--selected', m.id === selectedId);
+      const entry = store.get(m.id);
+      if (!entry) continue;
+      entry.el.classList.toggle('cs-marker--selected', m.id === selectedId);
+      entry.el.classList.toggle('cs-marker--reviewed', m.mine === 'reviewed');
+      entry.el.classList.toggle('cs-marker--photos', m.mine === 'photos');
+      entry.button.setAttribute('aria-label', pinLabel(m.name, m.mine));
     }
   }, [selectedId, markers]);
 
