@@ -129,6 +129,14 @@ export function ReviewItem({ review, onUnlock, unlocking }: ReviewItemProps) {
         </Text>
         {!review.is_own ? <ReportButton type="review" id={review.id} /> : null}
       </View>
+      {review.coffee_program ? (
+        <View style={styles.programLabel}>
+          <Icon name="coffee" size={12} color={colors.textMuted} />
+          <Text variant="caption" tone="muted" style={styles.programText}>
+            {strings.coffee.reviewLabel}
+          </Text>
+        </View>
+      ) : null}
       {shown.length > 0 || review.calls_ok !== null ? (
         <View style={styles.details}>
           {shown.map((d) => (
@@ -182,6 +190,14 @@ export function ReviewItem({ review, onUnlock, unlocking }: ReviewItemProps) {
 }
 
 const styles = StyleSheet.create({
+  programLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  programText: {
+    flex: 1,
+  },
   stars: {
     flexDirection: 'row',
     gap: 2,

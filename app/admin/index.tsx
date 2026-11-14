@@ -75,6 +75,12 @@ export default function AdminHome() {
           meta={counts.data && counts.data.reports > 0 ? <Badge label={`${counts.data.reports} open`} tone="danger" /> : null}
           onPress={() => router.push('/admin/reports')}
         />
+        <AdminRow
+          icon="coffee"
+          title="Coffee program"
+          subtitle="Review proof, approve and record coffee reimbursements"
+          onPress={() => router.push('/admin/coffee')}
+        />
         <AdminRow icon="message-square" title={strings.admin.reviews} subtitle="Hide or restore reviews" onPress={() => router.push('/admin/reviews')} />
         <AdminRow icon="mail" title={strings.admin.waitlist} subtitle="Entries per city, CSV export, email retries" onPress={() => router.push('/admin/waitlist')} />
         <AdminRow icon="activity" title={strings.admin.speedTests} subtitle="Hide implausible Wi‑Fi speed tests" onPress={() => router.push('/admin/speed-tests')} />

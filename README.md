@@ -181,6 +181,10 @@ on conflict (user_id) do update
 
 Use `current_period_end = null` for no end date, and `status = 'inactive'` to take it back.
 
+## Early Contributors coffee program
+
+`/free-coffee` reimburses up to three coffees (€5 each) to the first 50 contributors after a manual review: participants send their proof with a personal code as a direct message to Luis on Instagram, TikTok or X and mark it as sent on the page; review and manual payout happen in **Admin → Coffee program**. Setup, the reviewing routine, retention and the pre-launch legal/tax checklist are in [docs/free-coffee.md](docs/free-coffee.md). It starts as a draft; nothing is visible until an admin sets it live.
+
 ## Maps
 
 Web uses MapLibre with the OpenFreeMap `positron` style (no key). iOS uses Apple Maps. Android needs `GOOGLE_MAPS_ANDROID_API_KEY` (Maps SDK for Android) at build time.
@@ -200,6 +204,7 @@ MapLibre loads its worker from a separate file that Metro cannot resolve, so `sc
 - Supabase Auth OTP template with `{{ .Token }}`, redirect URLs, custom SMTP.
 - First admin row. Places come from the crawler; add photos only when you have the rights to them.
 - Google Maps Android key, EAS project id, store listings.
+- Coffee program: open DMs on TikTok and X, legal/tax review (docs/free-coffee.md).
 
 ## Principles baked in
 
