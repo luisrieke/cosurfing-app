@@ -139,6 +139,3 @@ $$;
 
 revoke all on function public.get_city_ranking(uuid, text, text, boolean, boolean, boolean, text, integer, integer, boolean, boolean, boolean) from public;
 grant execute on function public.get_city_ranking(uuid, text, text, boolean, boolean, boolean, text, integer, integer, boolean, boolean, boolean) to anon, authenticated;
-
--- ---------------------------------------------------------------------------
--- Map: places in the viewport, with the same time filters
