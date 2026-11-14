@@ -4,7 +4,6 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { PlacesMap, type MapMarker } from '@/components/map';
 import { Button, Icon, Text } from '@/components/ui';
-import { openDirections } from '@/lib/geo';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
 import type { Place } from '@/lib/types';
@@ -57,16 +56,7 @@ export function PlaceMapPreview({ place, height = 200, onWrongPin }: PlaceMapPre
             </Text>
           </View>
         ) : null}
-        <View style={styles.actions}>
-          <Button title={strings.placeMap.openMap} icon="map" variant="secondary" size="sm" onPress={openMap} />
-          <Button
-            title={strings.common.directions}
-            icon="navigation"
-            variant="secondary"
-            size="sm"
-            onPress={() => openDirections(place, place.name)}
-          />
-        </View>
+        <Button title={strings.placeMap.openMap} icon="map" variant="secondary" size="sm" onPress={openMap} style={styles.selfStart} />
         {onWrongPin ? (
           <Pressable onPress={onWrongPin} accessibilityRole="button" style={styles.wrongPin} hitSlop={6}>
             <Icon name="edit-2" size={13} color={colors.textMuted} />
@@ -104,10 +94,8 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  actions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
+  selfStart: {
+    alignSelf: 'flex-start',
   },
   wrongPin: {
     flexDirection: 'row',
