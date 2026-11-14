@@ -217,6 +217,7 @@ export const strings = {
     noPhotos: 'No photos yet',
     prevPhoto: 'Previous photo',
     nextPhoto: 'Next photo',
+    starPhoto: 'Star photo',
     noReviews: 'No reviews yet. Be the first to share how working here went.',
     writeReview: 'Write a review',
     editReview: 'Edit your review',

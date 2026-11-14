@@ -422,6 +422,8 @@ export interface PlacePhoto {
   preview_url: string;
   full_path: string;
   full_url: string | null;
+  /** Admin-only; null for everyone else. */
+  stars: number | null;
 }
 
 export interface PlaceReview {
