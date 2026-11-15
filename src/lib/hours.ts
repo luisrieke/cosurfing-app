@@ -441,14 +441,6 @@ export function compactLaptopWeek(week: Record<DayKey, LaptopDay>): LaptopHours 
   return Object.keys(out).length ? out : null;
 }
 
-/** The simple yes/no laptops fact implied by a laptop schedule, if any. */
-export function laptopsAnswer(laptop: LaptopHours | null | undefined): 'welcome' | 'not_allowed' | null {
-  const days = DAY_KEYS.map((d) => laptopDay(laptop, d).mode).filter((m) => m !== 'unknown');
-  if (!days.length) return null;
-  if (days.some((m) => m === 'all' || m === 'specific')) return 'welcome';
-  return 'not_allowed';
-}
-
 /** Groups consecutive days with the same intervals: [{ days: ['mo', …, 'fr'], intervals }]. */
 export function groupDays(hours: WeeklyHours): { days: DayKey[]; intervals: Interval[] }[] {
   const groups: { days: DayKey[]; intervals: Interval[] }[] = [];

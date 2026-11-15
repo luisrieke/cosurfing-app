@@ -15,7 +15,6 @@ export const FACT_KEYS: FactKey[] = [
   'month_pass',
   'price_range',
   'wifi',
-  'laptops',
   'meeting_rooms',
   'meeting_room_hour',
   'meeting_room_details',
@@ -32,7 +31,7 @@ const FACT_CATEGORIES: Record<FactKey, PlaceCategory[]> = {
   month_pass: ['coworking'],
   price_range: ['cafe', 'library'],
   wifi: ['coworking', 'cafe', 'library', 'coliving'],
-  laptops: ['cafe'],
+  laptops: [],
   meeting_rooms: ['coworking', 'library', 'coliving'],
   meeting_room_hour: ['coworking', 'library', 'coliving'],
   meeting_room_details: ['coworking', 'library', 'coliving'],
@@ -142,7 +141,6 @@ export function formatFactValue(key: FactKey, value: FactValue, web: WebFacts): 
   if (typeof value === 'boolean') return value ? strings.common.yes : strings.common.no;
   if (key === 'wifi' && value === 'unreliable') return s.wifi_unreliable;
   if (key === 'access' && typeof value === 'string') return accessLabel(value as PlaceAccess);
-  if (key === 'laptops') return value === 'welcome' ? s.laptopsWelcome : s.laptopsNotAllowed;
   if (key === 'price_range' && typeof value === 'number') return priceSymbol(web).repeat(Math.min(4, Math.max(1, Math.round(value))));
   if (key === 'meeting_room_hour' && isDayPass(value)) {
     return value.amount === 0 ? s.meetingRoomFree : s.perHour(formatMoney(value.amount, value.currency));

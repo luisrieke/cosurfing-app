@@ -20,7 +20,6 @@ import {
   fullLaptopWeek,
   isLaptopHours,
   isWeeklyHours,
-  laptopsAnswer,
   normalizeWeek,
   presetHours,
   sameWeek,
@@ -379,10 +378,6 @@ function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; t
         return;
       }
       factInput.laptop_hours = compact;
-      if (factInput.laptops === undefined) {
-        const answer = laptopsAnswer(compact);
-        if (answer) factInput.laptops = answer;
-      }
     }
     const currency = dayPassCurrency(place.web_facts ?? {});
     const withNote = (key: 'day_pass' | 'week_pass' | 'month_pass', amount: number): DayPassValue => {

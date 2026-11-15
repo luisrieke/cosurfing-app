@@ -198,19 +198,6 @@ export function hoursText(place: Place, facts: FactSummary[] = []): string | nul
   return place.opening_hours ?? place.web_facts?.opening_hours?.value ?? null;
 }
 
-/** The plain yes/no laptop answer, for places without laptop hours. */
-export function laptopAnswer(place: Place, facts: FactSummary[] = []): { answer: string | null; banned: boolean } {
-  const s = strings.place;
-  const wf = place.web_facts ?? {};
-  const laptopsFact = communityFact(facts, 'laptops');
-  const answer =
-    laptopsFact?.display ??
-    place.laptop_rules ??
-    (wf.laptops ? (wf.laptops.value === 'welcome' ? s.laptopsWelcome : s.laptopsNotAllowed) : null);
-  const banned = laptopsFact ? laptopsFact.value === 'not_allowed' : wf.laptops?.value === 'not_allowed' && !place.laptop_rules;
-  return { answer, banned };
-}
-
 /** Member answers (see VenueFactsList) take precedence over imported data. */
 export function hardFacts(place: Place, facts: FactSummary[] = []): FactLine[] {
   const s = strings.place;

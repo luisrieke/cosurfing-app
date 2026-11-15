@@ -16,7 +16,6 @@ import {
   fullLaptopWeek,
   isLaptopHours,
   isWeeklyHours,
-  laptopsAnswer,
   normalizeWeek,
   presetHours,
   sameWeek,
@@ -128,10 +127,6 @@ function HoursScreen({ slug }: { slug: string }) {
         return;
       }
       next.laptop_hours = compact;
-      if (next.laptops === undefined) {
-        const answer = laptopsAnswer(compact);
-        if (answer) next.laptops = answer;
-      }
     } else if (mine.laptop_hours !== undefined && coliving) {
       next.laptop_hours = mine.laptop_hours;
     }

@@ -12,7 +12,6 @@ import {
   fullLaptopWeek,
   isLaptopHours,
   isWeeklyHours,
-  laptopsAnswer,
   laptopWeekRanges,
   localWeekMinute,
   makeInterval,
@@ -221,13 +220,10 @@ describe('editing', () => {
     assert.deepEqual(next.mo, [[H(8), H(12)]]);
   });
 
-  it('stores only known laptop days and derives the yes/no answer', () => {
+  it('stores only known laptop days', () => {
     const full = fullLaptopWeek({ mo: { mode: 'none' } });
     assert.equal(full.tu.mode, 'unknown');
     assert.deepEqual(compactLaptopWeek(full), { mo: { mode: 'none' } });
     assert.equal(compactLaptopWeek(fullLaptopWeek(null)), null);
-    assert.equal(laptopsAnswer({ mo: { mode: 'none' } }), 'not_allowed');
-    assert.equal(laptopsAnswer({ mo: { mode: 'none' }, sa: { mode: 'specific', ranges: [[H(8), H(10)]] } }), 'welcome');
-    assert.equal(laptopsAnswer(null), null);
   });
 });

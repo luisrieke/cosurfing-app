@@ -152,8 +152,7 @@ export function LaptopHoursCard({
   category,
   timezone,
   now,
-  answer,
-  answerBanned,
+  rules,
   onAdd,
 }: {
   laptop: LaptopHours | null;
@@ -162,9 +161,8 @@ export function LaptopHoursCard({
   category: string;
   timezone: string | null;
   now: Date;
-  /** Yes/no answer from members, the venue website or the listing, when there is no schedule. */
-  answer: string | null;
-  answerBanned: boolean;
+  /** Free-text laptop rules from the listing, when there is no schedule. */
+  rules: string | null;
   onAdd?: () => void;
 }) {
   const minute = localWeekMinute(now, timezone);
@@ -197,11 +195,7 @@ export function LaptopHoursCard({
         <Note icon="check-circle" text={h.laptopByDesign} />
       ) : (
         <>
-          {answer ? (
-            <Text style={{ color: answerBanned ? colors.danger : colors.text }}>
-              {`${strings.place.laptopRules}: ${answer}`}
-            </Text>
-          ) : null}
+          {rules ? <Text>{`${strings.place.laptopRules}: ${rules}`}</Text> : null}
           <Text variant="small" tone="muted">
             {h.laptopUnknown}
           </Text>
