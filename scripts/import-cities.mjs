@@ -87,6 +87,7 @@ function slugify(input) {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/ß/g, 'ss')
     .replace(/ł/g, 'l')
+    .replace(/ħ/g, 'h')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
