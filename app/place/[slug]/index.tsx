@@ -23,7 +23,6 @@ import {
   WifiNoteList,
   hardFacts,
   hoursText,
-  laptopAnswer,
   mobileFacts,
   showMeetingRooms,
   wifiFacts,
@@ -275,7 +274,6 @@ export default function PlaceScreen() {
   const access = effectiveAccess(place.access, venueFacts);
   const accessNote = access === place.access ? place.access_note : null;
   const listingHours = hoursText(place, venueFacts);
-  const laptop = laptopAnswer(place, venueFacts);
   const showHours = !coliving || Boolean(place.hours || listingHours || hoursPhotos.length > 0);
   const description = place.description ?? webFacts.description?.value ?? null;
   const contentWidth = Math.min(width, layout.maxWideWidth) - spacing.lg * 2 - (wide ? 340 + spacing.xl : 0);
@@ -607,8 +605,7 @@ export default function PlaceScreen() {
                       category={place.category}
                       timezone={place.city.timezone}
                       now={now}
-                      answer={laptop.answer}
-                      answerBanned={laptop.banned}
+                      rules={place.laptop_rules}
                       onAdd={canReview ? goHours : undefined}
                     />
                   ) : null}
