@@ -265,26 +265,41 @@ async function main() {
   // In hotspots-only mode every GeoNames place is a merge candidate, so existing cities keep their GeoNames id.
   const candidates = HOTSPOTS_ONLY ? rows : kept;
   let added = 0;
+  // Hotspots named like a GeoNames place come first, so their GeoNames id is never lent to a neighbour.
+  const unmatched = [];
   for (const h of hotspots) {
-    const sameCountry = candidates.filter((k) => k.country_code === h.country_code);
-    const byName = sameCountry.find(
-      (k) => k.name.toLowerCase() === h.name.toLowerCase() && distanceKm(k, h) < SAME_NAME_KM,
+    const byName = candidates.find(
+      (k) =>
+        k.country_code === h.country_code &&
+        k.name.toLowerCase() === h.name.toLowerCase() &&
+        distanceKm(k, h) < SAME_NAME_KM,
     );
-    if (byName) {
-      byName.is_hotspot = true;
-      byName.wiki = h.wiki;
-      if (h.radius_km) byName.radius_km = h.radius_km;
-      byName.timezone ??= h.timezone ?? null;
-      if (!kept.includes(byName)) kept.push(byName);
+    if (!byName) {
+      unmatched.push(h);
       continue;
     }
+    byName.is_hotspot = true;
+    byName.wiki = h.wiki;
+    if (h.radius_km) byName.radius_km = h.radius_km;
+    byName.timezone ??= h.timezone ?? null;
+    if (!kept.includes(byName)) kept.push(byName);
+  }
+  const claimedIds = new Set(kept.filter((k) => k.is_hotspot && k.geonames_id).map((k) => k.geonames_id));
+  for (const h of unmatched) {
     // A GeoNames place right next to the hotspot (usually the same town under another spelling) only
-    // lends its id, so an existing city row is found again; name and centre stay the hotspot's.
-    const nearby = sameCountry
-      .filter((k) => distanceKm(k, h) < HOTSPOT_MERGE_KM)
+    // lends its id, so an existing city row is found again; name and centre stay the hotspot's. Every id
+    // is lent at most once because geonames_id is unique.
+    const nearby = candidates
+      .filter(
+        (k) =>
+          k.country_code === h.country_code &&
+          !claimedIds.has(k.geonames_id) &&
+          distanceKm(k, h) < HOTSPOT_MERGE_KM,
+      )
       .sort((a, b) => distanceKm(a, h) - distanceKm(b, h))[0];
     if (nearby) {
       console.log(`  ${h.name} (${h.country_code}) uses GeoNames id of "${nearby.name}"`);
+      claimedIds.add(nearby.geonames_id);
       if (kept.includes(nearby)) kept.splice(kept.indexOf(nearby), 1);
     }
     const country = countries.get(h.country_code);
