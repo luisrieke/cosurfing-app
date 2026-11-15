@@ -1800,6 +1800,30 @@
   "checked_on": "2026-11-06"
  },
  {
+  "name": "Far Home Coliving Mallorca",
+  "website": "https://farhomehostels.com/",
+  "country_code": "ES",
+  "town": "Palma",
+  "region": "Balearic Islands (Mallorca)",
+  "address": "Carrer del Cardenal Rossell 66, 07007 Palma (Ciutat Jardí)",
+  "lat": 39.55199,
+  "lng": 2.69525,
+  "coords_precision": "street",
+  "season": "year_round",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": "Residents only; the operator does not mention outside users.",
+  "min_stay": "3 months (Coliving.com listing)",
+  "description": "Shared coliving house in Ciutat Jardí, about 200 m from the beach, run by the Far Home group. Rooms are around 20 m2 with a wardrobe and desk, and residents share a kitchen, a terrace and a common area with computers and Wi-Fi. The operator lists rooms from 900 EUR/month with all bills included; third-party listings give a 3-month minimum.",
+  "sources": [
+   "https://farhomehostels.com/coliving-far-home-mallorca/",
+   "https://coliving.com/spaces/njofa1f4",
+   "https://www.flatio.com/rent/room/133294-palma"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-15"
+ },
+ {
   "name": "Laberint Coliving",
   "website": "https://laberintcoliving.com/",
   "country_code": "ES",
@@ -1868,6 +1892,30 @@
   "checked_on": "2026-11-06"
  },
  {
+  "name": "SOMOS Coliving Jaume Ferran",
+  "website": "https://www.somoscoliving.com/",
+  "country_code": "ES",
+  "town": "Palma",
+  "region": "Balearic Islands (Mallorca)",
+  "address": "Carrer de Jaume Ferran 51, 07004 Palma",
+  "lat": 39.58431,
+  "lng": 2.66007,
+  "coords_precision": "street",
+  "season": "year_round",
+  "season_note": null,
+  "non_guest_work": "no",
+  "non_guest_note": "The website FAQ says the coworking room is exclusive to residents.",
+  "min_stay": "1 month",
+  "description": "Newly built coliving next to the Plaza de Toros in Palma, with 23 private rooms over four floors, each with a private bathroom and desk. Residents share kitchens and living rooms on each floor, a garden with pool and solarium and a residents-only coworking room. Opened in 2026; room prices are not published.",
+  "sources": [
+   "https://www.somoscoliving.com/",
+   "https://www.nomadway.app/coliving/somos-coliving/",
+   "https://www.linkedin.com/posts/somos-coliving_somoscoliving-coliving-palmademallorca-activity-7513162824127238144-ACu3"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-15"
+ },
+ {
   "name": "Ikigai Coliving",
   "website": "https://www.ikigaicoliving.com/",
   "country_code": "ES",
@@ -1888,6 +1936,30 @@
   ],
   "confidence": "medium",
   "checked_on": "2026-11-06"
+ },
+ {
+  "name": "eWave Casa Tramuntana",
+  "website": "https://ewavecoliving.com/",
+  "country_code": "ES",
+  "town": "Puigpunyent",
+  "region": "Balearic Islands (Mallorca)",
+  "address": "Between Puigpunyent and Galilea, 07194 Puigpunyent",
+  "lat": 39.62732,
+  "lng": 2.52831,
+  "coords_precision": "town",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": "30 days (studio)",
+  "description": "Stone finca in a valley between Puigpunyent and Galilea, about 20 minutes from Palma, run as a coliving for digital nomads, creatives and remote workers. Single and double rooms plus a 40 m2 studio; the site lists quiet workspaces, a garden and community events. Starlink Wi-Fi is advertised for the studio and workspaces. Studio stays run from 30 days up to 7 months; prices on request. The exact location is not published, so the pin is approximate.",
+  "sources": [
+   "https://ewavecoliving.com/",
+   "https://ewavecoliving.com/suite-room/",
+   "https://ewavecoliving.com/about-casa-tramuntana-coliving-mallorca/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-15"
  },
  {
   "name": "Bedndesk",
@@ -1934,6 +2006,29 @@
   ],
   "confidence": "medium",
   "checked_on": "2026-11-06"
+ },
+ {
+  "name": "Hort de Ca'n Salvà",
+  "website": "https://hortdecansalva.com/",
+  "country_code": "ES",
+  "town": "Santa Maria del Camí",
+  "region": "Balearic Islands (Mallorca)",
+  "address": "Carrer Caty Salom i Parets 10, 07320 Santa Maria del Camí",
+  "lat": 39.65049,
+  "lng": 2.77851,
+  "coords_precision": "street",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": "Not stated whether outsiders can use the work area.",
+  "min_stay": null,
+  "description": "Village finca in Santa Maria del Camí with eight en-suite double rooms, marketed as a coliving and coworking base for digital nomads, work retreats and small teams. The site lists a large shared work area, two meeting rooms, an equipped office kitchen, a garden with pool and terraces. It is also rented as a holiday house for up to twelve people; prices and Wi-Fi details are not published and the street address comes from third-party listings.",
+  "sources": [
+   "https://hortdecansalva.com/casa-rural-con-coworking-mallorca/",
+   "https://hortdecansalva.com/alquiler-turistico/"
+  ],
+  "confidence": "low",
+  "checked_on": "2026-11-15"
  },
  {
   "name": "Bencomo Coliving",
