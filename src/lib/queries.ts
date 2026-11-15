@@ -1074,6 +1074,37 @@ export async function adminSetOutreachStage(placeId: string, stage: OutreachStag
   throwIf(error);
 }
 
+export type AdminTaskCategory = 'needs_desktop' | 'manual';
+
+export interface AdminTask {
+  id: string;
+  category: AdminTaskCategory;
+  title: string;
+  description: string | null;
+  prompt: string;
+  status: 'open' | 'done';
+  created_at: string;
+  completed_at: string | null;
+}
+
+export async function adminGetTasks(): Promise<AdminTask[]> {
+  const { data, error } = await requireSupabase()
+    .from('admin_tasks')
+    .select('id, category, title, description, prompt, status, created_at, completed_at')
+    .order('created_at', { ascending: false })
+    .limit(200);
+  throwIf(error);
+  return (data ?? []) as AdminTask[];
+}
+
+export async function adminSetTaskStatus(id: string, status: AdminTask['status']): Promise<void> {
+  const { error } = await requireSupabase()
+    .from('admin_tasks')
+    .update({ status, completed_at: status === 'done' ? new Date().toISOString() : null })
+    .eq('id', id);
+  throwIf(error);
+}
+
 export async function adminReviewPlace(placeId: string, decision: 'exists' | 'closed', website?: string): Promise<void> {
   const { error } = await requireSupabase().rpc('review_place', {
     p_place_id: placeId,
@@ -1281,9 +1312,10 @@ export async function adminGetCounts(): Promise<{
   pendingCityCovers: number;
   contributions: number;
   outreachOpen: number;
+  openTasks: number;
 }> {
   const sb = requireSupabase();
-  const [s, r, cr, d, v, p, cc, c, pub, done] = await Promise.all([
+  const [s, r, cr, d, v, p, cc, c, pub, done, t] = await Promise.all([
     sb.from('place_suggestions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     sb.from('place_reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
     sb.from('content_reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
@@ -1294,8 +1326,9 @@ export async function adminGetCounts(): Promise<{
     sb.rpc('pending_contribution_count'),
     sb.from('places').select('id', { count: 'exact', head: true }).eq('status', 'published'),
     sb.from('place_outreach').select('place_id, place:places!inner(status)', { count: 'exact', head: true }).eq('stage', 'confirmed').eq('place.status', 'published'),
+    sb.from('admin_tasks').select('id', { count: 'exact', head: true }).eq('status', 'open'),
   ]);
-  for (const res of [s, r, cr, d, v, p, cc, pub, done]) throwIf(res.error);
+  for (const res of [s, r, cr, d, v, p, cc, pub, done, t]) throwIf(res.error);
   throwIf(c.error);
   return {
     suggestions: s.count ?? 0,
@@ -1306,5 +1339,6 @@ export async function adminGetCounts(): Promise<{
     pendingCityCovers: cc.count ?? 0,
     contributions: Number(c.data ?? 0),
     outreachOpen: Math.max(0, (pub.count ?? 0) - (done.count ?? 0)),
+    openTasks: t.count ?? 0,
   };
 }
