@@ -12,7 +12,7 @@
  *
  * Hotspots are only merged into a GeoNames city with the same name or within HOTSPOT_MERGE_KM, so small
  * nomad towns next to big cities (Canggu next to Denpasar) stay separate. An optional `radius_km` in the
- * hotspot file overrides the population-based crawl radius.
+ * hotspot file overrides the population-based crawl radius, `region` and `timezone` fill in what GeoNames lacks.
  * The crawler secret is stored in Supabase Vault (`crawler_secret`); the import-cities edge function
  * checks it. SUPABASE_URL defaults to EXPO_PUBLIC_SUPABASE_URL from .env.
  */
@@ -208,7 +208,8 @@ async function findImages(cities) {
 // ---------------------------------------------------------------------------
 
 /** Warns about hotspots whose coordinates are far from their Wikidata item (typos, namesakes). */
-async function checkHotspotCoordinates(hotspots) {
+async function checkHotspotCoordinates(allHotspots) {
+  const hotspots = allHotspots.filter((h) => h.wiki);
   const coords = new Map();
   for (let i = 0; i < hotspots.length; i += 50) {
     const values = hotspots
@@ -293,7 +294,7 @@ async function main() {
       country_code: h.country_code,
       country_name: country?.name ?? h.country_code,
       continent: country?.continent ?? null,
-      region: nearby?.region ?? null,
+      region: h.region ?? nearby?.region ?? null,
       lat: h.lat,
       lng: h.lng,
       population: h.population,
