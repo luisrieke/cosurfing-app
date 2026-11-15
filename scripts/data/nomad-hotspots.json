@@ -76,6 +76,7 @@
   { "name": "Conil de la Frontera", "country_code": "ES", "lat": 36.277, "lng": -6.088, "population": 22000, "wiki": "Conil de la Frontera" },
   { "name": "Sitges", "country_code": "ES", "lat": 41.237, "lng": 1.8059, "population": 29000, "wiki": "Sitges" },
   { "name": "Granada", "country_code": "ES", "lat": 37.1773, "lng": -3.5986, "population": 230000, "wiki": "Granada" },
+  { "name": "Almería", "country_code": "ES", "lat": 36.8381, "lng": -2.4597, "population": 200000, "wiki": "Almería", "timezone": "Europe/Madrid", "region": "Andalusia" },
   { "name": "San Sebastián", "country_code": "ES", "lat": 43.3183, "lng": -1.9812, "population": 188000, "wiki": "San Sebastián" },
   { "name": "Palma", "country_code": "ES", "lat": 39.5696, "lng": 2.6502, "population": 420000, "wiki": "Palma de Mallorca" },
   { "name": "Sóller", "country_code": "ES", "lat": 39.7663, "lng": 2.71505, "population": 14000, "wiki": "Sóller", "radius_km": 5, "timezone": "Europe/Madrid", "region": "Balearic Islands" },
