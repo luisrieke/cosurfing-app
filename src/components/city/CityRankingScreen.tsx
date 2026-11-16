@@ -278,7 +278,7 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
           ) : null}
           <Shade colors={['rgba(23,21,15,0.2)', 'rgba(23,21,15,0.35)', 'rgba(23,21,15,0.8)']} locations={[0, 0.45, 1]} />
           <View style={styles.heroInner}>
-            <Pressable onPress={() => router.push('/')} accessibilityRole="link" style={styles.back}>
+            <Pressable onPress={() => router.push('/cities')} accessibilityRole="link" style={styles.back}>
               <Icon name="arrow-left" size={14} color="#fff" />
               <Text variant="smallStrong" style={styles.light}>
                 {strings.city.allCities}
@@ -450,7 +450,7 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
                       size="sm"
                       onPress={() =>
                         router.push({
-                          pathname: '/map',
+                          pathname: '/',
                           params: {
                             lat: String(city.lat),
                             lng: String(city.lng),

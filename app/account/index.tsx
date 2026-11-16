@@ -60,7 +60,7 @@ function AccountScreen() {
     try {
       const { storeSubscription } = await deleteAccount();
       await signOut();
-      router.replace({ pathname: '/', params: { deleted: storeSubscription ? 'store' : '1' } });
+      router.replace({ pathname: '/cities', params: { deleted: storeSubscription ? 'store' : '1' } });
     } catch {
       setDeleteError(strings.account.deleteAccountFailed);
       setDeleting(false);

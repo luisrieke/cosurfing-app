@@ -69,8 +69,8 @@ export function SiteHeader({ back }: { back?: boolean }) {
           </Pressable>
           {isDesktop ? (
             <View style={styles.nav}>
-              <NavLink label={strings.nav.cities} active={pathname === '/'} onPress={() => router.push('/')} />
-              <NavLink label={strings.nav.map} active={pathname === '/map'} onPress={() => router.push('/map')} />
+              <NavLink label={strings.nav.map} active={pathname === '/'} onPress={() => router.push('/')} />
+              <NavLink label={strings.nav.cities} active={pathname === '/cities'} onPress={() => router.push('/cities')} />
               <NavLink label={strings.nav.suggest} active={pathname === '/suggest'} onPress={() => router.push('/suggest')} />
               {!isPlus ? (
                 <NavLink label={strings.nav.plus} active={pathname.startsWith('/plus')} onPress={() => router.push('/plus')} />
@@ -82,9 +82,9 @@ export function SiteHeader({ back }: { back?: boolean }) {
           {!isDesktop ? (
             <>
               <IconButton
-                icon="map"
-                accessibilityLabel={strings.nav.map}
-                onPress={() => router.push('/map')}
+                icon="list"
+                accessibilityLabel={strings.nav.cities}
+                onPress={() => router.push('/cities')}
                 size={40}
                 background="transparent"
                 style={styles.noBorder}
