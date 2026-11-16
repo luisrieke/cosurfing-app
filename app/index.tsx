@@ -1,251 +1,380 @@
+import { Image } from 'expo-image';
 import Head from 'expo-router/head';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import {
-  ActivityIndicator,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AdSlot } from '@/components/AdSlot';
-import { CityCard } from '@/components/CityCard';
-import { CitySearch } from '@/components/CitySearch';
-import { SearchField } from '@/components/SearchField';
-import { SignupBanner } from '@/components/SignupBanner';
-import { SignupGate } from '@/components/SignupGate';
-import { SiteFooter } from '@/components/SiteFooter';
+import { clusterCities, type MapCluster, type MapHandle, type MapViewport, PlacesMap } from '@/components/map';
+import { HoursStatusLine } from '@/components/hours';
+import { pinColor } from '@/components/map/pinSvg';
+import { ScoreBadge } from '@/components/ScoreBadge';
 import { SiteHeader, SiteHeaderSpacer } from '@/components/SiteHeader';
-import { SuggestPlaceCta } from '@/components/SuggestPlaceCta';
-import { Button, Chip, EmptyState, ErrorState, Glass, Icon, Notice, Skeleton, Text } from '@/components/ui';
+import { suggestRoute, type SuggestTarget } from '@/components/SuggestPlaceCta';
+import { Button, CategoryBadge, categoryIcon, Chip, Glass, glassSurface, Icon, IconButton, Notice, Text } from '@/components/ui';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
-import { useDebounced } from '@/hooks/useDebounced';
-import { usePaged } from '@/hooks/usePaged';
+import { useNow, useTimeFilterRefresh } from '@/hooks/useNow';
+import { useQuery } from '@/hooks/useQuery';
+import { useSlowConnection } from '@/hooks/useSlowConnection';
+import { useUserLocation } from '@/hooks/useUserLocation';
 import { useAuth } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/env';
-import { findCityByNameAndCountry, listCities } from '@/lib/queries';
+import { distanceKm, formatDistance } from '@/lib/geo';
+import { localWeekMinute, matchesTimeFilter } from '@/lib/hours';
+import { getMapCities, getMyReviewedPlaces, getPlaceCover, getPlacesInBounds } from '@/lib/queries';
 import { strings } from '@/lib/strings';
-import { colors, layout, radius, spacing } from '@/lib/theme';
-import type { CityListItem, CitySearchResult, CitySort, Continent } from '@/lib/types';
+import { colors, radius, spacing } from '@/lib/theme';
+import type { LatLng, MapPlace, PlaceCategory } from '@/lib/types';
 
-const PAGE_SIZE = 40;
-const CONTINENTS: Continent[] = ['EU', 'AS', 'NA', 'SA', 'AF', 'OC'];
-const SORTS: CitySort[] = ['score', 'places', 'wifi', 'reviews', 'population', 'name'];
+const CATEGORIES: PlaceCategory[] = ['coworking', 'cafe', 'library', 'coliving'];
 
-function columnsFor(width: number): number {
-  if (width < 560) return 2;
-  if (width < 900) return 3;
-  if (width < 1120) return 4;
-  return 5;
+/** Below this zoom an area holds too many places to load at once. */
+const MIN_ZOOM = 9;
+const LIMIT = 300;
+const NEAR_ME_ZOOM = 14;
+const DEFAULT_VIEW = { center: { lat: 48.5, lng: 10 }, zoom: 4 };
+
+function parseNumber(value: string | undefined): number | null {
+  if (value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
-/** One key per grid column (max of columnsFor) for placeholder cells that have no data. */
-const COLUMN_KEYS = ['c1', 'c2', 'c3', 'c4', 'c5'];
+function mostCommonCity(places: MapPlace[]): MapPlace['city'] {
+  const counts = new Map<string, { city: NonNullable<MapPlace['city']>; n: number }>();
+  for (const p of places) {
+    if (!p.city) continue;
+    const entry = counts.get(p.city.slug) ?? { city: p.city, n: 0 };
+    entry.n += 1;
+    counts.set(p.city.slug, entry);
+  }
+  let best: { city: NonNullable<MapPlace['city']>; n: number } | null = null;
+  for (const entry of counts.values()) if (!best || entry.n > best.n) best = entry;
+  return best?.city ?? null;
+}
+
+const chipGlass = glassSurface('strong', { flat: true });
+
+/** A map filter that doubles as the legend: it shows the pin color and icon of its category. */
+function LegendChip({ category, shown, onPress }: { category: PlaceCategory; shown: boolean; onPress: () => void }) {
+  const label = strings.map.categories[category];
+  return (
+    <Pressable
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: shown }}
+      accessibilityLabel={strings.map.toggleCategory(label, shown)}
+      onPress={onPress}
+      style={({ pressed }) => [styles.legendChip, chipGlass, pressed && { backgroundColor: colors.surface }]}
+    >
+      <View style={[styles.legendDot, { backgroundColor: shown ? pinColor(category) : colors.bgMuted }]}>
+        <Icon name={categoryIcon(category)} size={12} color={shown ? colors.onAccent : colors.textMuted} />
+      </View>
+      <Text
+        variant="smallStrong"
+        tone={shown ? undefined : 'muted'}
+        style={!shown && styles.legendLabelOff}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
 
 export default function HomeScreen() {
+  const params = useLocalSearchParams<{ lat?: string; lng?: string; zoom?: string; reviewed?: string }>();
   const router = useRouter();
-  const { deleted } = useLocalSearchParams<{ deleted?: string }>();
-  const { width, isDesktop } = useBreakpoint();
+  const insets = useSafeAreaInsets();
+  const { isDesktop } = useBreakpoint();
+  const mapRef = useRef<MapHandle | null>(null);
+  const location = useUserLocation();
   const { user } = useAuth();
-  const [query, setQuery] = useState('');
-  const [continent, setContinent] = useState<Continent | null>(null);
-  const [sort, setSort] = useState<CitySort>('score');
-  const q = useDebounced(query.trim(), 250);
+  const slow = useSlowConnection();
 
-  const cities = usePaged<CityListItem>(
-    `cities:${q}:${continent ?? ''}:${sort}`,
-    (offset, limit) => listCities({ q, continent, sort, limit, offset }),
-    PAGE_SIZE,
-    isSupabaseConfigured,
-  );
+  const [initial] = useState(() => {
+    const lat = parseNumber(params.lat);
+    const lng = parseNumber(params.lng);
+    if (lat === null || lng === null) return { ...DEFAULT_VIEW, preset: false };
+    return { center: { lat, lng }, zoom: parseNumber(params.zoom) ?? 12, preset: true };
+  });
 
-  const cols = columnsFor(Math.min(width, layout.maxWideWidth));
-  const cellWidth = (Math.min(width, layout.maxWideWidth) - spacing.lg * 2 - spacing.md * (cols - 1)) / cols;
-  const skeletonHeight = Math.round(cellWidth / 0.82);
-  const rows: CityListItem[][] = [];
-  for (let i = 0; i < cities.items.length; i += cols) rows.push(cities.items.slice(i, i + cols));
-  // Rank numbers only make sense for the unfiltered "best for work" order.
-  const ranked = sort === 'score' && !q;
-
-  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
-    if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 900) cities.loadMore();
-  };
-
-  const openSearchResult = async (r: CitySearchResult) => {
-    const existing = await findCityByNameAndCountry(r.name, r.countryCode).catch(() => null);
-    if (existing) {
-      router.push(`/${existing.slug}`);
-      return;
-    }
-    router.push({
-      pathname: '/waitlist',
-      params: { city: r.name, country: r.countryName, countryCode: r.countryCode, lat: String(r.lat), lng: String(r.lng) },
+  const [viewport, setViewport] = useState<MapViewport | null>(null);
+  const [places, setPlaces] = useState<MapPlace[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [hidden, setHidden] = useState<ReadonlySet<PlaceCategory>>(() => new Set());
+  const [reviewed, setReviewed] = useState(params.reviewed === '1');
+  const [openNow, setOpenNow] = useState(false);
+  const [workNow, setWorkNow] = useState(false);
+  const [requery, setRequery] = useState(0);
+  const now = useNow();
+  const timeFilter = openNow || workNow;
+  useTimeFilterRefresh(timeFilter, now, () => setRequery((n) => n + 1));
+  const shownCategories = useMemo(() => CATEGORIES.filter((c) => !hidden.has(c)), [hidden]);
+  const toggleCategory = (category: PlaceCategory) =>
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      return next;
     });
+
+  const zoomedIn = viewport !== null && viewport.zoom >= MIN_ZOOM;
+
+  useEffect(() => {
+    if (!viewport || viewport.zoom < MIN_ZOOM || !isSupabaseConfigured) return;
+    let active = true;
+    const t = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const next = await getPlacesInBounds(viewport.bounds, shownCategories, LIMIT, { reviewed, openNow, workNow });
+        if (!active) return;
+        setPlaces(next);
+        setError(null);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : strings.common.somethingWentWrong);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }, 250);
+    return () => {
+      active = false;
+      clearTimeout(t);
+    };
+  }, [viewport, shownCategories, reviewed, openNow, workNow, requery]);
+
+  const cities = useQuery('map-cities', getMapCities, isSupabaseConfigured);
+  const clusters = useMemo(
+    () => (viewport && !zoomedIn && cities.data ? clusterCities(cities.data, viewport.zoom, viewport.bounds, MIN_ZOOM) : []),
+    [viewport, zoomedIn, cities.data],
+  );
+  const clusterPlaces = clusters.reduce((sum, c) => sum + c.count, 0);
+  const openCluster = (c: MapCluster) => mapRef.current?.flyTo(c.target, c.target.zoom);
+
+  const filterNow = timeFilter ? now : null;
+  const visible = useMemo(() => {
+    if (!zoomedIn) return [];
+    const shown = places.filter((p) => !hidden.has(p.category) && (!reviewed || p.review_count > 0));
+    if (!filterNow) return shown;
+    // The server filtered when the area loaded; drop places that closed since.
+    const minutes = new Map<string | null, number | null>();
+    const minuteIn = (tz: string | null) => {
+      if (!minutes.has(tz)) minutes.set(tz, localWeekMinute(filterNow, tz));
+      return minutes.get(tz) ?? null;
+    };
+    return shown.filter((p) => matchesTimeFilter(p.hours, p.laptop_hours, p.category, minuteIn(p.timezone), { openNow, workNow }));
+  }, [zoomedIn, places, hidden, reviewed, filterNow, openNow, workNow]);
+  const mineQuery = useQuery(`my-reviewed-places:${user?.id}`, () => getMyReviewedPlaces(user!.id), Boolean(user) && isSupabaseConfigured);
+  const refetchMine = mineQuery.refetch;
+  useFocusEffect(
+    useCallback(() => {
+      if (user) void refetchMine(true);
+    }, [user, refetchMine]),
+  );
+  const mine = mineQuery.data;
+  const markers = useMemo(
+    () =>
+      visible.map((p) => ({ id: p.id, lat: p.lat, lng: p.lng, category: p.category, name: p.name, mine: mine?.get(p.id) })),
+    [visible, mine],
+  );
+  const selected = visible.find((p) => p.id === selectedId) ?? null;
+  const cover = useQuery(`map-cover:${selected?.id}`, () => getPlaceCover(selected!.id), Boolean(selected));
+  // While the next place's photo loads, the previous place's must not linger.
+  const coverData = cover.loading ? null : (cover.data ?? null);
+  const coverFull = slow ? null : (coverData?.full_url ?? null);
+  const reviewedByMe = selected !== null && (mine?.has(selected.id) ?? false);
+  const areaCity = selected?.city ?? mostCommonCity(visible);
+  const suggestTarget: SuggestTarget = { city: areaCity?.slug };
+
+  const requestLocation = location.request;
+  const locate = async () => {
+    const here = await requestLocation();
+    if (here) mapRef.current?.flyTo(here, NEAR_ME_ZOOM);
   };
+
+  // Opening the map without a place to look at means "show me what is around me".
+  const autoLocated = useRef(false);
+  useEffect(() => {
+    if (initial.preset || autoLocated.current) return;
+    autoLocated.current = true;
+    requestLocation().then((here: LatLng | null) => {
+      if (here) mapRef.current?.flyTo(here, NEAR_ME_ZOOM);
+    });
+  }, [initial.preset, requestLocation]);
+
+  const status = !isSupabaseConfigured
+    ? strings.common.backendNotConfigured
+    : !zoomedIn
+      ? cities.loading
+        ? strings.map.loading
+        : clusters.length > 0
+          ? strings.map.overview(clusterPlaces)
+          : strings.map.zoomIn
+      : loading && places.length === 0
+        ? strings.map.loading
+        : visible.length >= LIMIT
+          ? strings.map.countCapped(LIMIT)
+          : reviewed
+            ? strings.map.countReviewed(visible.length)
+            : strings.map.count(visible.length);
+  const empty = zoomedIn && !loading && visible.length === 0;
 
   return (
     <View style={styles.root}>
       <Head>
         <title>Cosurfing · The best places to work in every big city</title>
-        <meta
-          name="description"
-          content="Coworking spaces, laptop-friendly cafés and libraries in 1,000+ cities, ranked by measured Wi‑Fi speed, power outlets and reviews from remote workers."
-        />
       </Head>
-      <SiteHeader />
-      <ScrollView onScroll={onScroll} scrollEventThrottle={200} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <PlacesMap
+        ref={mapRef}
+        center={initial.center}
+        zoom={initial.zoom}
+        markers={markers}
+        clusters={clusters}
+        selectedId={selectedId}
+        onSelect={setSelectedId}
+        onClusterPress={openCluster}
+        userLocation={location.location}
+        onMoveEnd={setViewport}
+        showControls={isDesktop}
+        style={StyleSheet.absoluteFill}
+      />
+      <SiteHeader back={initial.preset} />
+
+      <View pointerEvents="box-none" style={styles.overlayTop}>
         <SiteHeaderSpacer />
-        <View style={styles.page}>
-          <View style={[styles.hero, isDesktop && styles.heroDesktop]}>
-            <Text variant={isDesktop ? 'display' : 'title'} align={isDesktop ? 'center' : 'left'} style={isDesktop ? styles.heroTitle : undefined}>
-              {strings.home.title}
+        <View pointerEvents="box-none" style={styles.topRow}>
+          <Glass variant="strong" style={styles.status}>
+            {loading ? <ActivityIndicator size="small" color={colors.accent} /> : <Icon name="map" size={14} color={colors.textMuted} />}
+            <Text variant="smallStrong" numberOfLines={2} style={styles.statusText}>
+              {status}
             </Text>
-            <Text tone="muted" align={isDesktop ? 'center' : 'left'} style={isDesktop ? styles.heroSubtitle : undefined}>
-              {strings.home.subtitle}
-            </Text>
-            <SearchField
-              value={query}
-              onChangeText={setQuery}
-              placeholder={strings.home.searchPlaceholder}
-              large
-              style={isDesktop ? styles.heroSearch : undefined}
-            />
-            <View style={[styles.heroActions, isDesktop && styles.heroActionsDesktop]}>
-              <Button title={strings.home.nearMe} icon="navigation" onPress={() => router.push('/map')} />
-              <Button title={strings.home.addPlace} icon="plus" variant="secondary" onPress={() => router.push('/suggest')} />
-            </View>
-          </View>
-
-          {!isSupabaseConfigured ? <Notice tone="warning" body={strings.common.backendNotConfigured} /> : null}
-          {deleted ? (
-            <Notice
-              tone="success"
-              body={deleted === 'store' ? `${strings.account.deleteAccountDone} ${strings.account.deleteAccountStoreNote}` : strings.account.deleteAccountDone}
-            />
-          ) : null}
-
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-            <Chip label={strings.home.filterAll} selected={continent === null} onPress={() => setContinent(null)} color={colors.text} />
-            {CONTINENTS.map((c) => (
-              <Chip
-                key={c}
-                label={strings.home.continents[c]}
-                selected={continent === c}
-                onPress={() => setContinent(continent === c ? null : c)}
-                color={colors.text}
+          </Glass>
+          <Button
+            title={location.status === 'loading' ? strings.map.locating : strings.map.nearMe}
+            icon="navigation"
+            variant="secondary"
+            size="sm"
+            loading={location.status === 'loading'}
+            onPress={() => void locate()}
+          />
+        </View>
+        {zoomedIn ? (
+          <View pointerEvents="box-none" style={styles.legend}>
+            {CATEGORIES.map((category) => (
+              <LegendChip
+                key={category}
+                category={category}
+                shown={!hidden.has(category)}
+                onPress={() => toggleCategory(category)}
               />
             ))}
-          </ScrollView>
-
-          <View style={styles.toolbar}>
-            <Text variant="smallStrong" tone="muted">
-              {cities.loading ? strings.common.loading : strings.home.resultCount(cities.total)}
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sorts}>
-              <Icon name="bar-chart-2" size={14} color={colors.textMuted} />
-              {SORTS.map((s) => (
-                <Chip key={s} label={strings.home.sort[s]} selected={sort === s} onPress={() => setSort(s)} />
-              ))}
-            </ScrollView>
+            <Chip label={strings.explore.reviewed} icon="star" selected={reviewed} onPress={() => setReviewed(!reviewed)} />
+            <Chip label={strings.hours.filterOpenNow} icon="clock" selected={openNow} onPress={() => setOpenNow(!openNow)} />
+            <Chip label={strings.hours.filterWorkNow} icon="monitor" selected={workNow} onPress={() => setWorkNow(!workNow)} />
           </View>
+        ) : null}
+        {zoomedIn && workNow ? <Notice tone="info" body={strings.hours.filterWorkNowHint} style={styles.notice} /> : null}
+        {zoomedIn && shownCategories.length === 0 ? (
+          <Notice tone="info" body={strings.map.allHidden} style={styles.notice} />
+        ) : null}
+        {selected?.category === 'coliving' ? (
+          <Notice tone="warning" body={strings.map.colivingsHint} style={styles.notice} />
+        ) : null}
+        {location.message ? <Notice tone="warning" body={location.message} style={styles.notice} /> : null}
+        {error ? <Notice tone="danger" body={error} style={styles.notice} /> : null}
+      </View>
 
-          {cities.loading ? (
-            <View style={styles.grid}>
-              {[0, 1].map((r) => (
-                <View key={r} style={styles.row}>
-                  {COLUMN_KEYS.slice(0, cols).map((k) => (
-                    <View key={k} style={styles.cell}>
-                      <Skeleton height={skeletonHeight} style={styles.skeletonCard} />
-                    </View>
-                  ))}
-                </View>
-              ))}
-            </View>
-          ) : cities.error ? (
-            <ErrorState body={cities.error.message} onAction={() => void cities.refresh()} />
-          ) : cities.items.length === 0 ? (
-            <>
-              <EmptyState icon="search" title={strings.home.noCitiesTitle} body={strings.home.noCitiesBody} />
-              {q ? (
-                <SuggestPlaceCta
-                  title={strings.suggestCta.homeSearchMiss(q)}
-                  body={strings.suggestCta.searchMissBody}
-                  buttonLabel={strings.suggestCta.addNamed(q)}
-                  target={{ name: q }}
-                  style={styles.suggestCta}
-                />
-              ) : null}
-            </>
-          ) : (
-            <View style={styles.grid}>
-              {rows.map((row, rowIndex) => (
-                <View key={row[0]!.id} style={styles.rowGroup}>
-                  <View style={styles.row}>
-                    {row.map((city, i) => (
-                      <View key={city.id} style={styles.cell}>
-                        <CityCard
-                          city={city}
-                          rank={ranked ? rowIndex * cols + i + 1 : null}
-                          onPress={() => router.push(`/${city.slug}`)}
+      <View pointerEvents="box-none" style={[styles.overlayBottom, { paddingBottom: insets.bottom + spacing.lg }]}>
+        {selected ? (
+          <Glass variant="strong" style={styles.sheet}>
+            <Pressable
+              onPress={() => router.push(`/place/${selected.slug}`)}
+              accessibilityRole="link"
+              accessibilityLabel={selected.name}
+              style={styles.placeRow}
+            >
+              <View style={styles.thumbWrap}>
+                <View style={[styles.thumb, { backgroundColor: `${pinColor(selected.category)}18` }]}>
+                  {coverData ? (
+                    <>
+                      <Image source={{ uri: coverData.preview_url }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={6} />
+                      {coverFull ? (
+                        <Image
+                          source={{ uri: coverFull }}
+                          style={StyleSheet.absoluteFill}
+                          contentFit="cover"
+                          transition={200}
+                          recyclingKey={selected.id}
                         />
-                      </View>
-                    ))}
-                    {COLUMN_KEYS.slice(row.length, cols).map((k) => (
-                      <View key={k} style={styles.cell} />
-                    ))}
-                  </View>
-                  {!user && rowIndex === Math.max(1, Math.ceil(8 / cols) - 1) ? <SignupGate style={styles.inlineGate} /> : null}
-                  {rowIndex === Math.ceil(24 / cols) - 1 ? <AdSlot /> : null}
+                      ) : null}
+                    </>
+                  ) : (
+                    <Icon name={categoryIcon(selected.category)} size={24} color={pinColor(selected.category)} />
+                  )}
                 </View>
-              ))}
-            </View>
-          )}
-
-          {cities.loadingMore ? <ActivityIndicator color={colors.accent} style={styles.more} /> : null}
-          {!cities.loading && cities.hasMore && !cities.loadingMore ? (
-            <Button title={strings.home.loadMore} variant="secondary" onPress={cities.loadMore} style={styles.moreButton} />
-          ) : null}
-
-          {cities.items.length > 0 ? <SuggestPlaceCta style={styles.suggestCta} /> : null}
-
-          <View style={[styles.how, isDesktop && styles.howDesktop]}>
-            <Text variant="heading">{strings.home.howTitle}</Text>
-            <View style={[styles.howSteps, isDesktop && styles.howStepsDesktop]}>
-              {strings.home.howSteps.map((step, i) => (
-                <Glass key={step.title} variant="strong" style={[styles.howStep, isDesktop && styles.howStepDesktop]}>
-                  <View style={styles.howNumber}>
-                    <Text variant="smallStrong" tone="inverse">
-                      {i + 1}
+                <ScoreBadge score={selected.work_score} size="sm" style={styles.thumbScore} />
+              </View>
+              <View style={styles.placeText}>
+                <Text variant="bodyStrong" numberOfLines={1}>
+                  {selected.name}
+                </Text>
+                <View style={styles.placeMeta}>
+                  <CategoryBadge category={selected.category} />
+                  <Text variant="caption" tone="muted" numberOfLines={1} style={styles.placeMetaText}>
+                    {[
+                      location.location ? formatDistance(distanceKm(location.location, selected)) : null,
+                      selected.review_count > 0 ? strings.ranking.reviews(selected.review_count) : strings.map.provisional,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </Text>
+                </View>
+                {selected.address ? (
+                  <Text variant="caption" tone="muted" numberOfLines={1}>
+                    {selected.address}
+                  </Text>
+                ) : null}
+                <HoursStatusLine
+                  hours={selected.hours}
+                  laptop={selected.laptop_hours}
+                  category={selected.category}
+                  timezone={selected.timezone}
+                  now={now}
+                  showWork={workNow || selected.laptop_hours !== null}
+                />
+                {reviewedByMe ? (
+                  <View style={styles.reviewedByMe}>
+                    <Icon name="check-circle" size={13} color={colors.success} />
+                    <Text variant="caption" numberOfLines={1} style={{ color: colors.success }}>
+                      {strings.map.reviewedByYou}
                     </Text>
                   </View>
-                  <Text variant="bodyStrong">{step.title}</Text>
-                  <Text variant="small" tone="muted">
-                    {step.body}
-                  </Text>
-                </Glass>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.request}>
-            <Text variant="heading">{strings.home.requestTitle}</Text>
-            <Text variant="small" tone="muted">
-              {strings.home.requestBody}
-            </Text>
-            <CitySearch
-              activeCities={[]}
-              onSelectActive={(c) => router.push(`/${c.slug}`)}
-              onSelectOther={(r) => void openSearchResult(r)}
-              onManual={(text) => router.push({ pathname: '/waitlist', params: { city: text } })}
+                ) : null}
+              </View>
+              <Icon name="chevron-right" size={20} color={colors.textMuted} />
+            </Pressable>
+            <IconButton
+              icon="x"
+              accessibilityLabel={strings.common.close}
+              onPress={() => setSelectedId(null)}
+              size={32}
+              style={styles.close}
             />
-          </View>
-        </View>
-        <SiteFooter />
-      </ScrollView>
-      <SignupBanner />
+          </Glass>
+        ) : (
+          <Glass variant="strong" style={styles.sheet}>
+            <View style={styles.suggestText}>
+              <Text variant="bodyStrong">
+                {empty ? (reviewed ? strings.map.reviewedEmptyTitle : strings.map.emptyTitle) : strings.map.missingHere}
+              </Text>
+              <Text variant="small" tone="muted">
+                {empty ? (reviewed ? strings.map.reviewedEmptyBody : strings.map.emptyBody) : strings.suggestCta.searchMissBody}
+              </Text>
+            </View>
+            <Button title={strings.map.addPlace} icon="plus" onPress={() => router.push(suggestRoute(suggestTarget))} />
+          </Glass>
+        )}
+      </View>
     </View>
   );
 }
@@ -253,132 +382,134 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: colors.bgMuted,
   },
-  scroll: {
+  overlayTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
     alignItems: 'center',
-    paddingBottom: 96,
   },
-  page: {
+  topRow: {
     width: '100%',
-    maxWidth: layout.maxWideWidth,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.lg,
-  },
-  hero: {
-    gap: spacing.md,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.sm,
-  },
-  heroDesktop: {
+    maxWidth: 720,
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: spacing.xxxl,
-    paddingBottom: spacing.lg,
+    gap: spacing.sm,
   },
-  heroTitle: {
-    maxWidth: 760,
-    fontSize: 44,
-    lineHeight: 52,
+  status: {
+    flexShrink: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: 36,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
   },
-  heroSubtitle: {
-    maxWidth: 640,
-    fontSize: 18,
-    lineHeight: 27,
+  statusText: {
+    flexShrink: 1,
   },
-  heroSearch: {
+  notice: {
+    width: '100%',
+    maxWidth: 720,
+  },
+  legend: {
+    width: '100%',
+    maxWidth: 720,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  legendChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 36,
+    paddingLeft: 5,
+    paddingRight: spacing.sm + 4,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  legendDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  legendLabelOff: {
+    textDecorationLine: 'line-through',
+  },
+  overlayBottom: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+  },
+  sheet: {
     width: '100%',
     maxWidth: 560,
-    marginTop: spacing.sm,
-  },
-  heroActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  heroActionsDesktop: {
-    justifyContent: 'center',
-  },
-  suggestCta: {
-    width: '100%',
-    maxWidth: layout.maxContentWidth,
-    alignSelf: 'center',
-  },
-  chips: {
-    gap: spacing.sm,
-    paddingVertical: 2,
-  },
-  toolbar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
     flexWrap: 'wrap',
-  },
-  sorts: {
-    gap: spacing.xs,
-    alignItems: 'center',
-  },
-  grid: {
     gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.lg,
   },
-  rowGroup: {
-    gap: spacing.md,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  cell: {
+  placeRow: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
     minWidth: 0,
   },
-  skeletonCard: {
-    borderRadius: radius.lg,
+  thumbWrap: {
+    paddingRight: 6,
+    paddingBottom: 6,
   },
-  inlineGate: {
-    marginVertical: spacing.sm,
-  },
-  more: {
-    marginVertical: spacing.lg,
-  },
-  moreButton: {
-    alignSelf: 'center',
-  },
-  how: {
-    marginTop: spacing.xxl,
-    gap: spacing.md,
-  },
-  howDesktop: {
-    alignItems: 'center',
-  },
-  howSteps: {
-    gap: spacing.md,
-  },
-  howStepsDesktop: {
-    flexDirection: 'row',
-  },
-  howStep: {
-    gap: spacing.xs,
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-  },
-  howStepDesktop: {
-    flex: 1,
-  },
-  howNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.accent,
+  thumb: {
+    width: 72,
+    height: 72,
+    borderRadius: radius.md,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.xs,
   },
-  request: {
-    marginTop: spacing.xl,
+  thumbScore: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+  },
+  placeText: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  reviewedByMe: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  placeMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
-    maxWidth: layout.maxContentWidth,
-    width: '100%',
-    alignSelf: 'center',
-    zIndex: 5,
+  },
+  placeMetaText: {
+    flexShrink: 1,
+  },
+  close: {
+    alignSelf: 'flex-start',
+  },
+  suggestText: {
+    flex: 1,
+    minWidth: 200,
+    gap: 2,
   },
 });

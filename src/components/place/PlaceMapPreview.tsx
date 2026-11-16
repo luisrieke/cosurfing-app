@@ -23,7 +23,7 @@ export function PlaceMapPreview({ place, height = 200, onWrongPin }: PlaceMapPre
     () => [{ id: place.id, lat: place.lat, lng: place.lng, category: place.category, name: place.name }],
     [place.id, place.lat, place.lng, place.category, place.name],
   );
-  const openMap = () => router.push(`/map?lat=${place.lat}&lng=${place.lng}&zoom=16`);
+  const openMap = () => router.push(`/?lat=${place.lat}&lng=${place.lng}&zoom=16`);
 
   return (
     <View style={styles.card}>

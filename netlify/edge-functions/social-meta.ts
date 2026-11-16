@@ -4,7 +4,7 @@ import type { Config, Context } from '@netlify/edge-functions';
 // Slack, ...) only ever see the static index.html. This swaps its default title, description
 // and image for the city or place behind the URL, and for a few static campaign pages.
 
-const APP_ROUTES = new Set(['map', 'welcome', 'suggest', 'terms', 'admin', 'account', 'plus', 'auth', 'waitlist', 'place']);
+const APP_ROUTES = new Set(['cities', 'map', 'welcome', 'suggest', 'terms', 'admin', 'account', 'plus', 'auth', 'waitlist', 'place']);
 const LOOKUP_TIMEOUT_MS = 1500;
 
 const STATIC_META: Record<string, Meta> = {
