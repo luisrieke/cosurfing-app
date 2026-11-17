@@ -135,6 +135,9 @@ export default function PlaceScreen() {
   const refetchWifiNotes = wifiNotesQuery.refetch;
   const refetchPlace = placeQuery.refetch;
   const refetchFacts = factsQuery.refetch;
+  const refetchPhotos = photosQuery.refetch;
+  const refetchReviews = reviewsQuery.refetch;
+  // Coming back from the review/costs/hours screens: pull fresh data quietly (no spinner).
   useFocusEffect(
     useCallback(() => {
       if (!placeId) return;
@@ -143,7 +146,9 @@ export default function PlaceScreen() {
       void refetchWifiNotes(true);
       void refetchPlace(true);
       void refetchFacts(true);
-    }, [placeId, refetchOffers, refetchMenus, refetchWifiNotes, refetchPlace, refetchFacts]),
+      void refetchPhotos(true);
+      void refetchReviews(true);
+    }, [placeId, refetchOffers, refetchMenus, refetchWifiNotes, refetchPlace, refetchFacts, refetchPhotos, refetchReviews]),
   );
 
   useEffect(() => {
@@ -568,7 +573,12 @@ export default function PlaceScreen() {
                 </View>
               ) : null}
               {canReview ? (
-                <AddPhotos placeId={place.id} userId={user?.id ?? null} onSignIn={() => requireUser(`/place/${slug}`)} />
+                <AddPhotos
+                  placeId={place.id}
+                  userId={user?.id ?? null}
+                  onSignIn={() => requireUser(`/place/${slug}`)}
+                  onUploaded={() => void photosQuery.refetch(true)}
+                />
               ) : null}
 
               {!wide ? scoreCard : null}

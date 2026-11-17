@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import Head from 'expo-router/head';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
 import { AdminShell } from '@/components/admin/AdminShell';
 import { UserAvatar } from '@/components/UserBadge';
@@ -125,7 +125,16 @@ export default function AdminContributions() {
                         onPress={() => void act(item, 'reject')}
                       />
                       {item.place_slug ? (
-                        <Button title="Open place" size="sm" variant="ghost" onPress={() => router.push(`/place/${item.place_slug}`)} />
+                        <Button
+                          title="Open place in a new tab"
+                          size="sm"
+                          variant="ghost"
+                          onPress={() => {
+                            const path = `/place/${item.place_slug}`;
+                            if (Platform.OS === 'web') window.open(path, '_blank', 'noopener');
+                            else router.push(path);
+                          }}
+                        />
                       ) : null}
                     </View>
                   </View>

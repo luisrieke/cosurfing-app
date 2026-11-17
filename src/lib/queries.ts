@@ -1085,12 +1085,13 @@ export interface AdminTask {
   status: 'open' | 'done';
   created_at: string;
   completed_at: string | null;
+  copied_at: string | null;
 }
 
 export async function adminGetTasks(): Promise<AdminTask[]> {
   const { data, error } = await requireSupabase()
     .from('admin_tasks')
-    .select('id, category, title, description, prompt, status, created_at, completed_at')
+    .select('id, category, title, description, prompt, status, created_at, completed_at, copied_at')
     .order('created_at', { ascending: false })
     .limit(200);
   throwIf(error);
@@ -1102,6 +1103,11 @@ export async function adminSetTaskStatus(id: string, status: AdminTask['status']
     .from('admin_tasks')
     .update({ status, completed_at: status === 'done' ? new Date().toISOString() : null })
     .eq('id', id);
+  throwIf(error);
+}
+
+export async function adminMarkTaskCopied(id: string, copiedAt: string): Promise<void> {
+  const { error } = await requireSupabase().from('admin_tasks').update({ copied_at: copiedAt }).eq('id', id);
   throwIf(error);
 }
 

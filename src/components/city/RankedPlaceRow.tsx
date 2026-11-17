@@ -88,7 +88,7 @@ export function RankedPlaceRow({
       </View>
 
       <View style={styles.body}>
-        <Text variant="bodyStrong" numberOfLines={1}>
+        <Text variant="bodyStrong" numberOfLines={2}>
           {place.name}
         </Text>
         <View style={styles.meta}>
@@ -119,6 +119,11 @@ export function RankedPlaceRow({
             </View>
           ))}
         </View>
+        {!(place.review_count > 0 && place.rating_avg !== null) ? (
+          <Text variant="caption" tone="faint">
+            {strings.ranking.provisional}
+          </Text>
+        ) : null}
         {!signedIn && place.text_review_count > 0 ? (
           <View style={styles.locked}>
             <Icon name="lock" size={12} color={colors.accent} />
@@ -138,11 +143,7 @@ export function RankedPlaceRow({
               {formatRating(place.rating_avg)} ({place.review_count})
             </Text>
           </View>
-        ) : (
-          <Text variant="caption" tone="faint">
-            {strings.ranking.provisional}
-          </Text>
-        )}
+        ) : null}
       </View>
     </Pressable>
   );
@@ -210,6 +211,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   side: {
+    flexShrink: 0,
     alignItems: 'flex-end',
     gap: 4,
   },

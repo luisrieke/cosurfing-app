@@ -12,13 +12,15 @@ interface AddPhotosProps {
   userId: string | null;
   /** Called instead of the upload flow when nobody is signed in. */
   onSignIn: () => void;
+  /** Called after at least one photo was uploaded, so the page can refetch its gallery. */
+  onUploaded?: () => void;
 }
 
 /**
  * "Add photos" for signed-in users: pick, upload as pending (admins and local guides go live right away).
  * Usage rights are covered by the Terms accepted at sign-up.
  */
-export function AddPhotos({ placeId, userId, onSignIn }: AddPhotosProps) {
+export function AddPhotos({ placeId, userId, onSignIn, onUploaded }: AddPhotosProps) {
   const { isAdmin, isLocalGuide } = useAuth();
   const goesLive = isAdmin || isLocalGuide;
   const [open, setOpen] = useState(false);
@@ -48,10 +50,15 @@ export function AddPhotos({ placeId, userId, onSignIn }: AddPhotosProps) {
       if (uris.length === 0) return;
       const rightsAcceptedAt = new Date().toISOString();
       let done = 0;
-      for (const uri of uris) {
-        setProgress(strings.photos.uploading(done + 1, uris.length));
-        await uploadPlacePhoto(placeId, uri, 1000 + done, { userId, rightsAcceptedAt });
-        done += 1;
+      try {
+        for (const uri of uris) {
+          setProgress(strings.photos.uploading(done + 1, uris.length));
+          await uploadPlacePhoto(placeId, uri, 1000 + done, { userId, rightsAcceptedAt });
+          done += 1;
+        }
+      } finally {
+        // Also covers a partial upload: whatever went through should show up right away.
+        if (done > 0) onUploaded?.();
       }
       setSent(done);
       setOpen(false);
