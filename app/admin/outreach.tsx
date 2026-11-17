@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Linking, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AdminShell } from '@/components/admin/AdminShell';
+import { VenueReviewKit } from '@/components/admin/VenueReviewKit';
 import { Button, Card, Chip, Input, Notice, Skeleton, Text } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
@@ -106,6 +107,7 @@ function OutreachItem({ place, onStage }: { place: OutreachPlace; onStage: (stag
           />
         ) : null}
         <Button title={strings.admin.editPlace} size="sm" variant="ghost" onPress={() => router.push(`/admin/places/${place.id}`)} />
+        <VenueReviewKit slug={place.slug} compact />
       </View>
       <View style={styles.stages}>
         {OUTREACH_STAGES.map((s) => (

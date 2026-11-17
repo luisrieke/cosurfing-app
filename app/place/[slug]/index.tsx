@@ -45,7 +45,14 @@ import { useAuth } from '@/lib/auth';
 import { env, isSupabaseConfigured } from '@/lib/env';
 import { effectiveAccess, summarizeFacts } from '@/lib/facts';
 import { formatDate, formatRating, hostFromUrl, liveWebsite } from '@/lib/format';
-import { canShowInterstitial, markInterstitialShown, dismissInterstitial, recordPlaceView, signUpHref } from '@/lib/funnel';
+import {
+  canShowInterstitial,
+  dismissInterstitial,
+  firstPlaceViewToday,
+  markInterstitialShown,
+  recordPlaceView,
+  signUpHref,
+} from '@/lib/funnel';
 import { openDirections } from '@/lib/geo';
 import { deletePlaceMenu, deleteWifiNote } from '@/lib/photoUpload';
 import {
@@ -63,6 +70,7 @@ import {
   getPlaceSpeedTests,
   getPlaceWifiNotes,
   getReviewUnlockQuota,
+  trackPlaceView,
   unlockReview,
   UnlockLimitError,
 } from '@/lib/queries';
@@ -156,6 +164,11 @@ export default function PlaceScreen() {
     const t = setTimeout(() => setFlash(null), 2500);
     return () => clearTimeout(t);
   }, [flash]);
+
+  useEffect(() => {
+    if (!placeId) return;
+    void firstPlaceViewToday(placeId).then((first) => (first ? trackPlaceView(placeId) : undefined)).catch(() => undefined);
+  }, [placeId]);
 
   // Visitors without an account get one sign-up interstitial from their second place on.
   useEffect(() => {
@@ -781,7 +794,7 @@ export default function PlaceScreen() {
                     <Text variant="small" tone="muted">
                       {strings.place.noReviews}
                     </Text>
-                    <Button title={strings.funnel.rateCta} icon="star" onPress={goReview} style={styles.selfStart} />
+                    <Button title={strings.place.firstReviewCta} icon="star" onPress={goReview} style={styles.selfStart} />
                   </View>
                 ) : (
                   <View style={styles.reviews}>

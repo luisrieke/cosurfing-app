@@ -6,6 +6,7 @@ import { Alert, Linking, Platform, Pressable, StyleSheet, View } from 'react-nat
 
 import { AdminHoursSection } from '@/components/admin/AdminHoursSection';
 import { AdminShell } from '@/components/admin/AdminShell';
+import { VenueReviewKit } from '@/components/admin/VenueReviewKit';
 import type { LaptopWeek } from '@/components/hours';
 import { Badge, Button, Chip, Icon, Input, Notice, Section, Skeleton, Text } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
@@ -407,6 +408,12 @@ function Editor({ placeId }: { placeId: string | null }) {
           <EnumField label={f.season} value={form.season} options={['year_round', 'seasonal', 'unknown'] as SeasonValue[]} onChange={(v) => update('season', v)} />
           <Input label={f.seasonNote} optional value={form.season_note ?? ''} onChangeText={(v) => update('season_note', v)} />
           <Input label={f.minStay} optional value={form.min_stay ?? ''} onChangeText={(v) => update('min_stay', v)} />
+        </Section>
+      ) : null}
+
+      {placeQuery.data?.status === 'published' ? (
+        <Section title={strings.admin.venueKitOpen}>
+          <VenueReviewKit slug={placeQuery.data.slug} />
         </Section>
       ) : null}
 

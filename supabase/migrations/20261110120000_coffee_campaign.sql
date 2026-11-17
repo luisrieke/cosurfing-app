@@ -247,7 +247,8 @@ returns table (
   author_points_pending integer,
   author_is_guide boolean,
   edit_status text,
-  coffee_program boolean
+  coffee_program boolean,
+  is_first boolean
 )
 language plpgsql
 stable
@@ -294,7 +295,9 @@ begin
            case when v_signed_in then pr.points_pending end,
            coalesce(pr.is_guide, false),
            case when r.user_id = v_uid or public.is_admin() then r.edit_status end,
-           r.coffee_program
+           r.coffee_program,
+           -- first_on_place comes with 20261117220000_review_points_by_effort, which may run before or after this.
+           coalesce((to_jsonb(r) ->> 'first_on_place')::boolean, false)
       from public.reviews r
       left join public.profiles pr on pr.id = r.user_id
       cross join lateral (

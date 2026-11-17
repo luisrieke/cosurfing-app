@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { Icon, Text } from '@/components/ui';
+import { useListNavigation } from '@/hooks/useListNavigation';
 import { searchCities } from '@/lib/citySearch';
 import { strings } from '@/lib/strings';
 import { colors, fontFamily, radius, shadow, spacing } from '@/lib/theme';
@@ -76,6 +77,27 @@ export function CitySearch({ activeCities, onSelectActive, onSelectOther, onManu
   const remote = searchable ? results.filter((r) => !matchActive(r)) : [];
   const showDropdown = open && searchable;
 
+  const remoteKey = (r: CitySearchResult) => `${r.name}-${r.countryCode}-${r.region ?? ''}`;
+  type Row = { kind: 'local'; city: City } | { kind: 'remote'; result: CitySearchResult } | { kind: 'manual' };
+  const rows: Row[] = searchable
+    ? [
+        ...localMatches.map((city): Row => ({ kind: 'local', city })),
+        ...remote.map((result): Row => ({ kind: 'remote', result })),
+        { kind: 'manual' },
+      ]
+    : [];
+  const nav = useListNavigation({
+    items: rows,
+    getKey: (row) => (row.kind === 'local' ? `local:${row.city.id}` : row.kind === 'remote' ? `remote:${remoteKey(row.result)}` : 'manual'),
+    onPick: (row) => {
+      if (row.kind === 'local') onSelectActive(row.city);
+      else if (row.kind === 'remote') onSelectOther(row.result);
+      else onManual(query.trim());
+    },
+    onClose: () => setOpen(false),
+  });
+  const rowStyle = (i: number) => [styles.row, nav.active === i && styles.rowActive];
+
   return (
     <View style={styles.wrap}>
       <View style={[styles.inputRow, focused && styles.inputRowFocused]}>
@@ -97,7 +119,12 @@ export function CitySearch({ activeCities, onSelectActive, onSelectOther, onManu
           autoCorrect={false}
           autoFocus={autoFocus}
           returnKeyType="search"
+          onKeyPress={(e) => {
+            if (e.nativeEvent.key === 'ArrowDown' || e.nativeEvent.key === 'ArrowUp') setOpen(true);
+            nav.onKeyPress(e);
+          }}
           onSubmitEditing={() => {
+            if (nav.pickActive()) return;
             const first = localMatches[0];
             if (first) onSelectActive(first);
             else if (remote[0]) onSelectOther(remote[0]);
@@ -115,8 +142,15 @@ export function CitySearch({ activeCities, onSelectActive, onSelectOther, onManu
       </View>
       {showDropdown ? (
         <View style={styles.dropdown}>
-          {localMatches.map((c) => (
-            <Pressable key={c.id} style={styles.row} onPress={() => onSelectActive(c)} accessibilityRole="button">
+          {localMatches.map((c, i) => (
+            <Pressable
+              key={c.id}
+              style={rowStyle(i)}
+              onPress={() => onSelectActive(c)}
+              onHoverIn={() => nav.setActive(i)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: nav.active === i }}
+            >
               <View style={[styles.rowIcon, { backgroundColor: colors.accentSoft }]}>
                 <Icon name="map-pin" size={16} color={colors.accent} />
               </View>
@@ -129,12 +163,14 @@ export function CitySearch({ activeCities, onSelectActive, onSelectOther, onManu
               <Icon name="arrow-right" size={16} color={colors.textFaint} />
             </Pressable>
           ))}
-          {remote.map((r) => (
+          {remote.map((r, j) => (
             <Pressable
-              key={`${r.name}-${r.countryCode}-${r.region ?? ''}`}
-              style={styles.row}
+              key={remoteKey(r)}
+              style={rowStyle(localMatches.length + j)}
               onPress={() => onSelectOther(r)}
+              onHoverIn={() => nav.setActive(localMatches.length + j)}
               accessibilityRole="button"
+              accessibilityState={{ selected: nav.active === localMatches.length + j }}
             >
               <View style={styles.rowIcon}>
                 <Icon name="clock" size={16} color={colors.textMuted} />
@@ -155,7 +191,13 @@ export function CitySearch({ activeCities, onSelectActive, onSelectOther, onManu
               </Text>
             </View>
           ) : null}
-          <Pressable style={[styles.row, styles.manualRow]} onPress={() => onManual(query.trim())} accessibilityRole="button">
+          <Pressable
+            style={[...rowStyle(localMatches.length + remote.length), styles.manualRow]}
+            onPress={() => onManual(query.trim())}
+            onHoverIn={() => nav.setActive(localMatches.length + remote.length)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: nav.active === localMatches.length + remote.length }}
+          >
             <View style={styles.rowIcon}>
               <Icon name="edit-3" size={16} color={colors.textMuted} />
             </View>
@@ -212,6 +254,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
+  },
+  rowActive: {
+    backgroundColor: colors.bgSubtle,
   },
   rowIcon: {
     width: 36,

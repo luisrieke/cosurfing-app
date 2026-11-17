@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { LaptopHoursEditor, type LaptopWeek, WeeklyHoursEditor } from '@/components/hours';
 import { RequireAuth } from '@/components/RequireAuth';
+import { RewardSummary } from '@/components/RewardSummary';
 import { MenuGallery } from '@/components/place/PlaceSections';
 import { Stars } from '@/components/Reviews';
 import { ScoreBadge } from '@/components/ScoreBadge';
@@ -59,9 +60,20 @@ import {
   savePlaceFacts,
   upsertReview,
 } from '@/lib/queries';
+import { POINTS, reviewReward } from '@/lib/points';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
-import type { DayPassValue, FactInput, FactKey, FactValue, PlaceMenu, ReviewInput, WebFacts } from '@/lib/types';
+import {
+  isReviewSource,
+  type DayPassValue,
+  type FactInput,
+  type FactKey,
+  type FactValue,
+  type PlaceMenu,
+  type ReviewInput,
+  type ReviewSource,
+  type WebFacts,
+} from '@/lib/types';
 
 type DetailKey = 'wifi_rating' | 'power_rating' | 'quiet_rating' | 'comfort_rating' | 'value_rating';
 
@@ -83,8 +95,6 @@ const EMPTY: ReviewInput = {
   value_rating: null,
   calls_ok: null,
 };
-
-const POINTS_PER_REVIEW = 10;
 
 /** Facts answered with chips; opening hours and the day pass price are typed. */
 function factChoices(key: FactKey, web: WebFacts): { value: FactValue; label: string }[] {
@@ -230,6 +240,16 @@ function confirmState(draft: FactDraft, f: FactSummary | undefined, web: WebFact
   return sameFactValue(draft, next, f.key) ? 'confirmed' : { next };
 }
 
+function PointsHint({ text }: { text: string }) {
+  return (
+    <View style={styles.pointsHint}>
+      <Text variant="caption" style={styles.pointsHintText}>
+        {text}
+      </Text>
+    </View>
+  );
+}
+
 function CurrentValueRow({ text, state, onConfirm }: { text: string; state: ConfirmState; onConfirm: () => void }) {
   return (
     <View style={styles.currentRow}>
@@ -261,19 +281,47 @@ function CurrentValueRow({ text, state, onConfirm }: { text: string; state: Conf
 }
 
 export default function ReviewRoute() {
-  const { slug, queue: queueParam, of } = useLocalSearchParams<{ slug: string; queue?: string; of?: string }>();
+  const {
+    slug,
+    queue: queueParam,
+    of,
+    rating: ratingParam,
+    src,
+  } = useLocalSearchParams<{ slug: string; queue?: string; of?: string; rating?: string; src?: string }>();
   // Places the visitor picked on the "which places do you know?" screen, still to review after this one.
   const queue = (queueParam ?? '').split(',').filter(Boolean);
   const total = Math.max(queue.length + 1, Number(of) || 0);
-  const search = queue.length > 0 ? `?queue=${encodeURIComponent(queue.join(','))}&of=${total}` : '';
+  const rating = Number(ratingParam);
+  const startRating = Number.isInteger(rating) && rating >= 1 && rating <= 5 ? rating : 0;
+  const source = isReviewSource(src) ? src : queue.length > 0 || total > 1 ? 'quick' : 'form';
+  const params = new URLSearchParams();
+  if (queue.length > 0) {
+    params.set('queue', queue.join(','));
+    params.set('of', String(total));
+  }
+  if (startRating) params.set('rating', String(startRating));
+  if (src) params.set('src', src);
+  const search = params.toString() ? `?${params.toString()}` : '';
   return (
     <RequireAuth title={strings.review.title} message={strings.place.signInToReview} redirect={`/place/${slug}/review${search}`}>
-      <ReviewScreen key={slug} slug={slug!} queue={queue} total={total} />
+      <ReviewScreen key={slug} slug={slug!} queue={queue} total={total} startRating={startRating} source={source} />
     </RequireAuth>
   );
 }
 
-function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; total: number }) {
+function ReviewScreen({
+  slug,
+  queue,
+  total,
+  startRating,
+  source,
+}: {
+  slug: string;
+  queue: string[];
+  total: number;
+  startRating: number;
+  source: ReviewSource;
+}) {
   const router = useRouter();
   const inQueue = total > 1;
   const position = total - queue.length;
@@ -282,10 +330,10 @@ function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; t
     if (!nextSlug) return;
     router.replace({
       pathname: '/place/[slug]/review',
-      params: { slug: nextSlug, queue: queue.slice(1).join(','), of: String(total) },
+      params: { slug: nextSlug, queue: queue.slice(1).join(','), of: String(total), src: source },
     });
   };
-  const { user, refresh, isAdmin, isLocalGuide } = useAuth();
+  const { user, profile, refresh, isAdmin, isLocalGuide } = useAuth();
   const photosGoLive = isAdmin || isLocalGuide;
   const placeQuery = useQuery(`place:${slug}`, () => getPlaceBySlug(slug));
   const place = placeQuery.data ?? null;
@@ -300,6 +348,9 @@ function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; t
     photosSent: number;
     photosFailed: number;
     photoFailReason: string | null;
+    bodyText: string;
+    first: boolean;
+    newFacts: number;
   } | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [photos, setPhotos] = useState<string[]>([]);
@@ -320,6 +371,7 @@ function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; t
   // Prefill from the existing review once it has loaded (state adjustment during render, no effect).
   if (!hydrated && mineQuery.data !== undefined) {
     if (own) setForm({ ...EMPTY, ...own, body: own.body ?? '' });
+    else if (startRating) setForm({ ...EMPTY, rating: startRating });
     setHydrated(true);
   }
   if (!factsHydrated && myFactsQuery.data !== undefined) {
@@ -436,9 +488,14 @@ function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; t
     setBusy(true);
     setError(null);
     try {
-      await upsertReview(user.id, place.id, form);
+      const first = !own && place.review_count === 0;
+      await upsertReview(user.id, place.id, form, source);
       // Only replace the stored facts once we know what they were, so a failed load never wipes them.
       if (factsHydrated) await savePlaceFacts(place.id, factInput);
+      const before = myFactsQuery.data ?? {};
+      const newFacts = factsHydrated
+        ? (Object.keys(factInput) as FactKey[]).filter((k) => factInput[k] !== undefined && before[k] === undefined).length
+        : 0;
       const rightsAcceptedAt = new Date().toISOString();
       let sent = 0;
       let photoFailReason: string | null = null;
@@ -453,8 +510,17 @@ function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; t
           photoFailReason ??= e instanceof Error ? e.message : null;
         }
       }
-      setDone({ isNew: !own, photosSent: sent, photosFailed: photos.length - sent, photoFailReason });
-      void refresh();
+      // The thank-you screen shows the new level, so wait for the fresh points.
+      await refresh().catch(() => undefined);
+      setDone({
+        isNew: !own,
+        photosSent: sent,
+        photosFailed: photos.length - sent,
+        photoFailReason,
+        bodyText: form.body,
+        first,
+        newFacts,
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : strings.common.somethingWentWrong);
     } finally {
@@ -557,6 +623,9 @@ function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; t
 
   if (done) {
     const next = (nextQuery.data ?? []).filter((p) => p.id !== place.id).slice(0, 5);
+    const reward = done.isNew
+      ? reviewReward({ body: done.bodyText, first: done.first, photos: done.photosSent, facts: done.newFacts })
+      : null;
     return (
       <Screen>
         <Head>
@@ -565,16 +634,22 @@ function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; t
         <TopBar title={place.name} onBack={() => router.replace(`/place/${slug}`)} />
         <View style={styles.thanks}>
           <Text variant="title">
-          {photosGoLive ? strings.review.saved : done.isNew ? strings.review.savedPending : strings.review.editPendingNote}
-        </Text>
-          {done.isNew ? (
-            <View style={styles.points}>
-              <Text variant="bodyStrong" tone="inverse">
-                {strings.review.pointsEarned(POINTS_PER_REVIEW)}
-              </Text>
-            </View>
-          ) : null}
+            {photosGoLive ? strings.review.saved : done.isNew ? strings.review.savedPending : strings.review.editPendingNote}
+          </Text>
         </View>
+        {reward ? (
+          <RewardSummary
+            lines={reward.lines}
+            total={reward.total}
+            name={profile?.display_name ?? 'Cosurfer'}
+            avatarPath={profile?.avatar_path ?? null}
+            points={profile?.points ?? reward.total}
+            pending={profile?.points_pending ?? 0}
+            note={done.first && !photosGoLive ? strings.review.rewardPending : null}
+            onContributeMore={nextSlug ? goNext : () => router.push(`/${place.city.slug}/rate?src=quick`)}
+            onProfile={user ? () => router.push(`/u/${user.id}`) : undefined}
+          />
+        ) : null}
         {done.photosSent > 0 ? <Notice tone="success" body={photosGoLive ? strings.photos.thanksLive(done.photosSent) : strings.photos.thanks(done.photosSent)} /> : null}
         {done.photosFailed > 0 ? (
           <Notice
@@ -612,7 +687,7 @@ function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; t
                 {next.map((p) => (
                   <Pressable
                     key={p.id}
-                    onPress={() => router.replace(`/place/${p.slug}/review`)}
+                    onPress={() => router.replace(`/place/${p.slug}/review?src=quick`)}
                     accessibilityRole="button"
                     style={({ pressed }) => [styles.nextItem, pressed && styles.pressed]}
                   >
@@ -678,9 +753,13 @@ function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; t
         <Text variant="title">{place.name}</Text>
         <Text tone="muted">{place.address ?? place.city.name}</Text>
       </View>
+      {!own && place.review_count === 0 ? <Notice tone="success" body={strings.review.pointsHintFirst} /> : null}
 
       <View style={styles.block}>
-        <Text variant="smallStrong">{strings.review.rating}</Text>
+        <View style={styles.labelRow}>
+          <Text variant="smallStrong">{strings.review.rating}</Text>
+          {!own ? <PointsHint text={strings.review.pointsHintRating} /> : null}
+        </View>
         <Text variant="caption" tone="muted">
           {strings.review.ratingHint}
         </Text>
@@ -724,7 +803,10 @@ function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; t
 
       <View style={styles.card}>
         <View style={styles.block}>
-          <Text variant="bodyStrong">{strings.review.facts}</Text>
+          <View style={styles.labelRow}>
+            <Text variant="bodyStrong">{strings.review.facts}</Text>
+            {!own ? <PointsHint text={strings.review.pointsHintFacts} /> : null}
+          </View>
           <Text variant="caption" tone="muted">
             {strings.review.factsHint}
           </Text>
@@ -999,12 +1081,19 @@ function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; t
         multiline
         maxLength={2000}
         error={error}
-        hint={`${form.body.trim().length} / 2000`}
+        hint={
+          own
+            ? `${form.body.trim().length} / 2000`
+            : `${form.body.trim().length} / 2000 · ${strings.review.pointsHintText(form.body.trim().length, POINTS.longTextChars)}`
+        }
       />
 
       <View style={styles.card}>
         <View style={styles.block}>
-          <Text variant="bodyStrong">{`${strings.review.photos} (${strings.common.optional})`}</Text>
+          <View style={styles.labelRow}>
+            <Text variant="bodyStrong">{`${strings.review.photos} (${strings.common.optional})`}</Text>
+            {!own ? <PointsHint text={strings.review.pointsHintPhotos} /> : null}
+          </View>
           <Text variant="caption" tone="muted">
             {strings.review.photosHint}
           </Text>
@@ -1071,6 +1160,21 @@ const styles = StyleSheet.create({
   block: {
     gap: spacing.xs,
   },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  pointsHint: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.warningSoft,
+  },
+  pointsHintText: {
+    color: colors.warning,
+  },
   passGroup: {
     gap: spacing.sm,
     padding: spacing.md,
@@ -1122,12 +1226,6 @@ const styles = StyleSheet.create({
   thanks: {
     gap: spacing.md,
     alignItems: 'flex-start',
-  },
-  points: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-    backgroundColor: colors.accent,
   },
   nextList: {
     borderRadius: radius.lg,

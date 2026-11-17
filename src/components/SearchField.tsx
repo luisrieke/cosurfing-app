@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, TextInput, type TextInputKeyPressEvent, type ViewStyle } from 'react-native';
 
 import { Glass, Icon } from '@/components/ui';
 import { strings } from '@/lib/strings';
@@ -14,6 +14,7 @@ export function SearchField({
   onFocus,
   onBlur,
   onSubmit,
+  onKeyPress,
 }: {
   value: string;
   onChangeText: (v: string) => void;
@@ -23,6 +24,7 @@ export function SearchField({
   onFocus?: () => void;
   onBlur?: () => void;
   onSubmit?: () => void;
+  onKeyPress?: (e: TextInputKeyPressEvent) => void;
 }) {
   const [focused, setFocused] = useState(false);
 
@@ -45,6 +47,7 @@ export function SearchField({
           onBlur?.();
         }}
         onSubmitEditing={onSubmit}
+        onKeyPress={onKeyPress}
         placeholder={placeholder}
         placeholderTextColor={colors.textFaint}
         autoCorrect={false}

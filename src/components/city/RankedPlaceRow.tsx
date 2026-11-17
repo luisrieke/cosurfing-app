@@ -119,7 +119,11 @@ export function RankedPlaceRow({
             </View>
           ))}
         </View>
-        {!(place.review_count > 0 && place.rating_avg !== null) ? (
+        {place.review_count === 0 && place.category !== 'coliving' ? (
+          <Text variant="caption" style={styles.beFirst}>
+            {strings.ranking.beFirst}
+          </Text>
+        ) : !(place.review_count > 0 && place.rating_avg !== null) ? (
           <Text variant="caption" tone="faint">
             {strings.ranking.provisional}
           </Text>
@@ -204,6 +208,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+  },
+  beFirst: {
+    color: colors.warning,
   },
   locked: {
     flexDirection: 'row',

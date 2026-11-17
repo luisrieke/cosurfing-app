@@ -3,11 +3,11 @@ import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { AdminList, AdminRow, AdminShell } from '@/components/admin/AdminShell';
-import { Badge, Notice, Text } from '@/components/ui';
+import { Badge, Card, Notice, Text } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
 import { env } from '@/lib/env';
-import { adminGetCounts } from '@/lib/queries';
+import { adminGetCounts, adminGetReviewMetrics, type ReviewMetrics } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { spacing } from '@/lib/theme';
 
@@ -15,6 +15,7 @@ export default function AdminHome() {
   const router = useRouter();
   const { isAdmin, user } = useAuth();
   const counts = useQuery(`admin-counts:${user?.id}`, adminGetCounts, isAdmin);
+  const metrics = useQuery(`admin-review-metrics:${user?.id}`, () => adminGetReviewMetrics(30), isAdmin);
 
   return (
     <AdminShell title={strings.admin.title} backTo="/account">
@@ -107,6 +108,7 @@ export default function AdminHome() {
         <AdminRow icon="activity" title={strings.admin.speedTests} subtitle="Hide implausible Wi‑Fi speed tests" onPress={() => router.push('/admin/speed-tests')} />
         <AdminRow icon="globe" title={strings.admin.cities} subtitle="Crawl status, re-crawl and city visibility" onPress={() => router.push('/admin/cities')} />
       </AdminList>
+      {metrics.data ? <ReviewMetricsCard metrics={metrics.data} /> : null}
       <View style={styles.footer}>
         <Text variant="caption" tone="faint">
           Signed in as {user?.email}
@@ -116,7 +118,44 @@ export default function AdminHome() {
   );
 }
 
+function ReviewMetricsCard({ metrics }: { metrics: ReviewMetrics }) {
+  const a = strings.admin;
+  return (
+    <Card style={styles.metrics}>
+      <Text variant="bodyStrong">{a.reviewMetrics(metrics.days)}</Text>
+      <Text variant="small">{a.reviewMetricsRepeat(metrics.repeat_reviewers, metrics.reviewers)}</Text>
+      <Text variant="small">{a.reviewMetricsTotal(metrics.reviews)}</Text>
+      {metrics.by_source.map((s) => (
+        <View key={s.source} style={styles.metricRow}>
+          <Text variant="small" tone="muted" style={styles.flex}>
+            {a.reviewSources[s.source] ?? s.source}
+          </Text>
+          <Text variant="smallStrong">{s.count}</Text>
+        </View>
+      ))}
+      <Text variant="small" tone="muted">
+        {a.reviewMetricsOptIn(metrics.nudges_opt_in)}
+      </Text>
+      {metrics.emails.map((e) => (
+        <Text key={e.kind} variant="small" tone="muted">
+          {a.reviewMetricsEmail(a.emailKinds[e.kind] ?? e.kind, e.sent, e.reviews)}
+        </Text>
+      ))}
+    </Card>
+  );
+}
+
 const styles = StyleSheet.create({
+  metrics: {
+    gap: spacing.xs,
+  },
+  metricRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  flex: {
+    flex: 1,
+  },
   footer: {
     paddingTop: spacing.sm,
   },

@@ -463,6 +463,8 @@ export interface PlaceReview {
   status: 'visible' | 'hidden' | 'pending' | 'rejected';
   /** Written in the Early Contributors coffee program; must be labelled as incentivized. */
   coffee_program: boolean;
+  /** The first review that went live on this place. */
+  is_first: boolean;
 }
 
 export interface ReviewUnlockQuota {
@@ -484,6 +486,15 @@ export interface ReviewInput {
   calls_ok: boolean | null;
 }
 
+/** Where a review was started, to see which prompts lead to reviews. */
+export type ReviewSource = 'form' | 'quick' | 'welcome' | 'email_prompt' | 'email_live' | 'venue';
+
+const REVIEW_SOURCES: readonly string[] = ['form', 'quick', 'welcome', 'email_prompt', 'email_live', 'venue'];
+
+export function isReviewSource(value: unknown): value is ReviewSource {
+  return typeof value === 'string' && REVIEW_SOURCES.includes(value);
+}
+
 export interface Profile {
   id: string;
   display_name: string | null;
@@ -499,6 +510,8 @@ export interface Profile {
   city_ids: string[];
   avatar_path: string | null;
   onboarded_at: string | null;
+  /** Opted in to "How was X?" and the monthly impact email. */
+  email_nudges: boolean;
 }
 
 export interface PublicProfile {
@@ -512,6 +525,7 @@ export interface PublicProfile {
   photo_count: number;
   /** Only true for admins, and only when auto-publish was turned off. */
   guide_revoked: boolean;
+  first_review_count: number;
 }
 
 export interface ProfilePlace {
@@ -539,6 +553,7 @@ export interface ProfileReviewRow {
   edit_status: 'pending' | 'rejected' | null;
   is_own: boolean;
   body_locked: boolean;
+  is_first: boolean;
 }
 
 export interface ProfilePhotoRow {

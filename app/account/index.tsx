@@ -14,7 +14,7 @@ import { deleteAccount } from '@/lib/account';
 import { useAuth } from '@/lib/auth';
 import { formatDate } from '@/lib/format';
 import { confirmedPoints, GUIDE_POINTS, levelFor } from '@/lib/levels';
-import { adminGetCounts, getCityById, getFavoritePlaces, getMyReviews, updateDisplayName } from '@/lib/queries';
+import { adminGetCounts, getCityById, getFavoritePlaces, getMyReviews, updateDisplayName, updateProfile } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
 
@@ -49,6 +49,19 @@ function AccountScreen() {
     setSyncedName(profileName);
     setName(profileName ?? '');
   }
+
+  const [nudgesSaving, setNudgesSaving] = useState(false);
+  const nudges = Boolean(profile?.email_nudges);
+  const toggleNudges = async () => {
+    if (!user) return;
+    setNudgesSaving(true);
+    try {
+      await updateProfile(user.id, { email_nudges: !nudges });
+      await refresh();
+    } finally {
+      setNudgesSaving(false);
+    }
+  };
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -228,6 +241,24 @@ function AccountScreen() {
         </View>
       </Section>
 
+      <Section title={strings.account.emails}>
+        <Pressable
+          style={styles.check}
+          onPress={() => void toggleNudges()}
+          disabled={nudgesSaving}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: nudges, disabled: nudgesSaving }}
+        >
+          <Icon name={nudges ? 'check-square' : 'square'} size={20} color={nudges ? colors.accent : colors.textMuted} />
+          <View style={styles.checkText}>
+            <Text variant="bodyStrong">{strings.account.emailNudges}</Text>
+            <Text variant="small" tone="muted">
+              {strings.account.emailNudgesHint}
+            </Text>
+          </View>
+        </Pressable>
+      </Section>
+
       <Section title={strings.account.favorites}>
         {favorites.loading && !favorites.data ? (
           <Skeleton height={56} />
@@ -344,6 +375,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+  },
+  check: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  checkText: {
+    flex: 1,
+    gap: spacing.xs,
   },
   wrap: {
     flexWrap: 'wrap',

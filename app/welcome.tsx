@@ -10,6 +10,7 @@ import { Stars } from '@/components/Reviews';
 import { SearchField } from '@/components/SearchField';
 import { Badge, Button, CategoryBadge, Icon, Input, Notice, Screen, Skeleton, Text } from '@/components/ui';
 import { useDebounced } from '@/hooks/useDebounced';
+import { useListNavigation } from '@/hooks/useListNavigation';
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
 import { deleteAvatar, pickImage, uploadAvatar } from '@/lib/photoUpload';
@@ -46,6 +47,7 @@ function WelcomeScreen() {
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailNudges, setEmailNudges] = useState(profile?.email_nudges ?? false);
   const q = useDebounced(query.trim(), 200);
 
   const savedIds = profile?.city_ids?.length ? profile.city_ids : profile?.home_city_id ? [profile.home_city_id] : [];
@@ -54,6 +56,11 @@ function WelcomeScreen() {
   const selectedCity = cities[0] ?? null;
   const citiesQuery = useQuery(`welcome-cities:${q}`, () => listCities({ q, continent: null, sort: q ? 'population' : 'score', limit: 6, offset: 0 }), q.length >= 2);
   const results = (citiesQuery.data?.items ?? []).filter((c) => !cities.some((s) => s.id === c.id));
+  const addCity = (c: CityListItem) => {
+    setPicked([...cities, { id: c.id, name: c.name, slug: c.slug, country_name: c.country_name }]);
+    setQuery('');
+  };
+  const cityNav = useListNavigation({ items: results, getKey: (c) => c.id, onPick: addCity });
   const placesQuery = useQuery(`welcome-rate:${selectedCity?.id}`, () => getPlacesToRate(selectedCity!.id, 20), step !== 'profile' && Boolean(selectedCity));
 
   const safeRedirect = redirect && redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : null;
@@ -69,6 +76,7 @@ function WelcomeScreen() {
         display_name: name.trim() || null,
         home_city_id: selectedCity?.id ?? null,
         city_ids: cities.map((c) => c.id),
+        email_nudges: emailNudges,
       });
       void refresh();
       if (selectedCity) setStep('rate');
@@ -113,7 +121,7 @@ function WelcomeScreen() {
         comfort_rating: null,
         value_rating: null,
         calls_ok: null,
-      });
+      }, 'welcome');
     } catch {
       setRated((r) => {
         const next = { ...r };
@@ -147,7 +155,7 @@ function WelcomeScreen() {
             comfort_rating: null,
             value_rating: null,
             calls_ok: null,
-          }),
+          }, 'welcome'),
         ),
       );
       await finish();
@@ -260,16 +268,19 @@ function WelcomeScreen() {
                   value={query}
                   onChangeText={setQuery}
                   placeholder={cities.length ? strings.welcome.cityAddPlaceholder : strings.welcome.cityPlaceholder}
+                  onKeyPress={cityNav.onKeyPress}
+                  onSubmit={() => {
+                    if (!cityNav.pickActive() && results[0]) addCity(results[0]);
+                  }}
                 />
-                {results.map((c) => (
+                {results.map((c, i) => (
                   <Pressable
                     key={c.id}
-                    onPress={() => {
-                      setPicked([...cities, { id: c.id, name: c.name, slug: c.slug, country_name: c.country_name }]);
-                      setQuery('');
-                    }}
-                    style={({ pressed }) => [styles.cityOption, pressed && styles.pressed]}
+                    onPress={() => addCity(c)}
+                    onHoverIn={() => cityNav.setActive(i)}
+                    style={({ pressed }) => [styles.cityOption, (pressed || cityNav.active === i) && styles.pressed]}
                     accessibilityRole="button"
+                    accessibilityState={{ selected: cityNav.active === i }}
                   >
                     <Text variant="body">{c.name}</Text>
                     <Text variant="small" tone="muted">
@@ -280,6 +291,17 @@ function WelcomeScreen() {
               </>
             ) : null}
           </View>
+          <Pressable
+            style={styles.check}
+            onPress={() => setEmailNudges(!emailNudges)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: emailNudges }}
+          >
+            <Icon name={emailNudges ? 'check-square' : 'square'} size={20} color={emailNudges ? colors.accent : colors.textMuted} />
+            <Text variant="small" style={styles.flex}>
+              {strings.welcome.emailNudges}
+            </Text>
+          </Pressable>
           <Button title={strings.welcome.continue} size="lg" fullWidth loading={busy} onPress={() => void saveProfile()} />
           <Button title={strings.welcome.rateSkip} variant="ghost" onPress={() => void finish()} />
         </View>
@@ -402,6 +424,11 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   block: {
+    gap: spacing.sm,
+  },
+  check: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: spacing.sm,
   },
   flex: {

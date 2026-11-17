@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ReportButton } from '@/components/ReportButton';
 import { LevelMark, ProfileLink, UserAvatar } from '@/components/UserBadge';
-import { Button, Icon, Text } from '@/components/ui';
+import { Badge, Button, Icon, Text } from '@/components/ui';
 import { formatDate } from '@/lib/format';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
@@ -121,7 +121,12 @@ export function ReviewItem({ review, onUnlock, unlocking }: ReviewItemProps) {
                 guide={review.author_is_guide}
               />
             ) : null}
-            <Stars value={review.rating} size={14} />
+            <View style={styles.starsLine}>
+              <Stars value={review.rating} size={14} />
+              {review.is_first && review.status === 'visible' ? (
+                <Badge label={strings.review.firstBadge} tone="warning" icon="flag" />
+              ) : null}
+            </View>
           </View>
         </ProfileLink>
         <Text variant="caption" tone="faint">
@@ -190,6 +195,12 @@ export function ReviewItem({ review, onUnlock, unlocking }: ReviewItemProps) {
 }
 
 const styles = StyleSheet.create({
+  starsLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
   programLabel: {
     flexDirection: 'row',
     alignItems: 'center',

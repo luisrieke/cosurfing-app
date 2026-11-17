@@ -12,20 +12,22 @@ import { useQuery } from '@/hooks/useQuery';
 import { getCityBySlug, getPlacesToRate } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, layout, radius, spacing } from '@/lib/theme';
+import { isReviewSource, type ReviewSource } from '@/lib/types';
 
 const MAX_PLACES = 100;
 
 export default function RatePlacesRoute() {
-  const { city: slug } = useLocalSearchParams<{ city: string }>();
+  const { city: slug, src } = useLocalSearchParams<{ city: string; src?: string }>();
+  const source = isReviewSource(src) ? src : 'quick';
   return (
-    <RequireAuth title={strings.ratePicker.title} message={strings.place.signInToReview} redirect={`/${slug}/rate`}>
-      <RatePlacesScreen slug={slug!} />
+    <RequireAuth title={strings.ratePicker.title} message={strings.place.signInToReview} redirect={`/${slug}/rate?src=${source}`}>
+      <RatePlacesScreen slug={slug!} source={source} />
     </RequireAuth>
   );
 }
 
 /** Step 1 of rating: the visitor ticks the places they know, then reviews them one after another. */
-function RatePlacesScreen({ slug }: { slug: string }) {
+function RatePlacesScreen({ slug, source }: { slug: string; source: ReviewSource }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
@@ -55,7 +57,7 @@ function RatePlacesScreen({ slug }: { slug: string }) {
     if (!first) return;
     router.push({
       pathname: '/place/[slug]/review',
-      params: { slug: first.slug, queue: rest.map((p) => p.slug).join(','), of: String(picked.length) },
+      params: { slug: first.slug, queue: rest.map((p) => p.slug).join(','), of: String(picked.length), src: source },
     });
   };
 
@@ -122,6 +124,11 @@ function RatePlacesScreen({ slug }: { slug: string }) {
                         </Text>
                       ) : null}
                     </View>
+                    {p.review_count === 0 ? (
+                      <Text variant="caption" style={styles.firstBonus}>
+                        {strings.ratePicker.firstBonus}
+                      </Text>
+                    ) : null}
                   </View>
                 </Pressable>
               );
@@ -235,6 +242,9 @@ const styles = StyleSheet.create({
   },
   shrink: {
     flexShrink: 1,
+  },
+  firstBonus: {
+    color: colors.warning,
   },
   footer: {
     position: 'absolute',

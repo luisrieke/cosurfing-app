@@ -41,6 +41,7 @@ import type {
   RankedPlace,
   RankingFilters,
   ReviewInput,
+  ReviewSource,
   ReviewUnlockQuota,
   SpeedTest,
   SpeedTestKind,
@@ -450,6 +451,11 @@ export async function unlockReview(reviewId: string): Promise<ReviewUnlockQuota>
   return ((data ?? []) as ReviewUnlockQuota[])[0]!;
 }
 
+/** Adds one to the place's anonymous daily view count (shown to reviewers in their monthly email). */
+export async function trackPlaceView(placeId: string): Promise<void> {
+  await requireSupabase().rpc('track_place_view', { p_place_id: placeId });
+}
+
 /** Facts members added to a place; author names stay hidden from visitors without an account. */
 export async function getPlaceFacts(placeId: string): Promise<PlaceFactEntry[]> {
   const { data, error } = await requireSupabase().rpc('get_place_facts', { p_place_id: placeId });
@@ -503,6 +509,7 @@ export async function getPublicProfile(userId: string): Promise<PublicProfile | 
     photo_count: Number(row.photo_count),
     is_guide: Boolean(row.is_guide),
     guide_revoked: Boolean(row.guide_revoked),
+    first_review_count: Number(row.first_review_count ?? 0),
   };
 }
 
@@ -603,7 +610,8 @@ export async function setFavorite(userId: string, placeId: string, on: boolean):
   }
 }
 
-export async function upsertReview(userId: string, placeId: string, input: ReviewInput): Promise<void> {
+/** `source` only sticks on the first save; the database keeps the original on later edits. */
+export async function upsertReview(userId: string, placeId: string, input: ReviewInput, source?: ReviewSource): Promise<void> {
   const body = input.body.trim();
   const { error } = await requireSupabase()
     .from('reviews')
@@ -621,6 +629,7 @@ export async function upsertReview(userId: string, placeId: string, input: Revie
         calls_ok: input.calls_ok,
         rights_accepted_at: new Date().toISOString(),
         terms_version: TERMS_VERSION,
+        source: source ?? null,
       },
       { onConflict: 'place_id,user_id' },
     );
@@ -704,6 +713,7 @@ export async function updateProfile(
     city_ids?: string[];
     avatar_path?: string | null;
     onboarded_at?: string | null;
+    email_nudges?: boolean;
   },
 ): Promise<void> {
   const { error } = await requireSupabase().from('profiles').update(patch).eq('id', userId);
@@ -1046,6 +1056,7 @@ export const OUTREACH_STAGES: OutreachStage[] = ['to_contact', 'emailed', 'repli
 
 export interface OutreachPlace {
   id: string;
+  slug: string;
   name: string;
   address: string | null;
   website: string | null;
@@ -1061,7 +1072,7 @@ export async function adminGetOutreach(): Promise<OutreachPlace[]> {
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await sb
       .from('places')
-      .select('id, name, address, website, city:cities(name), outreach:place_outreach(stage)')
+      .select('id, slug, name, address, website, city:cities(name), outreach:place_outreach(stage)')
       .eq('status', 'published')
       .order('name', { ascending: true })
       .order('id', { ascending: true })
@@ -1356,6 +1367,22 @@ export async function adminGetWaitlistEntries(cityId: string): Promise<WaitlistE
     .order('created_at', { ascending: false });
   throwIf(error);
   return (data ?? []) as WaitlistEntry[];
+}
+
+export interface ReviewMetrics {
+  days: number;
+  reviewers: number;
+  repeat_reviewers: number;
+  reviews: number;
+  nudges_opt_in: number;
+  by_source: { source: string; count: number }[];
+  emails: { kind: string; sent: number; reviews: number }[];
+}
+
+export async function adminGetReviewMetrics(days = 30): Promise<ReviewMetrics> {
+  const { data, error } = await requireSupabase().rpc('admin_review_metrics', { p_days: days });
+  throwIf(error);
+  return data as ReviewMetrics;
 }
 
 export async function adminGetCounts(): Promise<{

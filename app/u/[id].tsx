@@ -147,6 +147,11 @@ function ProfileScreen({ userId }: { userId: string }) {
             <Text variant="title">{person.display_name}</Text>
             <LevelMark points={person.points} pending={person.points_pending} guide={person.is_guide} />
             <Text variant="bodyStrong">{strings.levels.points(person.points)}</Text>
+            {person.first_review_count > 0 ? (
+              <View style={styles.inline}>
+                <Badge label={strings.profile.firstReviews(person.first_review_count)} tone="warning" icon="flag" />
+              </View>
+            ) : null}
             {person.points_pending > 0 ? (
               <Text variant="caption" tone="muted">
                 {strings.levels.underReview(person.points_pending)}
@@ -234,6 +239,7 @@ function ProfileScreen({ userId }: { userId: string }) {
                 </Pressable>
                 <View style={styles.inline}>
                   <Stars value={r.rating} size={14} />
+                  {r.is_first && r.status === 'visible' ? <Badge label={strings.review.firstBadge} tone="warning" icon="flag" /> : null}
                   {own && r.status === 'pending' ? <Badge label={strings.account.underReview} tone="warning" /> : null}
                   {own && r.status === 'rejected' ? <Badge label={strings.account.notAccepted} tone="danger" /> : null}
                   {own && r.edit_status === 'pending' ? <Badge label={strings.account.underReview} tone="warning" /> : null}

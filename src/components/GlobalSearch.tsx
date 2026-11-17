@@ -6,6 +6,7 @@ import { SearchField } from '@/components/SearchField';
 import { categoryIcon, Glass, Icon, Text } from '@/components/ui';
 import { pinColor } from '@/components/map/pinSvg';
 import { useDebounced } from '@/hooks/useDebounced';
+import { useListNavigation } from '@/hooks/useListNavigation';
 import { useQuery } from '@/hooks/useQuery';
 import { isSupabaseConfigured } from '@/lib/env';
 import { listCities, searchPlaces } from '@/lib/queries';
@@ -82,6 +83,13 @@ export function GlobalSearch({ onSelectCity, onSelectPlace, onChangeQuery, place
     reset();
   };
 
+  const nav = useListNavigation({
+    items: rows,
+    getKey: (row) => (row.kind === 'city' ? `city:${row.city.id}` : `place:${row.place.id}`),
+    onPick: pick,
+    onClose: () => setOpen(false),
+  });
+
   return (
     <View style={[styles.wrap, style]}>
       <SearchField
@@ -97,7 +105,12 @@ export function GlobalSearch({ onSelectCity, onSelectPlace, onChangeQuery, place
         onBlur={() => {
           blurTimer.current = setTimeout(() => setOpen(false), 150);
         }}
+        onKeyPress={(e) => {
+          if (e.nativeEvent.key === 'ArrowDown' || e.nativeEvent.key === 'ArrowUp') setOpen(true);
+          nav.onKeyPress(e);
+        }}
         onSubmit={() => {
+          if (nav.pickActive()) return;
           const first = rows[0];
           if (first) pick(first);
         }}
@@ -105,13 +118,15 @@ export function GlobalSearch({ onSelectCity, onSelectPlace, onChangeQuery, place
       {show ? (
         <Glass variant="strong" style={[styles.dropdown, large && styles.dropdownLarge]}>
           {cityRows.length > 0 ? <Text variant="caption" tone="muted" style={styles.group}>{strings.globalSearch.cities}</Text> : null}
-          {cityRows.map((city) => (
+          {cityRows.map((city, i) => (
             <Pressable
               key={city.id}
               onPress={() => pick({ kind: 'city', city })}
+              onHoverIn={() => nav.setActive(i)}
               accessibilityRole="button"
               accessibilityLabel={`${city.name}, ${city.country_name}`}
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+              accessibilityState={{ selected: nav.active === i }}
+              style={({ pressed }) => [styles.row, (pressed || nav.active === i) && styles.pressed]}
             >
               <View style={styles.iconBox}>
                 <Icon name="map-pin" size={16} color={colors.textMuted} />
@@ -127,28 +142,33 @@ export function GlobalSearch({ onSelectCity, onSelectPlace, onChangeQuery, place
             </Pressable>
           ))}
           {placeRows.length > 0 ? <Text variant="caption" tone="muted" style={styles.group}>{strings.globalSearch.places}</Text> : null}
-          {placeRows.map((place) => (
-            <Pressable
-              key={place.id}
-              onPress={() => pick({ kind: 'place', place })}
-              accessibilityRole="button"
-              accessibilityLabel={`${place.name}, ${place.city_name}`}
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-            >
-              <View style={[styles.iconBox, { backgroundColor: `${pinColor(place.category)}22` }]}>
-                <Icon name={categoryIcon(place.category)} size={16} color={pinColor(place.category)} />
-              </View>
-              <View style={styles.rowText}>
-                <Text variant="bodyStrong" numberOfLines={1}>
-                  {place.name}
-                </Text>
-                <Text variant="caption" tone="muted" numberOfLines={1}>
-                  {strings.globalSearch.placeMeta(place.city_name, place.country_name)}
-                </Text>
-              </View>
-              {place.review_count > 0 ? <ScoreBadge score={place.work_score} size="sm" /> : null}
-            </Pressable>
-          ))}
+          {placeRows.map((place, j) => {
+            const i = cityRows.length + j;
+            return (
+              <Pressable
+                key={place.id}
+                onPress={() => pick({ kind: 'place', place })}
+                onHoverIn={() => nav.setActive(i)}
+                accessibilityRole="button"
+                accessibilityLabel={`${place.name}, ${place.city_name}`}
+                accessibilityState={{ selected: nav.active === i }}
+                style={({ pressed }) => [styles.row, (pressed || nav.active === i) && styles.pressed]}
+              >
+                <View style={[styles.iconBox, { backgroundColor: `${pinColor(place.category)}22` }]}>
+                  <Icon name={categoryIcon(place.category)} size={16} color={pinColor(place.category)} />
+                </View>
+                <View style={styles.rowText}>
+                  <Text variant="bodyStrong" numberOfLines={1}>
+                    {place.name}
+                  </Text>
+                  <Text variant="caption" tone="muted" numberOfLines={1}>
+                    {strings.globalSearch.placeMeta(place.city_name, place.country_name)}
+                  </Text>
+                </View>
+                {place.review_count > 0 ? <ScoreBadge score={place.work_score} size="sm" /> : null}
+              </Pressable>
+            );
+          })}
           {rows.length === 0 ? (
             loading ? (
               <View style={styles.status}>

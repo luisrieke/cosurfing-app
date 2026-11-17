@@ -37,6 +37,23 @@ export async function recordPlaceView(): Promise<number> {
   }
 }
 
+const COUNTED_KEY = 'cosurfing.funnel.countedPlaceViews';
+
+/** True once per place and day, so the aggregated view counter counts people rather than reloads. */
+export async function firstPlaceViewToday(placeId: string): Promise<boolean> {
+  const today = new Date().toISOString().slice(0, 10);
+  try {
+    const raw = await AsyncStorage.getItem(COUNTED_KEY);
+    const stored = raw ? (JSON.parse(raw) as { day: string; ids: string[] }) : null;
+    const ids = stored?.day === today ? stored.ids : [];
+    if (ids.includes(placeId)) return false;
+    await AsyncStorage.setItem(COUNTED_KEY, JSON.stringify({ day: today, ids: [...ids, placeId] }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** The interstitial shows once per session at most, and pauses for 3 days after "Maybe later". */
 export async function canShowInterstitial(): Promise<boolean> {
   if (interstitialShownThisSession) return false;
