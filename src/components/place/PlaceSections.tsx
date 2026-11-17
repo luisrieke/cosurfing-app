@@ -926,9 +926,11 @@ export function SpeedTestHistory({
       {tests.map((t, i) => (
         <View key={t.id} style={[styles.testRow, i === tests.length - 1 && styles.factRowLast]}>
           <View style={styles.testMain}>
-            <View style={styles.factLabel}>
-              <Icon name={t.on_site ? 'map-pin' : 'help-circle'} size={14} color={t.on_site ? colors.success : colors.textFaint} />
-              <View>
+            <View style={styles.testWho}>
+              <View style={styles.testWhoIcon}>
+                <Icon name={t.on_site ? 'map-pin' : 'help-circle'} size={14} color={t.on_site ? colors.success : colors.textFaint} />
+              </View>
+              <View style={styles.testWhoText}>
                 <Text variant="small">
                   {t.author_name ?? 'Cosurfer'}
                   {t.is_own ? ' (you)' : ''}
@@ -939,14 +941,20 @@ export function SpeedTestHistory({
                 </Text>
               </View>
             </View>
-            <View style={styles.factValue}>
-              <Text variant="smallStrong" align="right">
+            <View style={styles.testMetrics}>
+              <Text variant="smallStrong" align="right" numberOfLines={1} style={styles.testMetric}>
                 ↓ {formatMbps(Number(t.download_mbps))}
               </Text>
-              <Text variant="caption" tone="muted" align="right">
-                {t.upload_mbps !== null ? `↑ ${formatMbps(Number(t.upload_mbps))}` : ''}
-                {t.ping_ms !== null ? ` · ${t.ping_ms} ms` : ''}
-              </Text>
+              {t.upload_mbps !== null ? (
+                <Text variant="caption" tone="muted" align="right" numberOfLines={1} style={styles.testMetric}>
+                  ↑ {formatMbps(Number(t.upload_mbps))}
+                </Text>
+              ) : null}
+              {t.ping_ms !== null ? (
+                <Text variant="caption" tone="muted" align="right" numberOfLines={1} style={styles.testMetric}>
+                  {t.ping_ms} ms
+                </Text>
+              ) : null}
             </View>
             {onDelete && canDelete?.(t) ? (
               <Pressable
@@ -954,6 +962,7 @@ export function SpeedTestHistory({
                 accessibilityRole="button"
                 accessibilityLabel={strings.place.deleteSpeedTest}
                 hitSlop={8}
+                style={styles.testDelete}
               >
                 <Icon name="trash-2" size={15} color={colors.textMuted} />
               </Pressable>
@@ -1085,8 +1094,32 @@ const styles = StyleSheet.create({
   testMain: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: spacing.md,
+  },
+  testWho: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  testWhoIcon: {
+    marginTop: 3,
+  },
+  testWhoText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  testMetrics: {
+    flexShrink: 0,
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  testMetric: {
+    flexShrink: 0,
+  },
+  testDelete: {
+    flexShrink: 0,
   },
   testNote: {
     flexDirection: 'row',

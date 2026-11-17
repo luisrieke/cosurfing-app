@@ -1116,6 +1116,45 @@ export async function adminSetTaskStatus(id: string, status: AdminTask['status']
   throwIf(error);
 }
 
+export type PlaceChangeKind = 'review' | 'fact' | 'photo' | 'menu' | 'hours' | 'offer' | 'suggestion';
+
+export interface PlaceChangeTask {
+  id: string;
+  place_id: string;
+  place_name: string;
+  place_slug: string;
+  place_website: string | null;
+  city_name: string | null;
+  user_id: string;
+  author_name: string;
+  author_avatar_path: string | null;
+  author_email: string | null;
+  status: 'open' | 'done';
+  kind_counts: Partial<Record<PlaceChangeKind, number>>;
+  fact_keys: string[];
+  thanked_at: string | null;
+  reached_out_at: string | null;
+  created_at: string;
+  last_change_at: string;
+  completed_at: string | null;
+  previous_count: number;
+  previous_reached_out_at: string | null;
+}
+
+export async function adminGetPlaceChangeTasks(): Promise<PlaceChangeTask[]> {
+  const { data, error } = await requireSupabase().rpc('admin_get_place_change_tasks');
+  throwIf(error);
+  return (data ?? []) as PlaceChangeTask[];
+}
+
+export async function adminUpdatePlaceChangeTask(
+  id: string,
+  patch: Partial<Pick<PlaceChangeTask, 'status' | 'thanked_at' | 'reached_out_at'>>,
+): Promise<void> {
+  const { error } = await requireSupabase().from('place_change_tasks').update(patch).eq('id', id);
+  throwIf(error);
+}
+
 export async function adminMarkTaskCopied(id: string, copiedAt: string): Promise<void> {
   const { error } = await requireSupabase().from('admin_tasks').update({ copied_at: copiedAt }).eq('id', id);
   throwIf(error);
@@ -1329,9 +1368,10 @@ export async function adminGetCounts(): Promise<{
   contributions: number;
   outreachOpen: number;
   openTasks: number;
+  openChanges: number;
 }> {
   const sb = requireSupabase();
-  const [s, r, cr, d, v, p, cc, c, pub, done, t] = await Promise.all([
+  const [s, r, cr, d, v, p, cc, c, pub, done, t, ch] = await Promise.all([
     sb.from('place_suggestions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     sb.from('place_reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
     sb.from('content_reports').select('id', { count: 'exact', head: true }).eq('status', 'open'),
@@ -1343,8 +1383,9 @@ export async function adminGetCounts(): Promise<{
     sb.from('places').select('id', { count: 'exact', head: true }).eq('status', 'published'),
     sb.from('place_outreach').select('place_id, place:places!inner(status)', { count: 'exact', head: true }).eq('stage', 'confirmed').eq('place.status', 'published'),
     sb.from('admin_tasks').select('id', { count: 'exact', head: true }).eq('status', 'open'),
+    sb.from('place_change_tasks').select('id', { count: 'exact', head: true }).eq('status', 'open'),
   ]);
-  for (const res of [s, r, cr, d, v, p, cc, pub, done, t]) throwIf(res.error);
+  for (const res of [s, r, cr, d, v, p, cc, pub, done, t, ch]) throwIf(res.error);
   throwIf(c.error);
   return {
     suggestions: s.count ?? 0,
@@ -1356,5 +1397,6 @@ export async function adminGetCounts(): Promise<{
     contributions: Number(c.data ?? 0),
     outreachOpen: Math.max(0, (pub.count ?? 0) - (done.count ?? 0)),
     openTasks: t.count ?? 0,
+    openChanges: ch.count ?? 0,
   };
 }

@@ -62,6 +62,13 @@ export default function AdminHome() {
           onPress={() => router.push('/admin/tasks')}
         />
         <AdminRow
+          icon="heart"
+          title={strings.admin.changes}
+          subtitle={strings.admin.changesRow}
+          meta={counts.data && counts.data.openChanges > 0 ? <Badge label={strings.admin.changesOpen(counts.data.openChanges)} tone="accent" /> : null}
+          onPress={() => router.push('/admin/changes')}
+        />
+        <AdminRow
           icon="image"
           title={strings.admin.photos}
           subtitle="Approve photos uploaded by users"
