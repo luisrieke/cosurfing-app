@@ -22,6 +22,7 @@ import {
   TopBar,
 } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
+import { useSlowConnection } from '@/hooks/useSlowConnection';
 import { useAuth } from '@/lib/auth';
 import { formatDate } from '@/lib/format';
 import { signUpHref } from '@/lib/funnel';
@@ -34,7 +35,7 @@ import {
   setGuideRevoked,
   unlockReview,
 } from '@/lib/queries';
-import { previewUrl } from '@/lib/storage';
+import { previewUrl, signedPhotoUrls } from '@/lib/storage';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
 import type { PlaceCategory } from '@/lib/types';
@@ -52,6 +53,15 @@ function ProfileScreen({ userId }: { userId: string }) {
   const places = useQuery(`profile-places:${userId}:${user?.id ?? ''}`, () => getProfilePlaces(userId), Boolean(userId));
   const reviews = useQuery(`profile-reviews:${userId}:${user?.id ?? ''}`, () => getProfileReviews(userId), Boolean(userId));
   const photos = useQuery(`profile-photos:${userId}:${user?.id ?? ''}`, () => getProfilePhotos(userId), Boolean(userId));
+  const photoRows = photos.data ?? [];
+  const slow = useSlowConnection();
+  // Public previews are 24px placeholders. Full files live in a private bucket, so the grid
+  // signs them after the blur is on screen and skips them on a slow connection.
+  const fullPhotos = useQuery(
+    `profile-photo-full:${userId}:${user?.id ?? ''}:${photoRows.map((p) => p.id).join(',')}`,
+    () => signedPhotoUrls(photoRows.map((p) => p.full_path)),
+    photoRows.length > 0 && !slow,
+  );
   const mapRef = useRef<MapHandle>(null);
   const [revoking, setRevoking] = useState(false);
   const [unlocking, setUnlocking] = useState<string | null>(null);
@@ -279,19 +289,34 @@ function ProfileScreen({ userId }: { userId: string }) {
           <Text tone="muted">{strings.profile.emptyPhotos}</Text>
         ) : (
           <View style={styles.photos}>
-            {(photos.data ?? []).map((p) => (
-              <Pressable key={p.id} style={styles.photo} onPress={() => router.push(`/place/${p.place_slug}`)} accessibilityRole="link">
-                <Image source={{ uri: previewUrl(p.preview_path) }} style={styles.photoImage} contentFit="cover" />
-                <Text variant="caption" numberOfLines={1}>
-                  {p.place_name}
-                </Text>
-                {own && p.status === 'pending' ? (
-                  <Text variant="caption" tone="muted">
-                    {strings.account.underReview}
+            {(photos.data ?? []).map((p) => {
+              const fullUrl = fullPhotos.data?.get(p.full_path) ?? null;
+              return (
+                <Pressable key={p.id} style={styles.photo} onPress={() => router.push(`/place/${p.place_slug}`)} accessibilityRole="link">
+                  <View style={styles.photoImage}>
+                    <Image source={{ uri: previewUrl(p.preview_path) }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={8} />
+                    {fullUrl ? (
+                      <Image
+                        source={{ uri: fullUrl }}
+                        style={StyleSheet.absoluteFill}
+                        contentFit="cover"
+                        transition={200}
+                        loading="lazy"
+                        recyclingKey={p.id}
+                      />
+                    ) : null}
+                  </View>
+                  <Text variant="caption" numberOfLines={1}>
+                    {p.place_name}
                   </Text>
-                ) : null}
-              </Pressable>
-            ))}
+                  {own && p.status === 'pending' ? (
+                    <Text variant="caption" tone="muted">
+                      {strings.account.underReview}
+                    </Text>
+                  ) : null}
+                </Pressable>
+              );
+            })}
           </View>
         )}
       </Section>
@@ -375,6 +400,7 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 4 / 3,
     borderRadius: radius.md,
+    overflow: 'hidden',
     backgroundColor: colors.bgMuted,
   },
   selfStart: {
