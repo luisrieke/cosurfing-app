@@ -6,6 +6,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { clusterCities, type MapCluster, type MapHandle, type MapViewport, PlacesMap } from '@/components/map';
+import { GlobalSearch } from '@/components/GlobalSearch';
 import { HoursStatusLine } from '@/components/hours';
 import { pinColor } from '@/components/map/pinSvg';
 import { ScoreBadge } from '@/components/ScoreBadge';
@@ -21,10 +22,10 @@ import { useAuth } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/env';
 import { distanceKm, formatDistance } from '@/lib/geo';
 import { localWeekMinute, matchesTimeFilter } from '@/lib/hours';
-import { getMapCities, getMyReviewedPlaces, getPlaceCover, getPlacesInBounds } from '@/lib/queries';
+import { getCityBySlug, getMapCities, getMyReviewedPlaces, getPlaceCover, getPlacesInBounds } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
-import type { LatLng, MapPlace, PlaceCategory } from '@/lib/types';
+import type { CityListItem, LatLng, MapPlace, PlaceCategory, PlaceSearchResult } from '@/lib/types';
 
 const CATEGORIES: PlaceCategory[] = ['coworking', 'cafe', 'library', 'coliving'];
 
@@ -32,6 +33,9 @@ const CATEGORIES: PlaceCategory[] = ['coworking', 'cafe', 'library', 'coliving']
 const MIN_ZOOM = 9;
 const LIMIT = 300;
 const NEAR_ME_ZOOM = 14;
+const PLACE_ZOOM = 16;
+/** A picked place lands this many pixels below the center: the search and filters on top cover more than the sheet below. */
+const PLACE_OFFSET = -100;
 const DEFAULT_VIEW = { center: { lat: 48.5, lng: 10 }, zoom: 4 };
 
 function parseNumber(value: string | undefined): number | null {
@@ -186,6 +190,33 @@ export default function HomeScreen() {
   const areaCity = selected?.city ?? mostCommonCity(visible);
   const suggestTarget: SuggestTarget = { city: areaCity?.slug };
 
+  const openCity = async (c: CityListItem) => {
+    setSelectedId(null);
+    const known = cities.data?.find((m) => m.slug === c.slug);
+    const city = known ?? (await getCityBySlug(c.slug).catch(() => null));
+    if (!city) {
+      router.push(`/${c.slug}`);
+      return;
+    }
+    // Never stay zoomed out: the places only load from MIN_ZOOM on.
+    mapRef.current?.flyTo({ lat: city.lat, lng: city.lng }, Math.max(city.zoom || 12, MIN_ZOOM + 1));
+  };
+
+  const openPlace = (p: PlaceSearchResult) => {
+    // Show the place even if a filter or a hidden type would have kept it off the map.
+    setHidden((prev) => {
+      if (!prev.has(p.category)) return prev;
+      const next = new Set(prev);
+      next.delete(p.category);
+      return next;
+    });
+    setReviewed(false);
+    setOpenNow(false);
+    setWorkNow(false);
+    setSelectedId(p.id);
+    mapRef.current?.flyTo({ lat: p.lat, lng: p.lng }, PLACE_ZOOM, PLACE_OFFSET);
+  };
+
   const requestLocation = location.request;
   const locate = async () => {
     const here = await requestLocation();
@@ -242,6 +273,9 @@ export default function HomeScreen() {
 
       <View pointerEvents="box-none" style={styles.overlayTop}>
         <SiteHeaderSpacer />
+        <View pointerEvents="box-none" style={styles.searchRow}>
+          <GlobalSearch onSelectCity={(c) => void openCity(c)} onSelectPlace={openPlace} />
+        </View>
         <View pointerEvents="box-none" style={styles.topRow}>
           <Glass variant="strong" style={styles.status}>
             {loading ? <ActivityIndicator size="small" color={colors.accent} /> : <Icon name="map" size={14} color={colors.textMuted} />}
@@ -386,12 +420,20 @@ const styles = StyleSheet.create({
   },
   overlayTop: {
     position: 'absolute',
+    // Above the bottom sheet, so the search results can drop over it.
+    zIndex: 2,
     top: 0,
     left: 0,
     right: 0,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
     alignItems: 'center',
+  },
+  searchRow: {
+    width: '100%',
+    maxWidth: 720,
+    // Above the status row and filters below it, so the results cover them.
+    zIndex: 10,
   },
   topRow: {
     width: '100%',

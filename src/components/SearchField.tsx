@@ -11,12 +11,18 @@ export function SearchField({
   placeholder,
   large,
   style,
+  onFocus,
+  onBlur,
+  onSubmit,
 }: {
   value: string;
   onChangeText: (v: string) => void;
   placeholder: string;
   large?: boolean;
   style?: ViewStyle;
+  onFocus?: () => void;
+  onBlur?: () => void;
+  onSubmit?: () => void;
 }) {
   const [focused, setFocused] = useState(false);
 
@@ -30,8 +36,15 @@ export function SearchField({
       <TextInput
         value={value}
         onChangeText={onChangeText}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
+        onFocus={() => {
+          setFocused(true);
+          onFocus?.();
+        }}
+        onBlur={() => {
+          setFocused(false);
+          onBlur?.();
+        }}
+        onSubmitEditing={onSubmit}
         placeholder={placeholder}
         placeholderTextColor={colors.textFaint}
         autoCorrect={false}

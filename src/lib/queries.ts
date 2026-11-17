@@ -28,6 +28,7 @@ import type {
   PlaceRatingStats,
   PlaceReport,
   PlaceReview,
+  PlaceSearchResult,
   PlaceSuggestion,
   PlaceToRate,
   PlaceWifiNote,
@@ -272,6 +273,15 @@ export async function getPlaceBySlug(slug: string): Promise<(Place & { city: Cit
     .maybeSingle();
   throwIf(error);
   return (data as (Place & { city: City }) | null) ?? null;
+}
+
+/** Published places anywhere whose name, city or address matches every word of the query. */
+export async function searchPlaces(q: string, limit = 8): Promise<PlaceSearchResult[]> {
+  const term = q.trim();
+  if (term.length < 2) return [];
+  const { data, error } = await requireSupabase().rpc('search_places', { p_q: term, p_limit: limit });
+  throwIf(error);
+  return ((data ?? []) as PlaceSearchResult[]).map((p) => ({ ...p, work_score: Number(p.work_score) }));
 }
 
 /** Every live city that has places, for the zoomed-out map overview (paged: the API caps rows at 1,000). */

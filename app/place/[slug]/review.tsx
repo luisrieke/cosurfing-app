@@ -765,10 +765,10 @@ function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; t
             const currency = dayPassCurrency(web);
             const field = PASS_DRAFT_FIELD[key];
             return (
-              <View key={key} style={styles.block}>
+              <View key={key} style={styles.passGroup}>
+                <Text variant="bodyStrong">{`${label} (${currency})`}</Text>
                 {key === 'day_pass' ? (
                   <>
-                    <Text variant="small">{`${label} (${currency})`}</Text>
                     <View style={styles.chips}>
                       <Chip
                         label={strings.review.dayPassFree}
@@ -783,7 +783,6 @@ function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; t
                 ) : null}
                 {key === 'day_pass' && facts.dayFree ? null : (
                   <Input
-                    label={key === 'day_pass' ? undefined : `${label} (${currency})`}
                     value={facts[field]}
                     onChangeText={(v) => setFacts((f) => ({ ...f, [field]: v }))}
                     placeholder={strings.review.dayPassPlaceholder(currency)}
@@ -792,13 +791,15 @@ function ReviewScreen({ slug, queue, total }: { slug: string; queue: string[]; t
                     error={factError?.key === key ? factError.message : null}
                   />
                 )}
-                <Input
-                  label={strings.review.passNote}
-                  value={facts[PASS_NOTE_FIELD[key]]}
-                  onChangeText={(v) => setFacts((f) => ({ ...f, [PASS_NOTE_FIELD[key]]: v }))}
-                  placeholder={strings.review.passNotePlaceholder}
-                  maxLength={200}
-                />
+                <View style={styles.passNote}>
+                  <Input
+                    label={strings.review.passNote}
+                    value={facts[PASS_NOTE_FIELD[key]]}
+                    onChangeText={(v) => setFacts((f) => ({ ...f, [PASS_NOTE_FIELD[key]]: v }))}
+                    placeholder={strings.review.passNotePlaceholder}
+                    maxLength={200}
+                  />
+                </View>
                 {currentRow}
               </View>
             );
@@ -1069,6 +1070,20 @@ const styles = StyleSheet.create({
   },
   block: {
     gap: spacing.xs,
+  },
+  passGroup: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  passNote: {
+    marginLeft: spacing.xs,
+    paddingLeft: spacing.md,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.accent,
   },
   starsRow: {
     flexDirection: 'row',

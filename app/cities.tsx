@@ -13,7 +13,7 @@ import {
 import { AdSlot } from '@/components/AdSlot';
 import { CityCard } from '@/components/CityCard';
 import { CitySearch } from '@/components/CitySearch';
-import { SearchField } from '@/components/SearchField';
+import { GlobalSearch } from '@/components/GlobalSearch';
 import { SignupBanner } from '@/components/SignupBanner';
 import { SignupGate } from '@/components/SignupGate';
 import { SiteFooter } from '@/components/SiteFooter';
@@ -106,10 +106,10 @@ export default function CitiesScreen() {
             <Text tone="muted" align={isDesktop ? 'center' : 'left'} style={isDesktop ? styles.heroSubtitle : undefined}>
               {strings.home.subtitle}
             </Text>
-            <SearchField
-              value={query}
-              onChangeText={setQuery}
-              placeholder={strings.home.searchPlaceholder}
+            <GlobalSearch
+              onChangeQuery={setQuery}
+              onSelectCity={(c) => router.push(`/${c.slug}`)}
+              onSelectPlace={(p) => router.push(`/place/${p.slug}`)}
               large
               style={isDesktop ? styles.heroSearch : undefined}
             />
@@ -265,6 +265,8 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   hero: {
+    // Above the filters below it, so the search results drop over them.
+    zIndex: 10,
     gap: spacing.md,
     paddingTop: spacing.xl,
     paddingBottom: spacing.sm,

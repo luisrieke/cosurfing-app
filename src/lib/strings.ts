@@ -479,6 +479,15 @@ export const strings = {
     queueSkip: 'Skip this place',
     queueFinished: 'You rated all the places you picked. Thank you!',
   },
+  globalSearch: {
+    placeholder: 'Search a city or a place…',
+    cities: 'Cities',
+    places: 'Places',
+    noMatch: 'No city or place matches your search.',
+    cityMeta: (country: string, places: number) =>
+      places > 0 ? `${country} · ${places.toLocaleString('en-US')} ${places === 1 ? 'place' : 'places'}` : country,
+    placeMeta: (city: string, country: string) => `${city}, ${country}`,
+  },
   ratePicker: {
     title: 'Rate places',
     heading: (city: string) => `Which places in ${city} do you know?`,

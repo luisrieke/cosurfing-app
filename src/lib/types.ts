@@ -680,6 +680,22 @@ export interface MapPlace {
   laptop_source: LaptopSource | null;
 }
 
+/** Row of `search_places`. */
+export interface PlaceSearchResult {
+  id: string;
+  slug: string;
+  name: string;
+  category: PlaceCategory;
+  address: string | null;
+  lat: number;
+  lng: number;
+  work_score: number;
+  review_count: number;
+  city_slug: string;
+  city_name: string;
+  country_name: string;
+}
+
 export interface CitySearchResult {
   name: string;
   countryCode: string;
