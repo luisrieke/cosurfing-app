@@ -45,6 +45,28 @@
   "checked_on": "2026-11-06"
  },
  {
+  "name": "Debed Life",
+  "website": "https://debed.life/",
+  "country_code": "AM",
+  "town": "Debet",
+  "region": "Lori",
+  "address": "Debet, Armenia",
+  "lat": 40.917536,
+  "lng": 44.647722,
+  "coords_precision": "town",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Co-living guesthouse and artisan restaurant in the Debed canyon in northern Armenia, also hosting workshops and retreats.",
+  "sources": [
+   "https://debed.life/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
   "name": "Nomadico Buenos Aires - Marianela's Home",
   "website": "https://www.nomadico.io/coliving-buenos-aires",
   "country_code": "AR",
@@ -65,6 +87,28 @@
   ],
   "confidence": "medium",
   "checked_on": "2026-11-06"
+ },
+ {
+  "name": "CoDreamers Callao House",
+  "website": "https://codreamers.com.ar/",
+  "country_code": "AR",
+  "town": "Buenos Aires",
+  "region": "Buenos Aires",
+  "address": "Av. Callao 384, C1022AAQ Cdad. Autónoma de Buenos Aires, Argentina",
+  "lat": -34.604662,
+  "lng": -58.392495,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Coliving house on Avenida Callao with about ten private rooms for people staying in Buenos Aires for a few months; the operator also rents furnished apartments.",
+  "sources": [
+   "https://codreamers.com.ar/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
  },
  {
   "name": "Wienerhof CoSpace",
@@ -110,6 +154,28 @@
   ],
   "confidence": "medium",
   "checked_on": "2026-11-06"
+ },
+ {
+  "name": "The Campus Alps",
+  "website": "https://thecampusalps.com/",
+  "country_code": "AT",
+  "town": "Hieflau",
+  "region": "Styria",
+  "address": "Waag 5, 8920 Hieflau, Austria",
+  "lat": 47.602022,
+  "lng": 14.743802,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Workation campus in the Austrian Alps with wooden tiny homes for one or two people and a shared work base, mostly booked for team retreats and offsites.",
+  "sources": [
+   "https://thecampusalps.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
  },
  {
   "name": "Cohabs Botanique 58",
@@ -630,6 +696,50 @@
   "checked_on": "2026-11-06"
  },
  {
+  "name": "Nômades Riverside",
+  "website": "https://hotels.cloudbeds.com/reservas/Xh49jp",
+  "country_code": "BR",
+  "town": "Florianópolis",
+  "region": "Santa Catarina",
+  "address": "R. Laurindo José de Souza, 1100 - Barra da Lagoa, Florianópolis - SC, 88061-400, Brazil",
+  "lat": -27.581861,
+  "lng": -48.430252,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Hostel and coworking on the canal in Barra da Lagoa, Florianópolis, aimed at travellers and remote workers who want a quieter, focused stay near the beach.",
+  "sources": [
+   "https://hotels.cloudbeds.com/reservas/Xh49jp"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Urbano Coliving",
+  "website": "http://www.sejaurbano.com.br/",
+  "country_code": "BR",
+  "town": "Alagoinhas",
+  "region": "Bahia",
+  "address": "Av. Juracy Magalhães, 46 - Centro, Alagoinhas - BA, 48000-061, Brazil",
+  "lat": -12.141048,
+  "lng": -38.422331,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "yes",
+  "non_guest_note": "Desks and rooms rented by the hour, day or month",
+  "min_stay": null,
+  "description": "Coworking and coliving in one building in central Alagoinhas, with desks and private rooms by the hour or month and furnished suites with bills included.",
+  "sources": [
+   "http://www.sejaurbano.com.br/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
   "name": "Nomad Coliving NOCO Montréal",
   "website": "https://www.nomadcoliving.com/montreal",
   "country_code": "CA",
@@ -1011,6 +1121,50 @@
   "checked_on": "2026-11-06"
  },
  {
+  "name": "Plura Coliving",
+  "website": "http://www.plura.co/",
+  "country_code": "CO",
+  "town": "Bogotá",
+  "region": "Bogotá D.C.",
+  "address": "Cra. 20a #74 55, Bogotá, Colombia",
+  "lat": 4.662769,
+  "lng": -74.0619,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Bogotá coliving operator with around ten furnished houses in neighbourhoods such as San Felipe, El Nogal, Santa Bárbara and Rosales; private rooms with shared living spaces.",
+  "sources": [
+   "http://www.plura.co/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Aldea Sabatinga",
+  "website": "https://aldeasabatinga.com/",
+  "country_code": "CO",
+  "town": "Manizales",
+  "region": "Caldas",
+  "address": "Manizales, LA ROSALBA, Manizales, Caldas, Colombia",
+  "lat": 5.057811,
+  "lng": -75.570308,
+  "coords_precision": "town",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Rural coliving retreat in the coffee region near Manizales with private rooms and spaces to live and work surrounded by the Andes.",
+  "sources": [
+   "https://aldeasabatinga.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
   "name": "Cocoon Co-Live Nosara",
   "website": "https://cocoon-co.live/nosara",
   "country_code": "CR",
@@ -1145,6 +1299,72 @@
   ],
   "confidence": "high",
   "checked_on": "2026-11-06"
+ },
+ {
+  "name": "Unity Co-Living",
+  "website": "https://www.unitycoliving.com/",
+  "country_code": "CR",
+  "town": "San José",
+  "region": "San José",
+  "address": "Av. 10, San José, San Pedro, La Granja, Costa Rica",
+  "lat": 9.92973,
+  "lng": -84.04924,
+  "coords_precision": "street",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Community coliving house in San Pedro, San José, focused on personal growth and conscious communal living.",
+  "sources": [
+   "https://www.unitycoliving.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Stolas Coliving",
+  "website": "https://stolascr.com/",
+  "country_code": "CR",
+  "town": "San José",
+  "region": "San José",
+  "address": "Av 2 y 8, San José, San Pedro, Los Yoses, 11501, Costa Rica",
+  "lat": 9.931151,
+  "lng": -84.060808,
+  "coords_precision": "street",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Coliving houses in Los Yoses and San Pedro, San José, with monthly room rates and organised trips around Costa Rica.",
+  "sources": [
+   "https://stolascr.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Resonance",
+  "website": "https://resonancecr.com/",
+  "country_code": "CR",
+  "town": "Playa Hermosa",
+  "region": "Puntarenas",
+  "address": "Playa Hermosa, Provincia de Puntarenas, Quebrada Amarilla, Costa Rica",
+  "lat": 9.585318,
+  "lng": -84.546491,
+  "coords_precision": "town",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Co-creating community at Playa Hermosa near Jacó with coliving and coworking, retreats and events for nomads and entrepreneurs.",
+  "sources": [
+   "https://resonancecr.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
  },
  {
   "name": "Coliving Cyprus – Leda Beach Villa",
@@ -1327,6 +1547,28 @@
   "checked_on": "2026-11-06"
  },
  {
+  "name": "Nest Copenhagen",
+  "website": "https://www.nestcopenhagen.dk/",
+  "country_code": "DK",
+  "town": "Copenhagen",
+  "region": "Capital Region",
+  "address": "Reventlowsgade 10, 1651 København, Denmark",
+  "lat": 55.672942,
+  "lng": 12.562943,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Resident-run coliving for 21 people across four flats in Vesterbro; applications open only when rooms free up.",
+  "sources": [
+   "https://www.nestcopenhagen.dk/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
   "name": "Casa del Sol Montañita",
   "website": "https://casadelsolmontanita.com/",
   "country_code": "EC",
@@ -1348,6 +1590,28 @@
   ],
   "confidence": "medium",
   "checked_on": "2026-11-06"
+ },
+ {
+  "name": "Punta La Barca",
+  "website": "https://puntalabarca.com/",
+  "country_code": "EC",
+  "town": "Santa Marianita",
+  "region": "Manabí",
+  "address": "Barrio Punta La Barca, parroquia Santa Marianita (Boca de, Pacoche, Manta 130852, Ecuador",
+  "lat": -0.991187,
+  "lng": -80.850457,
+  "coords_precision": "town",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Intercultural coliving community on the Ecuadorian coast near Manta, close to kitesurf and surf spots and nature reserves.",
+  "sources": [
+   "https://puntalabarca.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
  },
  {
   "name": "redNERD Coliving Hurghada",
@@ -2189,6 +2453,468 @@
   ],
   "confidence": "high",
   "checked_on": "2026-11-06"
+ },
+ {
+  "name": "Enter Coliving",
+  "website": "https://entercoliving.com/",
+  "country_code": "ES",
+  "town": "Barcelona",
+  "region": "Catalonia",
+  "address": "Carrer del Poeta Cabanyes, 14, Sants-Montjuïc, 08004 Barcelona, Spain",
+  "lat": 41.374286,
+  "lng": 2.165426,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": "1 month",
+  "description": "Barcelona coliving operator with furnished rooms in shared flats across several districts, rented monthly with a fixed utilities fee; it also runs houses in Valencia.",
+  "sources": [
+   "https://entercoliving.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Live It Chamberí",
+  "website": "https://www.smartrental.com/es/live-it/madrid/chamberi/",
+  "country_code": "ES",
+  "town": "Madrid",
+  "region": "Community of Madrid",
+  "address": "C. de Luchana, 38, Chamberí, 28010 Madrid, Spain",
+  "lat": 40.431843,
+  "lng": -3.698104,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Coliving building in Madrid's Chamberí district run by Smartrental, with furnished private rooms and shared spaces for medium and long stays.",
+  "sources": [
+   "https://www.smartrental.com/es/live-it/madrid/chamberi/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Live It Ramblas",
+  "website": "https://www.smartrental.com/es/live-it/barcelona/ramblas/",
+  "country_code": "ES",
+  "town": "Barcelona",
+  "region": "Catalonia",
+  "address": "Carrer de la Unió, 7, Ciutat Vella, 08001 Barcelona, Spain",
+  "lat": 41.379772,
+  "lng": 2.173814,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Coliving building just off La Rambla in Barcelona's old town, run by Smartrental, with furnished rooms rented for medium and long stays.",
+  "sources": [
+   "https://www.smartrental.com/es/live-it/barcelona/ramblas/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "The Tree House Hostel",
+  "website": "https://thetreehousehostel.com/",
+  "country_code": "ES",
+  "town": "El Médano",
+  "region": "Canary Islands (Tenerife)",
+  "address": "C. La Jaquita, S/N, 38612, Santa Cruz de Tenerife, Spain",
+  "lat": 28.064797,
+  "lng": -16.529977,
+  "coords_precision": "street",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Social hostel in the south of Tenerife with a coworking space, Starlink internet, a pool and daily activities, plus a free shuttle to El Médano.",
+  "sources": [
+   "https://thetreehousehostel.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Taoro Coliving",
+  "website": "https://www.taorocoliving.com/",
+  "country_code": "ES",
+  "town": "Santa Úrsula",
+  "region": "Canary Islands (Tenerife)",
+  "address": "C. Taoro, 38, 38390 Sta Úrsula, Santa Cruz de Tenerife, Spain",
+  "lat": 28.408756,
+  "lng": -16.505907,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Coliving and coworking house in Santa Úrsula in north Tenerife for digital nomads, with shared island outings and community activities.",
+  "sources": [
+   "https://www.taorocoliving.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Coimpact Coliving Bruc",
+  "website": "https://coimpactcoliving.com/es/barcelona-coliving-bruc/",
+  "country_code": "ES",
+  "town": "Barcelona",
+  "region": "Catalonia",
+  "address": "C/ del Bruc, 123, L'Eixample, 08037 Barcelona, Spain",
+  "lat": 41.396825,
+  "lng": 2.165958,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": "1 week",
+  "description": "Short-term coliving in the Eixample with private and shared rooms, an equipped kitchen, weekly cleaning and community events; bookable by the week or month.",
+  "sources": [
+   "https://coimpactcoliving.com/es/barcelona-coliving-bruc/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "CoNomad",
+  "website": "https://conomad.es/",
+  "country_code": "ES",
+  "town": "Corralejo",
+  "region": "Canary Islands (Fuerteventura)",
+  "address": "Av. Juan Carlos I, nº 3, 35660 Corralejo, Las Palmas, Spain",
+  "lat": 28.742061,
+  "lng": -13.870729,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "yes",
+  "non_guest_note": "Coworking is sold separately from the accommodation",
+  "min_stay": null,
+  "description": "Coworking in Corralejo with private offices and work-focused accommodation packages for remote workers, teams and retreats.",
+  "sources": [
+   "https://conomad.es/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Coliving Compostela",
+  "website": "https://colivingcompostela.com/",
+  "country_code": "ES",
+  "town": "Santiago de Compostela",
+  "region": "Galicia",
+  "address": "Av. de Rosalía de Castro, 88, 15701 Santiago de Compostela, A Coruña, Spain",
+  "lat": 42.873815,
+  "lng": -8.552724,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "yes",
+  "non_guest_note": "Coworking is bookable separately",
+  "min_stay": null,
+  "description": "Urban coliving and coworking in Santiago de Compostela with private rooms, a shared coworking floor and community events.",
+  "sources": [
+   "https://colivingcompostela.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Circles House",
+  "website": "https://www.circles.house/",
+  "country_code": "ES",
+  "town": "Barcelona",
+  "region": "Catalonia",
+  "address": "Camí de Vallvidrera al Tibidabo num5, 08017 Barcelona, Spain",
+  "lat": 41.416571,
+  "lng": 2.110884,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Boutique coliving and coworking house on the Tibidabo hillside above Barcelona for founders and remote workers, open since 2022.",
+  "sources": [
+   "https://www.circles.house/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Maraya Coliving",
+  "website": "https://www.marayacoliving.com/",
+  "country_code": "ES",
+  "town": "Candelaria",
+  "region": "Canary Islands (Tenerife)",
+  "address": "Cam. de la Punta, 31, 38540 Candelaria, Santa Cruz de Tenerife, Spain",
+  "lat": 28.36385,
+  "lng": -16.37946,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Coliving in a barranco overlooking the ocean on Tenerife's east coast with dedicated workspaces, breakfasts, family dinners and daily yoga.",
+  "sources": [
+   "https://www.marayacoliving.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "MyCO Living Valencia",
+  "website": "https://www.mycoliving.es/",
+  "country_code": "ES",
+  "town": "Valencia",
+  "region": "Valencian Community",
+  "address": "C. del Poeta Querol, 7, Ciutat Vella, 46002 València, Valencia, Spain",
+  "lat": 39.471699,
+  "lng": -0.374171,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Coliving in Valencia's old town with furnished rooms and coworking spaces, marketed as the city's first coliving.",
+  "sources": [
+   "https://www.mycoliving.es/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "iSlow Coliving",
+  "website": "https://islowcoliving.com/",
+  "country_code": "ES",
+  "town": "Laxe",
+  "region": "Galicia",
+  "address": "Aldea, 10, 15118 O Piñeiro, A Coruña, Spain",
+  "lat": 43.206826,
+  "lng": -9.00391,
+  "coords_precision": "street",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Rural coliving and coworking on the Costa da Morte in Galicia with a slow-living focus and community activities.",
+  "sources": [
+   "https://islowcoliving.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "FEM Coliving",
+  "website": "https://femcoliving.com/",
+  "country_code": "ES",
+  "town": "Sant Joan de les Abadesses",
+  "region": "Catalonia",
+  "address": "Mas La Folcrà, C-38, Km. 2, 17860 Sant Joan de les Abadesses, Girona, Spain",
+  "lat": 42.256301,
+  "lng": 2.345382,
+  "coords_precision": "street",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": "1 month",
+  "description": "Rural coliving and coworking in a farmhouse in the Catalan Pyrenees for stays of one to four months.",
+  "sources": [
+   "https://femcoliving.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Ruralco Coliving",
+  "website": "https://www.ruralco.live/",
+  "country_code": "ES",
+  "town": "Culla",
+  "region": "Valencian Community",
+  "address": "Camí Masia Molí Toni, Partida Molinell, 12163 Culla, Castelló, Spain",
+  "lat": 40.340527,
+  "lng": -0.105283,
+  "coords_precision": "street",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Rural coliving in a restored masia in the hills of Castellón, also used for retreats and business events.",
+  "sources": [
+   "https://www.ruralco.live/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "CO-CO Coliving Costa Blanca",
+  "website": "https://coliving-costablanca.com/",
+  "country_code": "ES",
+  "town": "Dénia",
+  "region": "Valencian Community",
+  "address": "Carrer Flor de Nesprer, 4, 03700 Dénia, Alicante, Spain",
+  "lat": 38.822135,
+  "lng": 0.132332,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Coliving and coworking in Dénia between the mountains and the sea, open since late 2023, with fibre, a pool and a large shared kitchen.",
+  "sources": [
+   "https://coliving-costablanca.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Gato Azul",
+  "website": "https://gato-azul.com/",
+  "country_code": "ES",
+  "town": "La Orotava",
+  "region": "Canary Islands (Tenerife)",
+  "address": "C. León, 41, 38300 La Orotava, Santa Cruz de Tenerife, Spain",
+  "lat": 28.388155,
+  "lng": -16.523333,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": "Community activities mainly November to March",
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Coworking and coliving in an old house in the centre of La Orotava, with community dinners, yoga and skill sharing in the high season.",
+  "sources": [
+   "https://gato-azul.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Growth Coliving Galicia",
+  "website": "https://growthcoliving.com/",
+  "country_code": "ES",
+  "town": "Padrenda",
+  "region": "Galicia",
+  "address": "C/ Pousa, 3, 36420 Pousa, Pontevedra, Spain",
+  "lat": 42.141257,
+  "lng": -8.234676,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Rural coliving in a historic manor house in the forests of southern Galicia with coworking, hiking, swimming and shared dinners.",
+  "sources": [
+   "https://growthcoliving.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "repeople El Cabo",
+  "website": "https://www.repeople.co/",
+  "country_code": "ES",
+  "town": "Agaete",
+  "region": "Canary Islands (Gran Canaria)",
+  "address": "C. Antón Cerezo, 14, 35489 Puerto de las Nieves, Las Palmas, Spain",
+  "lat": 28.102165,
+  "lng": -15.710523,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": "1 week",
+  "description": "Coliving by repeople in Puerto de las Nieves on Gran Canaria's north-west coast, with weekly and monthly rates and a coworking space.",
+  "sources": [
+   "https://www.repeople.co/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Surfescape Fuerteventura",
+  "website": "https://www.surfescape.com/destinations/fuerteventura",
+  "country_code": "ES",
+  "town": "Lajares",
+  "region": "Canary Islands (Fuerteventura)",
+  "address": "C. Las Cercas, 9, 35650 Lajares, Las Palmas, Spain",
+  "lat": 28.681543,
+  "lng": -13.943361,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Surf and kite lifestyle hotel in Lajares in north Fuerteventura with coworking and coliving stays for remote workers.",
+  "sources": [
+   "https://www.surfescape.com/destinations/fuerteventura"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Kalart",
+  "website": "https://www.kalart.org/es",
+  "country_code": "ES",
+  "town": "Sant Esteve de Palautordera",
+  "region": "Catalonia",
+  "address": "KALART. Can Garballé Nou, Disseminado Afores, 102, BV-5301, Km 6, 5, 08461 Sant Esteve de Palautordera, Barcelona, Spain",
+  "lat": 41.714411,
+  "lng": 2.427073,
+  "coords_precision": "street",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Rural creative coliving and coworking in the countryside of Barcelona province for entrepreneurs, artists and nomads, with 15 private rooms; running since 2018.",
+  "sources": [
+   "https://www.kalart.org/es"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "repeople Casanova",
+  "website": "https://www.repeople.co/coliving/casanova/",
+  "country_code": "ES",
+  "town": "Las Palmas de Gran Canaria",
+  "region": "Canary Islands (Gran Canaria)",
+  "address": "Calle Dr. García Castrillo, 10, 35005 Las Palmas de Gran Canaria, Las Palmas, Spain",
+  "lat": 28.123396,
+  "lng": -15.432226,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Eight-room coliving villa by repeople in the quiet Ciudad Jardín neighbourhood of Las Palmas, with lower monthly rates for stays of two months or more.",
+  "sources": [
+   "https://www.repeople.co/coliving/casanova/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
  },
  {
   "name": "Aulus Coliving",
@@ -3179,6 +3905,50 @@
   ],
   "confidence": "medium",
   "checked_on": "2026-11-06"
+ },
+ {
+  "name": "Saint Charles Biarritz",
+  "website": "https://www.hotelstcharles.com/",
+  "country_code": "FR",
+  "town": "Biarritz",
+  "region": "Nouvelle-Aquitaine (Pyrénées-Atlantiques)",
+  "address": "47 Av. Reine Victoria, 64200 Biarritz, France",
+  "lat": 43.485521,
+  "lng": -1.549024,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Boutique hotel a few minutes' walk from the Grande Plage in Biarritz that also offers coliving stays and hosts retreats.",
+  "sources": [
+   "https://www.hotelstcharles.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Les Briques",
+  "website": "https://lesbriques.co/fr/",
+  "country_code": "FR",
+  "town": "Lion-sur-Mer",
+  "region": "Normandy (Calvados)",
+  "address": "8 Rue Morel de Than, 14780 Lion-sur-Mer, France",
+  "lat": 49.301336,
+  "lng": -0.324481,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "yes",
+  "non_guest_note": "The coworking space is open to non-residents",
+  "min_stay": null,
+  "description": "House 500 m from the beach near Caen combining a coliving, a coworking space, a tea room and a woodworking workshop.",
+  "sources": [
+   "https://lesbriques.co/fr/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
  },
  {
   "name": "UNA Coliving Birmingham",
@@ -4432,6 +5202,50 @@
   "checked_on": "2026-11-06"
  },
  {
+  "name": "Ghoomakad",
+  "website": "https://ghoomakad.com/",
+  "country_code": "IN",
+  "town": "Dharamshala",
+  "region": "Himachal Pradesh",
+  "address": "Ghoomakad, VPO Rakkar, Sidhbari, Dharamshala, Himachal Pradesh 176057, India",
+  "lat": 32.198558,
+  "lng": 76.367013,
+  "coords_precision": "street",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Long-standing coworking space near Dharamshala with a 24-hour work room, a traditional mud house for weekly and monthly stays, a community kitchen and views of the Dhauladhar range.",
+  "sources": [
+   "https://ghoomakad.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "AltSpace Dharamshala",
+  "website": "https://www.altspaced.com/",
+  "country_code": "IN",
+  "town": "Dharamshala",
+  "region": "Himachal Pradesh",
+  "address": "Thehr, Khanyara Rd, Dharamshala, Himachal Pradesh 176218, India",
+  "lat": 32.207298,
+  "lng": 76.35541,
+  "coords_precision": "street",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Coliving and coworking on a one-acre green campus outside Dharamshala, with meals included and a coworking area for remote workers and creators.",
+  "sources": [
+   "https://www.altspaced.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
   "name": "Mate Coliving",
   "website": "https://www.matecoliving.com/coliving-calabria-italy",
   "country_code": "IT",
@@ -4978,6 +5792,116 @@
   "checked_on": "2026-11-06"
  },
  {
+  "name": "Casa Verdi",
+  "website": "https://www.casaverdicommunity.com/",
+  "country_code": "IT",
+  "town": "Catania",
+  "region": "Sicily",
+  "address": "Via Giuseppe Verdi, 67, 95131 Catania CT, Italy",
+  "lat": 37.510599,
+  "lng": 15.090525,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Community-run house for travellers, remote workers and artists in a historic building in central Catania, with dorms and private rooms.",
+  "sources": [
+   "https://www.casaverdicommunity.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Together Coliving Rome",
+  "website": "https://www.togethernetwork.org/",
+  "country_code": "IT",
+  "town": "Rome",
+  "region": "Lazio",
+  "address": "Viale Glorioso, 14, 00153 Roma RM, Italy",
+  "lat": 41.885376,
+  "lng": 12.46799,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Coliving in Rome's Trastevere district for short and long-term international residents, with a shared workspace and community activities.",
+  "sources": [
+   "https://www.togethernetwork.org/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "As We Flow",
+  "website": "https://asweflow.it/",
+  "country_code": "IT",
+  "town": "Porto Cervo",
+  "region": "Sardinia",
+  "address": "Salita di Capo Ferro, 07021 Porto Cervo OT, Italy",
+  "lat": 41.147818,
+  "lng": 9.522722,
+  "coords_precision": "street",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Coliving in north-east Sardinia for remote workers combined with climbing, a climbing guest house and yoga retreats.",
+  "sources": [
+   "https://asweflow.it/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Il Fornello",
+  "website": "https://www.colivingitaly.se/",
+  "country_code": "IT",
+  "town": "Città della Pieve",
+  "region": "Umbria",
+  "address": "Vocabolo Fornello, 87, 06062 Città della Pieve PG, Italy",
+  "lat": 42.989592,
+  "lng": 12.035765,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": "1 week",
+  "description": "Country house in Umbria run as a coliving and workation home with apartments and private rooms, priced by the week or month.",
+  "sources": [
+   "https://www.colivingitaly.se/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Treballu",
+  "website": "https://www.treballu.com/",
+  "country_code": "IT",
+  "town": "Laconi",
+  "region": "Sardinia",
+  "address": "Vicolo II Garibaldi 8, 09090 Laconi",
+  "lat": 39.85462,
+  "lng": 9.051944,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Rural creative hub in the village of Laconi in central Sardinia with shared spaces, events and a distributed coliving in village houses.",
+  "sources": [
+   "https://www.treballu.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
   "name": "The Pier Coliving",
   "website": "https://yugyo.work/en/thepiercoliving",
   "country_code": "JP",
@@ -5135,6 +6059,28 @@
   ],
   "confidence": "high",
   "checked_on": "2026-11-06"
+ },
+ {
+  "name": "nonce",
+  "website": "https://nonce.community/",
+  "country_code": "KR",
+  "town": "Seoul",
+  "region": "Seoul",
+  "address": "45-9 Bongeunsa-ro 22-gil, Gangnam-gu, Seoul, South Korea",
+  "lat": 37.503892,
+  "lng": 127.031022,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Community coliving basecamp in Gangnam for founders and builders, running since 2018; residents apply to join.",
+  "sources": [
+   "https://nonce.community/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
  },
  {
   "name": "ColiveMe Sri Lanka",
@@ -5312,6 +6258,50 @@
   ],
   "confidence": "high",
   "checked_on": "2026-11-06"
+ },
+ {
+  "name": "Café Ceylon Ahangama",
+  "website": "https://www.cafeceylon.lk/",
+  "country_code": "LK",
+  "town": "Ahangama",
+  "region": "Southern Province",
+  "address": "Matara Road, Kabalana, Ahangama 80650, Sri Lanka",
+  "lat": 5.9782,
+  "lng": 80.348526,
+  "coords_precision": "street",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "yes",
+  "non_guest_note": "Coworking passes are sold to non-guests",
+  "min_stay": null,
+  "description": "Beachfront cafe, restaurant and B&B opposite the Kabalana surf break with a 24/7 coworking space and bookable meeting pods.",
+  "sources": [
+   "https://www.cafeceylon.lk/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Mellow Hostel Ahangama",
+  "website": "https://www.mellowhostel.com/",
+  "country_code": "LK",
+  "town": "Ahangama",
+  "region": "Southern Province",
+  "address": "jayamedura, matara road, welhengoda, Ahangama, Sri Lanka",
+  "lat": 5.978269,
+  "lng": 80.350078,
+  "coords_precision": "street",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Surf hostel in Ahangama with a restaurant open daily and a dedicated workspace for remote workers staying at the hostel.",
+  "sources": [
+   "https://www.mellowhostel.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
  },
  {
   "name": "Lighthouse Coliving Klaipėda",
@@ -5810,6 +6800,28 @@
   ],
   "confidence": "medium",
   "checked_on": "2026-11-06"
+ },
+ {
+  "name": "GEA Retreat",
+  "website": "https://gearetreat.com/",
+  "country_code": "ME",
+  "town": "Nikšić",
+  "region": null,
+  "address": "Presjeka, Duga, Nikšić",
+  "lat": 42.890171,
+  "lng": 18.858051,
+  "coords_precision": "town",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Sustainable retreat in the village of Presjeka, about 18 km from Nikšić, offering coliving stays alongside yoga, holistic nutrition and nature programmes.",
+  "sources": [
+   "https://gearetreat.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
  },
  {
   "name": "SC Coliving Malta Campus",
@@ -6330,6 +7342,28 @@
   "checked_on": "2026-11-06"
  },
  {
+  "name": "Losodeli",
+  "website": "https://www.losodeli.com/",
+  "country_code": "MX",
+  "town": "Puerto Escondido",
+  "region": "Oaxaca",
+  "address": "esquina Costera, Calle Segunda Nte. s/n, Centro, 71980 Puerto Escondido, Oax., Mexico",
+  "lat": 15.863374,
+  "lng": -97.072478,
+  "coords_precision": "street",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Family-run, adults-only hotel and hostel in central Puerto Escondido with its own coworking room, a cafe and coliving stays for remote workers.",
+  "sources": [
+   "https://www.losodeli.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
   "name": "Komune Living & Wellness Cheras",
   "website": "https://komuneliving.com/",
   "country_code": "MY",
@@ -6619,6 +7653,28 @@
   ],
   "confidence": "high",
   "checked_on": "2026-11-06"
+ },
+ {
+  "name": "Lexias Siargao",
+  "website": "https://lexiashostel.com/",
+  "country_code": "PH",
+  "town": "General Luna",
+  "region": "Siargao",
+  "address": "Siargao Island, Sitio pangpang, Tourism Rd, General Luna, 8419 Surigao del Norte, Philippines",
+  "lat": 9.802879,
+  "lng": 126.157007,
+  "coords_precision": "street",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "yes",
+  "non_guest_note": "Weekly and monthly coworking passes are sold",
+  "min_stay": null,
+  "description": "Hostel for backpackers and digital nomads in General Luna, Siargao, with a coworking space and weekly and monthly work passes.",
+  "sources": [
+   "https://lexiashostel.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
  },
  {
   "name": "Outsite Puerto Rico - Aguadilla",
@@ -7324,6 +8380,204 @@
   "checked_on": "2026-11-06"
  },
  {
+  "name": "Algarve Watersport Winter Coliving",
+  "website": "https://algarvewatersport.com/en/",
+  "country_code": "PT",
+  "town": "Lagos",
+  "region": "Algarve",
+  "address": "AWS Surf Camp Villa, Estr. da Albardeira, 8600-302 Lagos, Portugal",
+  "lat": 37.116411,
+  "lng": -8.668314,
+  "coords_precision": "street",
+  "season": "seasonal",
+  "season_note": "Coliving runs 1 December 2026 to 14 March 2027; watersport camps the rest of the year",
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Long-running surf, kite and windsurf camp near Lagos that turns its camp villa into a quiet coliving for the winter, with surf lessons available on site.",
+  "sources": [
+   "https://algarvewatersport.com/en/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Be Happy Lodge",
+  "website": "https://behappylodge.com/en/behappy/",
+  "country_code": "PT",
+  "town": "Esmoriz",
+  "region": null,
+  "address": "Av. da Praia 2421, 3885-405 Esmoriz, Portugal",
+  "lat": 40.953638,
+  "lng": -8.655223,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Beachfront lodge and brunch spot on Esmoriz beach between Porto and Aveiro with rooms, a coworking area, coliving packages and a rooftop lounge.",
+  "sources": [
+   "https://behappylodge.com/en/behappy/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Quinta do Bom Despacho",
+  "website": "https://quintadobomdespacho.com/en/",
+  "country_code": "PT",
+  "town": "Ponta Delgada",
+  "region": "Azores (São Miguel)",
+  "address": "R. do Lagedo 62, 9500-213 Ponta Delgada, Portugal",
+  "lat": 37.749314,
+  "lng": -25.685108,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Historic manor estate in Ponta Delgada run as sustainable accommodation, with an ecoliving community, group stays and retreats.",
+  "sources": [
+   "https://quintadobomdespacho.com/en/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Calçada Guesthouse",
+  "website": "https://calcadaguesthouse.com/",
+  "country_code": "PT",
+  "town": "Tavira",
+  "region": "Algarve",
+  "address": "Calçada Dona Ana 12, 8800-308 Tavira, Portugal",
+  "lat": 37.126554,
+  "lng": -7.651532,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Guesthouse in the old streets of Tavira that runs as a B&B and as a co-living and co-working house, also rentable as a whole.",
+  "sources": [
+   "https://calcadaguesthouse.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Villa dos Irmãos",
+  "website": "https://villadosirmaos.com/",
+  "country_code": "PT",
+  "town": "Ericeira",
+  "region": null,
+  "address": "R. do Cocholongo 4, 2640-045 Mafra, Portugal",
+  "lat": 39.009543,
+  "lng": -9.415065,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Small guest house and coliving above São Lourenço beach outside Ericeira with only a few rooms, a coworking corner, surfing and donation-based yoga.",
+  "sources": [
+   "https://villadosirmaos.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Traditional Dream Factory",
+  "website": "https://www.traditionaldreamfactory.com/",
+  "country_code": "PT",
+  "town": "Santiago do Cacém",
+  "region": "Alentejo",
+  "address": "Aviario, 7540-011, Portugal",
+  "lat": 38.003006,
+  "lng": -8.559088,
+  "coords_precision": "town",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Regenerative village in the Alentejo with rooms, cabins and camping, held in common by members, with workshops and residencies through the year.",
+  "sources": [
+   "https://www.traditionaldreamfactory.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Coliving The Valley",
+  "website": "https://colivingthevalley.com/",
+  "country_code": "PT",
+  "town": "Vale de Cambra",
+  "region": null,
+  "address": "Rua dos Loureiros 88, 3730-379 Roge, Portugal",
+  "lat": 40.852181,
+  "lng": -8.357852,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Countryside coliving in the hills inland from Porto for digital nomads, with fast internet, gardens, a pool and workation spaces.",
+  "sources": [
+   "https://colivingthevalley.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Pipedream",
+  "website": "https://www.pipedream.fun/",
+  "country_code": "PT",
+  "town": "Ferrel",
+  "region": null,
+  "address": "R. do Jardim 18, 2520-144 Ferrel, Portugal",
+  "lat": 39.367317,
+  "lng": -9.318057,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": "2 weeks",
+  "description": "Coworking and coliving villa in Ferrel near Peniche's surf spots, with a music studio and a two-week minimum stay; most guests stay a month or more.",
+  "sources": [
+   "https://www.pipedream.fun/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Onda Coliving",
+  "website": "https://www.ondacoliving.com/",
+  "country_code": "PT",
+  "town": "Ferrel",
+  "region": null,
+  "address": "Av. do Mar 121A 2, Apt. I, 2520-051 Ferrel, Portugal",
+  "lat": 39.371769,
+  "lng": -9.334663,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Small beachside coliving and coworking in Casais do Baleal near Peniche for remote workers and surfers.",
+  "sources": [
+   "https://www.ondacoliving.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
   "name": "play:space",
   "website": "https://playspace.ro/",
   "country_code": "RO",
@@ -7391,6 +8645,50 @@
   "checked_on": "2026-11-06"
  },
  {
+  "name": "Mokrin House",
+  "website": "https://mokrinhouse.com/",
+  "country_code": "RS",
+  "town": "Mokrin",
+  "region": "Vojvodina",
+  "address": "Svetog Save 25, Mokrin, Serbia",
+  "lat": 45.933819,
+  "lng": 20.422307,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Rural coworking and coliving house in a village in northern Serbia with food served on site, weekly movie nights and a focus on remote work and creative projects.",
+  "sources": [
+   "https://mokrinhouse.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "Sonta Coliving",
+  "website": "https://sontacoliving.com/",
+  "country_code": "RS",
+  "town": "Sonta",
+  "region": "Vojvodina",
+  "address": "Ive Andrića 5d, Sonta 25264, Serbia",
+  "lat": 45.601965,
+  "lng": 19.107976,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Rural coliving and coworking in a multicultural village on the Serbian-Croatian border, with gardening, community dinners and artistic gatherings.",
+  "sources": [
+   "https://sontacoliving.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
   "name": "Fridhem Co-living",
   "website": "https://frid.nu/en/co-living/",
   "country_code": "SE",
@@ -7412,6 +8710,50 @@
   ],
   "confidence": "high",
   "checked_on": "2026-11-06"
+ },
+ {
+  "name": "Spelkollektivet",
+  "website": "https://www.spelkollektivet.com/",
+  "country_code": "SE",
+  "town": "Väckelsång",
+  "region": "Kronoberg",
+  "address": "Gamla vägen 12, 362 51 Väckelsång, Sweden",
+  "lat": 56.642189,
+  "lng": 14.915881,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Large coliving for game developers in rural southern Sweden where residents live and work on their games side by side, with a monthly house meeting.",
+  "sources": [
+   "https://www.spelkollektivet.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
+  "name": "K9 Coliving",
+  "website": "https://www.k9coliving.com/",
+  "country_code": "SE",
+  "town": "Stockholm",
+  "region": "Stockholm County",
+  "address": "Kommendörsgatan 9, 114 48 Stockholm, Sweden",
+  "lat": 59.339095,
+  "lng": 18.078054,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Self-organised coliving in Östermalm with 1,200 m² of shared space over four floors, five kitchens, pods and private rooms; residents apply to join.",
+  "sources": [
+   "https://www.k9coliving.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
  },
  {
   "name": "Hubs Slovenian Alps Bovec",
@@ -7800,6 +9142,28 @@
   "checked_on": "2026-11-06"
  },
  {
+  "name": "CoZi Djerba",
+  "website": "https://cozi.tn/",
+  "country_code": "TN",
+  "town": "Houmt Souk",
+  "region": "Djerba",
+  "address": "Route de la zone touristique En face du grand hotel des thermes Houmet Souk Djerba, 4186, Tunisia",
+  "lat": 33.8527,
+  "lng": 10.981892,
+  "coords_precision": "street",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Coworking and coliving in Djerba's tourist zone with startup support and a community of nomads and local creators.",
+  "sources": [
+   "https://cozi.tn/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
+ },
+ {
   "name": "Nest Digital Nomad House",
   "website": "https://www.nestdigitalnomad.com/",
   "country_code": "TR",
@@ -7865,6 +9229,28 @@
   ],
   "confidence": "medium",
   "checked_on": "2026-11-06"
+ },
+ {
+  "name": "Surfescape Zanzibar",
+  "website": "https://www.surfescape.com/",
+  "country_code": "TZ",
+  "town": "Kiwengwa",
+  "region": "Zanzibar",
+  "address": "Kumba Urembo, Kiwengwa, Tanzania",
+  "lat": -5.99584,
+  "lng": 39.381145,
+  "coords_precision": "town",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Surf and kite lifestyle hotel on Zanzibar's east coast with coworking and coliving stays; discounts for monthly stays of 28 nights or more.",
+  "sources": [
+   "https://www.surfescape.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
  },
  {
   "name": "Outsite Austin - Bouldin Creek",
@@ -8064,6 +9450,28 @@
   ],
   "confidence": "high",
   "checked_on": "2026-11-06"
+ },
+ {
+  "name": "Hacknsleep Nob Hill",
+  "website": "https://www.hacknsleep.com/",
+  "country_code": "US",
+  "town": "San Francisco",
+  "region": "California",
+  "address": "1551 Larkin St, San Francisco, CA 94109",
+  "lat": 37.79235,
+  "lng": -122.419651,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Coliving house in Nob Hill with furnished rooms, part of a group of shared houses across San Francisco rented on monthly and annual leases.",
+  "sources": [
+   "https://www.hacknsleep.com/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
  },
  {
   "name": "OPTA Coliving",
@@ -8289,5 +9697,27 @@
   ],
   "confidence": "high",
   "checked_on": "2026-11-06"
+ },
+ {
+  "name": "Boardrooms Blouberg",
+  "website": "https://boardrooms.capetown/",
+  "country_code": "ZA",
+  "town": "Cape Town",
+  "region": "Western Cape",
+  "address": "16 Spray Rd, Bloubergstrand, Cape Town, 7443, South Africa",
+  "lat": -33.814968,
+  "lng": 18.477361,
+  "coords_precision": "address",
+  "season": "unknown",
+  "season_note": null,
+  "non_guest_work": "unknown",
+  "non_guest_note": null,
+  "min_stay": null,
+  "description": "Villa 250 m from Blouberg beach with private rooms, a coworking space with fibre internet, a hot tub and kitesurfing on the doorstep.",
+  "sources": [
+   "https://boardrooms.capetown/"
+  ],
+  "confidence": "medium",
+  "checked_on": "2026-11-17"
  }
 ]
