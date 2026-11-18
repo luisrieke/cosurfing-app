@@ -41,6 +41,7 @@ import { Button, CategoryBadge, EmptyState, ErrorState, Icon, IconButton, Notice
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useNow } from '@/hooks/useNow';
 import { useQuery } from '@/hooks/useQuery';
+import { useStickySidebar } from '@/hooks/useStickySidebar';
 import { useAuth } from '@/lib/auth';
 import { env, isSupabaseConfigured } from '@/lib/env';
 import { effectiveAccess, summarizeFacts } from '@/lib/facts';
@@ -104,6 +105,7 @@ export default function PlaceScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const router = useRouter();
   const { width } = useBreakpoint();
+  const sticky = useStickySidebar();
   const now = useNow();
   const { user, isPlus, isAdmin, favoriteIds, toggleFavorite, ready } = useAuth();
   const [flash, setFlash] = useState<string | null>(null);
@@ -908,7 +910,7 @@ export default function PlaceScreen() {
             </View>
 
             {wide ? (
-              <View style={styles.side}>
+              <View style={[styles.side, sticky.style]} onLayout={sticky.onLayout}>
                 {scoreCard}
                 {mapPreview}
                 {speedTest}
@@ -999,7 +1001,6 @@ const styles = StyleSheet.create({
   side: {
     width: 340,
     gap: spacing.lg,
-    ...(Platform.OS === 'web' ? { position: 'sticky' as 'relative', top: spacing.lg } : null),
   },
   gallery: {
     borderRadius: radius.lg,

@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -31,6 +30,7 @@ import { useNow, useTimeFilterRefresh } from '@/hooks/useNow';
 import { usePaged } from '@/hooks/usePaged';
 import { useQuery } from '@/hooks/useQuery';
 import { useSlowConnection } from '@/hooks/useSlowConnection';
+import { useStickySidebar } from '@/hooks/useStickySidebar';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useAuth } from '@/lib/auth';
 import { formatMbps } from '@/lib/format';
@@ -56,6 +56,7 @@ const TABS: (PlaceCategory | 'all')[] = ['all', 'coworking', 'cafe', 'library', 
 export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefreshCity: () => Promise<void> }) {
   const router = useRouter();
   const { isDesktop, width } = useBreakpoint();
+  const sticky = useStickySidebar();
   const slow = useSlowConnection();
   const heroSource = (slow ? city.cover_thumb_url : null) ?? city.cover_url;
   const heroCover = heroSource ? coverUrl(heroSource, slow ? 640 : 1600) : null;
@@ -204,7 +205,10 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
   );
 
   const sidebar = (
-    <View style={[styles.sidebar, sideBySide && styles.sidebarDesktop]}>
+    <View
+      style={[styles.sidebar, sideBySide && styles.sidebarDesktop, sideBySide && sticky.style]}
+      onLayout={sideBySide ? sticky.onLayout : undefined}
+    >
       <Glass variant="strong" style={styles.rateCta}>
         <Text variant="heading">{strings.city.rateCtaTitle(city.name)}</Text>
         <Text variant="small" tone="muted">
@@ -666,7 +670,6 @@ const styles = StyleSheet.create({
   },
   sidebarDesktop: {
     width: 320,
-    ...(Platform.OS === 'web' ? { position: 'sticky' as 'relative', top: spacing.lg } : null),
   },
   rateCta: {
     gap: spacing.sm,

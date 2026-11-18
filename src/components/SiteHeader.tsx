@@ -17,6 +17,9 @@ import { colors, layout, radius, spacing } from '@/lib/theme';
 const BAR_HEIGHT = 56;
 const BAR_MARGIN = spacing.sm;
 
+/** Height the floating header covers on web, where there is no top inset. */
+export const SITE_HEADER_HEIGHT = BAR_HEIGHT + BAR_MARGIN * 2;
+
 function useTopInset() {
   const insets = useSafeAreaInsets();
   return insets.top + (Platform.OS === 'web' ? 0 : spacing.xs);
