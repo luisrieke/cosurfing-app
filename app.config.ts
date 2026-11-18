@@ -4,6 +4,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Cosurfing',
   slug: 'cosurfing',
+  owner: 'luisrieke',
   scheme: 'cosurfing',
   version: '1.0.0',
   orientation: 'portrait',
@@ -69,7 +70,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   extra: {
     eas: {
-      projectId: process.env.EAS_PROJECT_ID,
+      projectId: process.env.EAS_PROJECT_ID || '4ff38179-5135-4a9f-b92c-a017bef65e5c',
     },
   },
 });
