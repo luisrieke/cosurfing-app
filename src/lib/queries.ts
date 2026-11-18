@@ -19,6 +19,7 @@ import type {
   MyPlaceContribution,
   NetworkType,
   Place,
+  PlaceContacts,
   PlaceFactEntry,
   PlaceMenu,
   PlaceOffer,
@@ -398,6 +399,13 @@ export async function getPlaceById(id: string): Promise<Place | null> {
   const { data, error } = await requireSupabase().from('places').select('*').eq('id', id).maybeSingle();
   throwIf(error);
   return (data as Place | null) ?? null;
+}
+
+/** Signed-in users only (RLS); anonymous callers get an error. */
+export async function getPlaceContacts(placeId: string): Promise<PlaceContacts | null> {
+  const { data, error } = await requireSupabase().from('place_contacts').select('*').eq('place_id', placeId).maybeSingle();
+  throwIf(error);
+  return (data as PlaceContacts | null) ?? null;
 }
 
 export async function getPlacePhotos(placeId: string): Promise<PlacePhoto[]> {
@@ -1064,30 +1072,27 @@ export interface OutreachPlace {
   stage: OutreachStage;
 }
 
+export interface OutreachPage {
+  /** Places per stage among those matching the search, regardless of the stage filter. */
+  counts: Partial<Record<OutreachStage, number>>;
+  items: OutreachPlace[];
+}
+
 // Published places with their outreach stage. A place without a row has not been contacted yet.
-export async function adminGetOutreach(): Promise<OutreachPlace[]> {
-  const sb = requireSupabase();
-  const pageSize = 1000;
-  const rows: unknown[] = [];
-  for (let from = 0; ; from += pageSize) {
-    const { data, error } = await sb
-      .from('places')
-      .select('id, slug, name, address, website, city:cities(name), outreach:place_outreach(stage)')
-      .eq('status', 'published')
-      .order('name', { ascending: true })
-      .order('id', { ascending: true })
-      .range(from, from + pageSize - 1);
-    throwIf(error);
-    rows.push(...(data ?? []));
-    if ((data ?? []).length < pageSize) break;
-  }
-  type Row = Omit<OutreachPlace, 'stage'> & { outreach: { stage: OutreachStage } | { stage: OutreachStage }[] | null };
-  return (rows as Row[]).map(
-    ({ outreach, ...place }) => {
-      const row = Array.isArray(outreach) ? outreach[0] : outreach;
-      return { ...place, stage: row?.stage ?? 'to_contact' };
-    },
-  );
+export async function adminGetOutreach(opts: {
+  stage: OutreachStage | null;
+  search: string;
+  offset: number;
+  limit: number;
+}): Promise<OutreachPage> {
+  const { data, error } = await requireSupabase().rpc('admin_outreach', {
+    p_stage: opts.stage,
+    p_search: opts.search || null,
+    p_limit: opts.limit,
+    p_offset: opts.offset,
+  });
+  throwIf(error);
+  return data as OutreachPage;
 }
 
 export async function adminSetOutreachStage(placeId: string, stage: OutreachStage): Promise<void> {

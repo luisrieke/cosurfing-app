@@ -1,5 +1,6 @@
 // Reads the public website of crawled places and extracts hard facts that the venue states itself
-// (day pass price, advertised internet speed, phone booths, laptop policy, 24/7 access, opening hours).
+// (day pass price, advertised internet speed, phone booths, laptop policy, 24/7 access, opening hours)
+// and its contact details (phone, email, social accounts), which go to the signed-in-only place_contacts table.
 // Every fact is stored with the sentence it came from and the page URL, so the app can show its source.
 // Respects robots.txt, only fetches public http(s) hosts, caps size and time per page.
 // Parked (domain for sale) and dead websites are reported as such; save_web_facts hides those places for review.
@@ -535,13 +536,108 @@ function extractFacts(html: string, url: string, category: Place['category']): F
   return facts;
 }
 
+// ---------------------------------------------------------------------------
+// Contact details (phone, email, social accounts). Saved to place_contacts, not to the public web_facts.
+// ---------------------------------------------------------------------------
+
+type ContactField = 'phone' | 'email' | 'instagram' | 'facebook' | 'whatsapp' | 'tiktok';
+type Contacts = Partial<Record<ContactField, { value: string; url: string }>>;
+
+const BAD_EMAIL = /(example\.(com|org)|domain\.com|email\.com|sentry|wixpress|\.(png|jpe?g|gif|webp|svg)$)/i;
+const EMAIL_RE = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi;
+const IG_RESERVED = new Set(['p', 'reel', 'reels', 'explore', 'stories', 'accounts', 'instagram', 'sharer']);
+
+function safeDecode(s: string): string {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
+}
+
+function goodEmail(raw: string): string | null {
+  const e = raw.trim().toLowerCase();
+  return /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(e) && !BAD_EMAIL.test(e) ? e : null;
+}
+
+/** Normalised by the database (normalize_place_contact); here we only skip links that are clearly not an account. */
+function socialFromHref(href: string): [ContactField, string] | null {
+  let u: URL;
+  try {
+    u = new URL(href);
+  } catch {
+    return null;
+  }
+  const host = u.hostname.replace(/^(www\.|m\.)/, '').toLowerCase();
+  const first = u.pathname.split('/').filter(Boolean)[0] ?? '';
+  if (host === 'instagram.com' || host === 'instagr.am') {
+    return first && !IG_RESERVED.has(first.toLowerCase()) ? ['instagram', first] : null;
+  }
+  if (host === 'facebook.com' || host === 'fb.com') {
+    if (!first || /^(sharer|share|plugins|tr|dialog|login|sharer\.php)$/i.test(first)) return null;
+    return ['facebook', u.toString()];
+  }
+  if (host === 'tiktok.com') return first.startsWith('@') ? ['tiktok', first] : null;
+  if (host === 'wa.me') return first ? ['whatsapp', first] : null;
+  if (host === 'api.whatsapp.com' || host === 'whatsapp.com') {
+    const phone = u.searchParams.get('phone');
+    return phone ? ['whatsapp', phone] : null;
+  }
+  return null;
+}
+
+function extractContacts(html: string, url: string): Contacts {
+  const out: Contacts = {};
+  const set = (field: ContactField, value: string | null | undefined) => {
+    const v = value?.trim();
+    if (v && !out[field]) out[field] = { value: v.slice(0, 300), url };
+  };
+
+  for (const m of html.matchAll(/href\s*=\s*["']([^"']+)["']/gi)) {
+    const href = decodeEntities(m[1]!.trim());
+    if (/^mailto:/i.test(href)) set('email', goodEmail(safeDecode(href.slice(7)).split('?')[0]!));
+    else if (/^tel:/i.test(href)) set('phone', safeDecode(href.slice(4)));
+    else if (/^https?:\/\//i.test(href)) {
+      const social = socialFromHref(href);
+      if (social) set(social[0], social[1]);
+    }
+  }
+
+  for (const node of jsonLdNodes(html)) {
+    if (typeof node.email === 'string') set('email', goodEmail(node.email.replace(/^mailto:/i, '')));
+    if (typeof node.telephone === 'string') set('phone', node.telephone);
+    const sameAs = Array.isArray(node.sameAs) ? node.sameAs : [node.sameAs];
+    for (const s of sameAs) {
+      if (typeof s !== 'string') continue;
+      const social = socialFromHref(s);
+      if (social) set(social[0], social[1]);
+    }
+  }
+
+  if (!out.email) {
+    for (const m of htmlToText(html).matchAll(EMAIL_RE)) {
+      const e = goodEmail(m[0]);
+      if (e) {
+        set('email', e);
+        break;
+      }
+    }
+  }
+  return out;
+}
+
 const PRICING_LINK = /(pric|preise|tarif|membership|mitglied|plans|planes|precios|prezzi|pre[çc]os|rates|day-?pass|tagespass|hot-?desk|coworking)/i;
+const CONTACT_LINK = /(contact|kontakt|contacto|contatti|contato|impressum|imprint)/i;
 
 function findPricingLink(html: string, base: URL): string | null {
+  return findLink(html, base, PRICING_LINK);
+}
+
+function findLink(html: string, base: URL, pattern: RegExp): string | null {
   for (const m of html.matchAll(/<a\s[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]{0,200}?)<\/a>/gi)) {
     const href = m[1]!;
     const label = m[2]!.replace(/<[^>]+>/g, ' ');
-    if (!PRICING_LINK.test(href) && !PRICING_LINK.test(label)) continue;
+    if (!pattern.test(href) && !pattern.test(label)) continue;
     try {
       const u = new URL(href, base);
       if (u.hostname.replace(/^www\./, '') !== base.hostname.replace(/^www\./, '')) continue;
@@ -559,9 +655,13 @@ function findPricingLink(html: string, base: URL): string | null {
 // Job loop
 // ---------------------------------------------------------------------------
 
-async function enrichOne(sb: SupabaseClient, place: Place): Promise<{ id: string; status: string; facts?: string[]; error?: string }> {
+async function enrichOne(
+  sb: SupabaseClient,
+  place: Place,
+): Promise<{ id: string; status: string; facts?: string[]; contacts?: string[]; error?: string }> {
   let status: 'done' | 'failed' | 'blocked' | 'skipped' | 'parked' | 'dead' = 'failed';
   let facts: Facts = {};
+  let contacts: Contacts = {};
   let error: string | undefined;
   let workingUrl: string | null = null;
   let timer: number | undefined;
@@ -575,6 +675,7 @@ async function enrichOne(sb: SupabaseClient, place: Place): Promise<{ id: string
   } catch (e) {
     status = 'failed';
     facts = {};
+    contacts = {};
     error = (e instanceof Error ? e.message : String(e)).slice(0, 200);
   } finally {
     clearTimeout(timer);
@@ -586,9 +687,16 @@ async function enrichOne(sb: SupabaseClient, place: Place): Promise<{ id: string
     p_status: status,
     p_facts: facts,
     p_website: workingUrl,
+    p_contacts: status === 'done' ? contacts : {},
   });
   if (saveError) return { id: place.id, status: 'save_failed', error: saveError.message };
-  return { id: place.id, status, facts: Object.keys(facts).filter((k) => k !== '_checked'), error };
+  return {
+    id: place.id,
+    status,
+    facts: Object.keys(facts).filter((k) => k !== '_checked'),
+    contacts: Object.keys(contacts),
+    error,
+  };
 
   async function readSite() {
     const url = new URL(place.website);
@@ -624,6 +732,19 @@ async function enrichOne(sb: SupabaseClient, place: Place): Promise<{ id: string
               if (sub && !isFailure(sub) && /html/i.test(sub.type || 'text/html')) {
                 const more = extractFacts(sub.text, sub.url, place.category);
                 for (const [k, v] of Object.entries(more)) if (!facts[k] && k !== 'description') facts[k] = v;
+              }
+            }
+          }
+          contacts = extractContacts(page.text, page.url);
+          if (!contacts.email || !contacts.phone) {
+            const link = findLink(page.text, new URL(page.url), CONTACT_LINK);
+            if (link && allowedByRobots(rules, new URL(link))) {
+              const sub = await fetchText(link).catch(() => null);
+              if (sub && !isFailure(sub) && /html/i.test(sub.type || 'text/html')) {
+                const more = extractContacts(sub.text, sub.url);
+                for (const [k, v] of Object.entries(more) as [ContactField, { value: string; url: string }][]) {
+                  if (!contacts[k]) contacts[k] = v;
+                }
               }
             }
           }

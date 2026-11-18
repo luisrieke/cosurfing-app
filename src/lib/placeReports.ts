@@ -1,13 +1,13 @@
 import type { IconName } from '@/components/ui/Icon';
 import { strings } from '@/lib/strings';
-import type { Place, PlaceReportKind } from '@/lib/types';
+import type { Place, PlaceContacts, PlaceReportKind } from '@/lib/types';
 
 interface ReportKindInfo {
   label: string;
   icon: IconName;
   placeholder: string;
   /** What the place page shows today, so the reporter can see what they are correcting. */
-  current?: (place: Place) => string | null;
+  current?: (place: Place, contacts: PlaceContacts | null) => string | null;
 }
 
 const s = strings.report;
@@ -21,7 +21,8 @@ export const REPORT_KINDS: Record<PlaceReportKind, ReportKindInfo> = {
     label: s.kindContact,
     icon: 'globe',
     placeholder: s.contactPlaceholder,
-    current: (p) => [p.website, p.phone].filter(Boolean).join(' · ') || null,
+    current: (p, c) =>
+      [p.website, c?.phone ?? p.phone, c?.email, c?.instagram ? `@${c.instagram}` : null].filter(Boolean).join(' · ') || null,
   },
   closed: { label: s.kindClosed, icon: 'x-circle', placeholder: s.closedPlaceholder },
   other: { label: s.kindOther, icon: 'edit-3', placeholder: s.placeholder },

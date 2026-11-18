@@ -79,6 +79,7 @@ const CLAUSES: LegalClause[] = [
       'If you cancel through the “Cancel contracts here” page, we store your name, email address, the type of cancellation, an optional reason, the requested end date and the time we received it, and email you a confirmation. We keep this record for 3 years after the end of the year of the cancellation, as proof that we processed it (Art. 6 (1) (b) and (c) GDPR, § 312k BGB).',
       'The Plus waiting list is a form by Tally BV, Belgium. If you open it while signed in, your email address and user ID are filled in so we can unlock Plus for your account.',
       'Venue owners register through a form by Tally BV, Belgium. It receives the place you came from and, if you are signed in, your email address and user ID. We use your answers to verify that you run the place and to set up passes, offers and opening hours with you (Art. 6 (1) (b) GDPR).',
+      'Signed-in members can message a place through the “Reach out” form by Tally BV, Belgium, at the end of every place page. It receives the place, your email address and user ID, and the name, date and message you enter. We forward your request to the venue and send you its answer by email (Art. 6 (1) (b) GDPR). The phone numbers, email addresses and social accounts shown there are business contact details from OpenStreetMap and the venues’ own websites.',
     ],
   },
   {

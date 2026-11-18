@@ -4,17 +4,9 @@ import { Button, Icon, type IconName, Text } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { env } from '@/lib/env';
 import { strings } from '@/lib/strings';
+import { placeFormParams, tallyUrl } from '@/lib/tally';
 import { colors, radius, spacing } from '@/lib/theme';
 import type { City, Place } from '@/lib/types';
-
-// Tally fills hidden fields (and fields with a matching pre-populate name) from query params.
-function ownerFormUrl(params: Record<string, string>) {
-  const query = Object.entries(params)
-    .filter(([, v]) => v)
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-    .join('&');
-  return `${env.ownerFormUrl}${env.ownerFormUrl.includes('?') ? '&' : '?'}${query}`;
-}
 
 export function OwnerCta({ place }: { place: Place & { city: City } }) {
   const { user } = useAuth();
@@ -24,17 +16,7 @@ export function OwnerCta({ place }: { place: Place & { city: City } }) {
     { icon: 'gift', text: o.perkOffers },
     { icon: 'clock', text: o.perkHours },
   ];
-  const open = () =>
-    void Linking.openURL(
-      ownerFormUrl({
-        place_id: place.id,
-        place_slug: place.slug,
-        place_name: place.name,
-        city: place.city.name,
-        user_id: user?.id ?? '',
-        email: user?.email ?? '',
-      }),
-    );
+  const open = () => void Linking.openURL(tallyUrl(env.ownerFormUrl, placeFormParams(place, user)));
   return (
     <View style={styles.wrap}>
       <View style={styles.text}>

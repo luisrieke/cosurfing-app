@@ -188,6 +188,18 @@ export interface ScoreBreakdown {
   category: number;
 }
 
+export type PlaceContactField = 'phone' | 'email' | 'instagram' | 'facebook' | 'whatsapp' | 'tiktok';
+
+/**
+ * Contact details from OSM and the venue's website (place_contacts, signed-in users only).
+ * instagram and tiktok are handles, whatsapp is digits only, facebook is a full URL.
+ */
+export type PlaceContacts = Record<PlaceContactField, string | null> & {
+  place_id: string;
+  sources: Partial<Record<PlaceContactField, { source: 'osm' | 'website' | 'listing' | 'admin'; url?: string }>>;
+  updated_at: string;
+};
+
 export interface Place {
   id: string;
   city_id: string;

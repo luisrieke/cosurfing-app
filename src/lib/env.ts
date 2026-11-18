@@ -20,6 +20,8 @@ export const env = {
   plusWaitlistUrl: read('EXPO_PUBLIC_PLUS_WAITLIST_URL', process.env.EXPO_PUBLIC_PLUS_WAITLIST_URL),
   ownerFormUrl:
     read('EXPO_PUBLIC_OWNER_FORM_URL', process.env.EXPO_PUBLIC_OWNER_FORM_URL) || 'https://tally.so/r/o9Djeb',
+  reachOutFormUrl:
+    read('EXPO_PUBLIC_REACHOUT_FORM_URL', process.env.EXPO_PUBLIC_REACHOUT_FORM_URL) || 'https://tally.so/r/BEpeY4',
 };
 
 // While set, the paywall sends people to this form instead of a checkout on every platform.

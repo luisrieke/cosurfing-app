@@ -7,46 +7,58 @@ import { AdminShell } from '@/components/admin/AdminShell';
 import { VenueReviewKit } from '@/components/admin/VenueReviewKit';
 import { Button, Card, Chip, Input, Notice, Skeleton, Text } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
+import { useDebounced } from '@/hooks/useDebounced';
 import { useAuth } from '@/lib/auth';
 import { normalizeWebsite } from '@/lib/format';
 import { adminGetOutreach, adminSetOutreachStage, OUTREACH_STAGES, type OutreachPlace, type OutreachStage } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { spacing } from '@/lib/theme';
 
+const PAGE_SIZE = 50;
+
 export default function AdminOutreach() {
   const { isAdmin } = useAuth();
-  const places = useQuery('admin-outreach', adminGetOutreach, isAdmin);
   const [filter, setFilter] = useState<OutreachStage | 'all'>('to_contact');
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const q = useDebounced(search.trim(), 300);
+  // The offset belongs to one filter and search; changing either starts again at the first page.
+  const listKey = `${filter}|${q}`;
+  const [pager, setPager] = useState({ key: listKey, offset: 0 });
+  const offset = pager.key === listKey ? pager.offset : 0;
+  const goTo = (next: number) => setPager({ key: listKey, offset: Math.max(0, next) });
 
-  const all = useMemo(() => places.data ?? [], [places.data]);
+  const places = useQuery(
+    `admin-outreach|${filter}|${q}|${offset}`,
+    () => adminGetOutreach({ stage: filter === 'all' ? null : filter, search: q, offset, limit: PAGE_SIZE }),
+    isAdmin,
+  );
+
   const counts = useMemo(() => {
-    const c: Record<string, number> = { all: all.length };
-    for (const p of all) c[p.stage] = (c[p.stage] ?? 0) + 1;
+    const c: Record<string, number> = { ...places.data?.counts };
+    c.all = Object.values(c).reduce((sum, n) => sum + n, 0);
     return c;
-  }, [all]);
+  }, [places.data]);
+  const visible = places.data?.items ?? [];
+  const total = counts[filter] ?? 0;
 
-  const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return all.filter(
-      (p) =>
-        (filter === 'all' || p.stage === filter) &&
-        (!q || p.name.toLowerCase().includes(q) || (p.city?.name ?? '').toLowerCase().includes(q)),
-    );
-  }, [all, filter, search]);
-
-  // Optimistic: show the new stage right away, roll back when saving fails.
+  // Optimistic: show the new stage right away, roll back when saving fails. The place stays on
+  // the current page until the next fetch, so it can be moved on again without hunting for it.
   const setStage = async (place: OutreachPlace, stage: OutreachStage) => {
     if (place.stage === stage) return;
     setError(null);
-    const update = (id: string, next: OutreachStage) =>
-      places.setData((prev) => prev?.map((p) => (p.id === id ? { ...p, stage: next } : p)));
-    update(place.id, stage);
+    const update = (from: OutreachStage, to: OutreachStage) =>
+      places.setData((prev) =>
+        prev && {
+          counts: { ...prev.counts, [from]: (prev.counts[from] ?? 1) - 1, [to]: (prev.counts[to] ?? 0) + 1 },
+          items: prev.items.map((p) => (p.id === place.id ? { ...p, stage: to } : p)),
+        },
+      );
+    update(place.stage, stage);
     try {
       await adminSetOutreachStage(place.id, stage);
     } catch (e) {
-      update(place.id, place.stage);
+      update(stage, place.stage);
       setError(e instanceof Error ? e.message : strings.common.somethingWentWrong);
     }
   };
@@ -63,7 +75,7 @@ export default function AdminOutreach() {
         <Notice tone="danger" body={places.error.message} />
       ) : (
         <>
-          <Text variant="bodyStrong">{strings.admin.outreachProgress(counts.confirmed ?? 0, all.length)}</Text>
+          <Text variant="bodyStrong">{strings.admin.outreachProgress(counts.confirmed ?? 0, counts.all ?? 0)}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
             <Chip label={`${strings.admin.outreachAll} · ${counts.all}`} selected={filter === 'all'} onPress={() => setFilter('all')} />
             {OUTREACH_STAGES.map((s) => (
@@ -82,6 +94,21 @@ export default function AdminOutreach() {
           ) : (
             visible.map((p) => <OutreachItem key={p.id} place={p} onStage={(stage) => setStage(p, stage)} />)
           )}
+          {total > PAGE_SIZE ? (
+            <View style={styles.pager}>
+              <Button title={strings.admin.outreachPrev} size="sm" variant="secondary" disabled={offset === 0} onPress={() => goTo(offset - PAGE_SIZE)} />
+              <Text variant="small" tone="muted">
+                {strings.admin.outreachRange(offset + 1, Math.min(offset + PAGE_SIZE, total), total)}
+              </Text>
+              <Button
+                title={strings.admin.outreachNext}
+                size="sm"
+                variant="secondary"
+                disabled={offset + PAGE_SIZE >= total}
+                onPress={() => goTo(offset + PAGE_SIZE)}
+              />
+            </View>
+          ) : null}
         </>
       )}
     </AdminShell>
@@ -137,5 +164,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs,
+  },
+  pager: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
   },
 });

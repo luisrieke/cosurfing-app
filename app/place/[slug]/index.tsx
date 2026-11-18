@@ -8,6 +8,7 @@ import { LaptopHoursCard, OpeningHoursCard } from '@/components/hours';
 import { PhotoGallery } from '@/components/PhotoGallery';
 import { AddPhotos } from '@/components/place/AddPhotos';
 import { OwnerCta } from '@/components/place/OwnerCta';
+import { PlaceContact } from '@/components/place/PlaceContact';
 import { PlaceMapPreview } from '@/components/place/PlaceMapPreview';
 import {
   DetailRatings,
@@ -907,6 +908,8 @@ export default function PlaceScreen() {
                   </Pressable>
                 </View>
               ) : null}
+
+              <PlaceContact place={place} onSuggest={() => goReport('contact')} />
             </View>
 
             {wide ? (

@@ -229,7 +229,7 @@ async function fetchElements(job: Job): Promise<{ elements: OsmElement[]; source
 // Mapping OSM tags to Cosurfing facts (only what is tagged; nothing is guessed)
 // ---------------------------------------------------------------------------
 
-const KEPT_TAG = /^(amenity|office|name(:en)?|brand|operator|internet_access(:.*)?|opening_hours|website|contact:(website|phone|email|instagram)|phone|addr:.*|outdoor_seating|indoor_seating|wheelchair|cuisine|fee|capacity|socket(:.*)?|description(:en)?|check_date(:.*)?|survey:date|level|access|diet:.*)$/;
+const KEPT_TAG = /^(amenity|office|name(:en)?|brand|operator|internet_access(:.*)?|opening_hours|website|contact:(website|phone|mobile|email|instagram|facebook|whatsapp|tiktok)|phone|mobile|email|instagram|facebook|whatsapp|tiktok|addr:.*|outdoor_seating|indoor_seating|wheelchair|cuisine|fee|capacity|socket(:.*)?|description(:en)?|check_date(:.*)?|survey:date|level|access|diet:.*)$/;
 
 // Names in non-Latin scripts get the English name (if tagged) for display; the original stays as name_local.
 const NON_LATIN = /[^\p{Script=Latin}\p{N}\p{P}\p{S}\s]/u;

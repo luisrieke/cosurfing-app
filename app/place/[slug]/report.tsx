@@ -8,7 +8,7 @@ import { Button, Chip, EmptyState, Input, Notice, Screen, Skeleton, Text, TopBar
 import { useQuery } from '@/hooks/useQuery';
 import { useAuth } from '@/lib/auth';
 import { isReportKind, REPORT_KIND_ORDER, REPORT_KINDS } from '@/lib/placeReports';
-import { createReport, getPlaceBySlug } from '@/lib/queries';
+import { createReport, getPlaceBySlug, getPlaceContacts } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { spacing } from '@/lib/theme';
 import type { PlaceReportKind } from '@/lib/types';
@@ -28,6 +28,7 @@ function ReportScreen({ slug, initialKind }: { slug: string; initialKind: PlaceR
   const { user } = useAuth();
   const placeQuery = useQuery(`place:${slug}`, () => getPlaceBySlug(slug));
   const place = placeQuery.data ?? null;
+  const contactsQuery = useQuery(`contacts:${place?.id}:${user?.id ?? ''}`, () => getPlaceContacts(place!.id), Boolean(place && user));
   const [kind, setKind] = useState<PlaceReportKind>(initialKind);
   const [body, setBody] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +75,7 @@ function ReportScreen({ slug, initialKind }: { slug: string; initialKind: PlaceR
   }
 
   const info = REPORT_KINDS[kind];
-  const current = info.current?.(place) ?? null;
+  const current = info.current?.(place, contactsQuery.data ?? null) ?? null;
 
   return (
     <Screen>
