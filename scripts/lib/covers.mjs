@@ -19,10 +19,19 @@ const MAX_ASPECT = 2.4;
 const MIN_YEAR = 1990;
 
 export async function sparql(query) {
-  const url = `https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(query)}`;
   for (let attempt = 0; attempt < 3; attempt++) {
+    // A query that times out mid-stream comes back as 200 with a stack trace after the JSON, and
+    // Wikidata caches that response, so retries change the query text to get a fresh run.
+    const text = attempt ? `${query}\n# retry ${attempt}` : query;
+    const url = `https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(text)}`;
     const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT, Accept: 'application/sparql-results+json' } });
-    if (res.ok) return (await res.json()).results.bindings;
+    if (res.ok) {
+      try {
+        return JSON.parse(await res.text()).results.bindings;
+      } catch {
+        // truncated by a timeout, retried below
+      }
+    }
     await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
   }
   throw new Error('Wikidata query failed');
