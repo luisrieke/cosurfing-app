@@ -59,4 +59,6 @@ export interface MapHandle {
   /** Move the camera. `offsetY` shifts the target up by this many pixels (to clear a bottom sheet). */
   flyTo: (target: LatLng, zoom?: number, offsetY?: number) => void;
   fitMarkers: (padding?: { top: number; right: number; bottom: number; left: number }) => void;
+  /** Frame an area (an island, a region, a country). */
+  fitBounds: (bounds: MapBounds, padding?: { top: number; right: number; bottom: number; left: number }) => void;
 }

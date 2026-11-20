@@ -44,6 +44,23 @@ export async function openDirections(target: LatLng, label: string): Promise<voi
   }
 }
 
+/**
+ * Center and web-map zoom that fit a box into a viewport of the given size (a phone by default), for
+ * links that can only carry a center and a zoom.
+ */
+export function boundsView(
+  b: { south: number; north: number; west: number; east: number },
+  size: { width: number; height: number } = { width: 360, height: 480 },
+): { center: LatLng; zoom: number } {
+  const center = { lat: (b.south + b.north) / 2, lng: (b.west + b.east) / 2 };
+  const lngSpan = Math.max(b.east - b.west, 0.01);
+  const latSpan = Math.max(b.north - b.south, 0.01);
+  const zoomLng = Math.log2((360 * size.width) / (256 * lngSpan));
+  const zoomLat = Math.log2((360 * Math.cos((center.lat * Math.PI) / 180) * size.height) / (256 * latSpan));
+  const zoom = Math.min(13, Math.max(3, Math.min(zoomLng, zoomLat)));
+  return { center, zoom: Math.floor(zoom * 10) / 10 };
+}
+
 /** Rough bounding box around a center for quick "in city" checks. */
 export function withinKm(center: LatLng, point: LatLng, km: number): boolean {
   return distanceKm(center, point) <= km;

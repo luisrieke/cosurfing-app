@@ -280,6 +280,15 @@ export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
         for (const m of ms) bounds.extend([m.lng, m.lat]);
         map.fitBounds(bounds, { padding, maxZoom: 16, duration: 600 });
       },
+      fitBounds: (b, padding = { top: 160, right: 40, bottom: 140, left: 40 }) => {
+        mapRef.current?.fitBounds(
+          [
+            [b.west, b.south],
+            [b.east, b.north],
+          ],
+          { padding, maxZoom: 13, duration: 800 },
+        );
+      },
     }),
     [],
   );

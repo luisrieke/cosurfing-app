@@ -723,6 +723,23 @@ export interface PlaceSearchResult {
   country_name: string;
 }
 
+export type SearchAreaKind = 'island' | 'region' | 'country';
+
+/** Row of `search_areas`: an island, region or country, with the box its cities span. */
+export interface SearchArea {
+  key: string;
+  kind: SearchAreaKind;
+  name: string;
+  country_code: string;
+  country_name: string;
+  city_count: number;
+  place_count: number;
+  south: number;
+  north: number;
+  west: number;
+  east: number;
+}
+
 export interface CitySearchResult {
   name: string;
   countryCode: string;

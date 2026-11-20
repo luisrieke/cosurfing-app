@@ -9,15 +9,17 @@ import { useDebounced } from '@/hooks/useDebounced';
 import { useListNavigation } from '@/hooks/useListNavigation';
 import { useQuery } from '@/hooks/useQuery';
 import { isSupabaseConfigured } from '@/lib/env';
-import { listCities, searchPlaces } from '@/lib/queries';
+import { listCities, searchAreas, searchPlaces } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, radius, shadow, spacing } from '@/lib/theme';
-import type { CityListItem, PlaceSearchResult } from '@/lib/types';
+import type { CityListItem, PlaceSearchResult, SearchArea } from '@/lib/types';
 
+const MAX_AREAS = 3;
 const MAX_CITIES = 4;
 const MAX_PLACES = 6;
 
 interface GlobalSearchProps {
+  onSelectArea: (area: SearchArea) => void;
   onSelectCity: (city: CityListItem) => void;
   onSelectPlace: (place: PlaceSearchResult) => void;
   /** Called on every keystroke, for screens that also filter a list by the same text. */
@@ -27,19 +29,24 @@ interface GlobalSearchProps {
   style?: ViewStyle;
 }
 
-type Row = { kind: 'city'; city: CityListItem } | { kind: 'place'; place: PlaceSearchResult };
+type Row =
+  | { kind: 'area'; area: SearchArea }
+  | { kind: 'city'; city: CityListItem }
+  | { kind: 'place'; place: PlaceSearchResult };
 
 /**
- * One search field for cities and places. Results drop down in two groups; picking one hands it to the
- * screen, which decides what to do (fly the map there, open the page, ...). Enter picks the first result.
+ * One search field for regions, cities and places. Results drop down in three groups; picking one hands
+ * it to the screen, which decides what to do (fly the map there, open the page, ...). Enter picks the
+ * first result.
  */
-export function GlobalSearch({ onSelectCity, onSelectPlace, onChangeQuery, placeholder, large, style }: GlobalSearchProps) {
+export function GlobalSearch({ onSelectArea, onSelectCity, onSelectPlace, onChangeQuery, placeholder, large, style }: GlobalSearchProps) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const q = useDebounced(query.trim(), 200);
   const searchable = q.length >= 2 && isSupabaseConfigured;
 
+  const areas = useQuery(`global-search-areas:${q}`, () => searchAreas(q, MAX_AREAS), searchable);
   const cities = useQuery(
     `global-search-cities:${q}`,
     () => listCities({ q, sort: 'population', limit: MAX_CITIES, offset: 0 }),
@@ -54,13 +61,15 @@ export function GlobalSearch({ onSelectCity, onSelectPlace, onChangeQuery, place
     [],
   );
 
+  const areaRows = searchable ? (areas.data ?? []) : [];
   const cityRows = searchable ? (cities.data?.items ?? []) : [];
   const placeRows = searchable ? (places.data ?? []) : [];
   const rows: Row[] = [
+    ...areaRows.map((area): Row => ({ kind: 'area', area })),
     ...cityRows.map((city): Row => ({ kind: 'city', city })),
     ...placeRows.map((place): Row => ({ kind: 'place', place })),
   ];
-  const loading = searchable && (cities.loading || places.loading);
+  const loading = searchable && (areas.loading || cities.loading || places.loading);
   const typing = query.trim().length >= 2;
   // Results of an older query stay visible until the new ones arrive, so the list does not flicker.
   const show = open && typing;
@@ -78,14 +87,16 @@ export function GlobalSearch({ onSelectCity, onSelectPlace, onChangeQuery, place
   };
 
   const pick = (row: Row) => {
-    if (row.kind === 'city') onSelectCity(row.city);
+    if (row.kind === 'area') onSelectArea(row.area);
+    else if (row.kind === 'city') onSelectCity(row.city);
     else onSelectPlace(row.place);
     reset();
   };
 
   const nav = useListNavigation({
     items: rows,
-    getKey: (row) => (row.kind === 'city' ? `city:${row.city.id}` : `place:${row.place.id}`),
+    getKey: (row) =>
+      row.kind === 'area' ? row.area.key : row.kind === 'city' ? `city:${row.city.id}` : `place:${row.place.id}`,
     onPick: pick,
     onClose: () => setOpen(false),
   });
@@ -117,33 +128,65 @@ export function GlobalSearch({ onSelectCity, onSelectPlace, onChangeQuery, place
       />
       {show ? (
         <Glass variant="strong" style={[styles.dropdown, large && styles.dropdownLarge]}>
-          {cityRows.length > 0 ? <Text variant="caption" tone="muted" style={styles.group}>{strings.globalSearch.cities}</Text> : null}
-          {cityRows.map((city, i) => (
+          {areaRows.length > 0 ? <Text variant="caption" tone="muted" style={styles.group}>{strings.globalSearch.areas}</Text> : null}
+          {areaRows.map((area, i) => (
             <Pressable
-              key={city.id}
-              onPress={() => pick({ kind: 'city', city })}
+              key={area.key}
+              onPress={() => pick({ kind: 'area', area })}
               onHoverIn={() => nav.setActive(i)}
               accessibilityRole="button"
-              accessibilityLabel={`${city.name}, ${city.country_name}`}
+              accessibilityLabel={area.kind === 'country' ? area.name : `${area.name}, ${area.country_name}`}
               accessibilityState={{ selected: nav.active === i }}
               style={({ pressed }) => [styles.row, (pressed || nav.active === i) && styles.pressed]}
             >
-              <View style={styles.iconBox}>
-                <Icon name="map-pin" size={16} color={colors.textMuted} />
+              <View style={[styles.iconBox, { backgroundColor: colors.accentSoft }]}>
+                <Icon name={area.kind === 'country' ? 'flag' : 'map'} size={16} color={colors.accent} />
               </View>
               <View style={styles.rowText}>
                 <Text variant="bodyStrong" numberOfLines={1}>
-                  {city.name}
+                  {area.name}
                 </Text>
                 <Text variant="caption" tone="muted" numberOfLines={1}>
-                  {strings.globalSearch.cityMeta(city.country_name, city.place_count)}
+                  {strings.globalSearch.areaMeta(
+                    strings.globalSearch.areaKind[area.kind],
+                    area.kind === 'country' ? null : area.country_name,
+                    area.place_count,
+                    area.city_count,
+                  )}
                 </Text>
               </View>
             </Pressable>
           ))}
+          {cityRows.length > 0 ? <Text variant="caption" tone="muted" style={styles.group}>{strings.globalSearch.cities}</Text> : null}
+          {cityRows.map((city, k) => {
+            const i = areaRows.length + k;
+            return (
+              <Pressable
+                key={city.id}
+                onPress={() => pick({ kind: 'city', city })}
+                onHoverIn={() => nav.setActive(i)}
+                accessibilityRole="button"
+                accessibilityLabel={`${city.name}, ${city.country_name}`}
+                accessibilityState={{ selected: nav.active === i }}
+                style={({ pressed }) => [styles.row, (pressed || nav.active === i) && styles.pressed]}
+              >
+                <View style={styles.iconBox}>
+                  <Icon name="map-pin" size={16} color={colors.textMuted} />
+                </View>
+                <View style={styles.rowText}>
+                  <Text variant="bodyStrong" numberOfLines={1}>
+                    {city.name}
+                  </Text>
+                  <Text variant="caption" tone="muted" numberOfLines={1}>
+                    {strings.globalSearch.cityMeta(city.country_name, city.place_count)}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
           {placeRows.length > 0 ? <Text variant="caption" tone="muted" style={styles.group}>{strings.globalSearch.places}</Text> : null}
           {placeRows.map((place, j) => {
-            const i = cityRows.length + j;
+            const i = areaRows.length + cityRows.length + j;
             return (
               <Pressable
                 key={place.id}

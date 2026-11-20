@@ -25,7 +25,7 @@ import { localWeekMinute, matchesTimeFilter } from '@/lib/hours';
 import { getCityBySlug, getMapCities, getMyReviewedPlaces, getPlaceCover, getPlacesInBounds } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
-import type { CityListItem, LatLng, MapPlace, PlaceCategory, PlaceSearchResult } from '@/lib/types';
+import type { CityListItem, LatLng, MapPlace, PlaceCategory, PlaceSearchResult, SearchArea } from '@/lib/types';
 
 const CATEGORIES: PlaceCategory[] = ['coworking', 'cafe', 'library', 'coliving'];
 
@@ -202,6 +202,11 @@ export default function HomeScreen() {
     mapRef.current?.flyTo({ lat: city.lat, lng: city.lng }, Math.max(city.zoom || 12, MIN_ZOOM + 1));
   };
 
+  const openArea = (a: SearchArea) => {
+    setSelectedId(null);
+    mapRef.current?.fitBounds(a);
+  };
+
   const openPlace = (p: PlaceSearchResult) => {
     // Show the place even if a filter or a hidden type would have kept it off the map.
     setHidden((prev) => {
@@ -274,7 +279,7 @@ export default function HomeScreen() {
       <View pointerEvents="box-none" style={styles.overlayTop}>
         <SiteHeaderSpacer />
         <View pointerEvents="box-none" style={styles.searchRow}>
-          <GlobalSearch onSelectCity={(c) => void openCity(c)} onSelectPlace={openPlace} />
+          <GlobalSearch onSelectArea={openArea} onSelectCity={(c) => void openCity(c)} onSelectPlace={openPlace} />
         </View>
         <View pointerEvents="box-none" style={styles.topRow}>
           <Glass variant="strong" style={styles.status}>

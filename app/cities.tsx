@@ -25,6 +25,7 @@ import { useDebounced } from '@/hooks/useDebounced';
 import { usePaged } from '@/hooks/usePaged';
 import { useAuth } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/env';
+import { boundsView } from '@/lib/geo';
 import { findCityByNameAndCountry, listCities } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, layout, radius, spacing } from '@/lib/theme';
@@ -108,6 +109,13 @@ export default function CitiesScreen() {
             </Text>
             <GlobalSearch
               onChangeQuery={setQuery}
+              onSelectArea={(a) => {
+                const view = boundsView(a);
+                router.push({
+                  pathname: '/',
+                  params: { lat: String(view.center.lat), lng: String(view.center.lng), zoom: String(view.zoom) },
+                });
+              }}
               onSelectCity={(c) => router.push(`/${c.slug}`)}
               onSelectPlace={(p) => router.push(`/place/${p.slug}`)}
               large

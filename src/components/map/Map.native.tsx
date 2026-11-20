@@ -63,6 +63,15 @@ export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
           { edgePadding: padding, animated: true },
         );
       },
+      fitBounds: (b, padding = { top: 160, right: 40, bottom: 140, left: 40 }) => {
+        mapRef.current?.fitToCoordinates(
+          [
+            { latitude: b.south, longitude: b.west },
+            { latitude: b.north, longitude: b.east },
+          ],
+          { edgePadding: padding, animated: true },
+        );
+      },
     }),
     [width, height],
   );

@@ -509,10 +509,20 @@ export const strings = {
     queueFinished: 'You rated all the places you picked. Thank you!',
   },
   globalSearch: {
-    placeholder: 'Search a city or a place…',
+    placeholder: 'Search a city, region or place…',
+    areas: 'Regions & countries',
     cities: 'Cities',
     places: 'Places',
     noMatch: 'No city or place matches your search.',
+    areaKind: { island: 'Island', region: 'Region', country: 'Country' },
+    areaMeta: (kind: string, country: string | null, places: number, cities: number) =>
+      [
+        kind,
+        country,
+        `${places.toLocaleString('en-US')} ${places === 1 ? 'place' : 'places'} in ${cities} ${cities === 1 ? 'city' : 'cities'}`,
+      ]
+        .filter(Boolean)
+        .join(' · '),
     cityMeta: (country: string, places: number) =>
       places > 0 ? `${country} · ${places.toLocaleString('en-US')} ${places === 1 ? 'place' : 'places'}` : country,
     placeMeta: (city: string, country: string) => `${city}, ${country}`,

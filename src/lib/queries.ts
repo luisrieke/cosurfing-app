@@ -44,6 +44,7 @@ import type {
   ReviewInput,
   ReviewSource,
   ReviewUnlockQuota,
+  SearchArea,
   SpeedTest,
   SpeedTestKind,
   SpeedTestVerification,
@@ -284,6 +285,17 @@ export async function searchPlaces(q: string, limit = 8): Promise<PlaceSearchRes
   const { data, error } = await requireSupabase().rpc('search_places', { p_q: term, p_limit: limit });
   throwIf(error);
   return ((data ?? []) as PlaceSearchResult[]).map((p) => ({ ...p, work_score: Number(p.work_score) }));
+}
+
+/** Islands, regions and countries matching the search, for "Sicily", "Mallorca", "Malta". */
+export async function searchAreas(q: string, limit = 3): Promise<SearchArea[]> {
+  const term = q.trim();
+  if (term.length < 2) return [];
+  const { data, error } = await requireSupabase().rpc('search_areas', { p_q: term, p_limit: limit });
+  // PGRST202: the RPC does not exist yet (database without the area search migration).
+  if (error?.code === 'PGRST202') return [];
+  throwIf(error);
+  return (data ?? []) as SearchArea[];
 }
 
 /** Every live city that has places, for the zoomed-out map overview (paged: the API caps rows at 1,000). */

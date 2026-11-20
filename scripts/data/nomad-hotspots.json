@@ -319,6 +319,7 @@
   { "name": "Licata", "country_code": "IT", "lat": 37.1023, "lng": 13.9372, "population": 37000, "wiki": "Licata" },
   { "name": "Ragusa", "country_code": "IT", "lat": 36.9269, "lng": 14.7255, "population": 73000, "wiki": "Ragusa, Sicily" },
   { "name": "Balestrate", "country_code": "IT", "lat": 38.0519, "lng": 13.0043, "population": 6400, "wiki": "Balestrate", "region": "Sicily", "timezone": "Europe/Rome" },
+  { "name": "Trappeto", "country_code": "IT", "lat": 38.067, "lng": 13.0365, "population": 3300, "wiki": "Trappeto", "region": "Sicily", "timezone": "Europe/Rome" },
   { "name": "Trapani", "country_code": "IT", "lat": 38.0176, "lng": 12.5365, "population": 65000, "wiki": "Trapani" },
   { "name": "Marsala", "country_code": "IT", "lat": 37.7979, "lng": 12.4342, "population": 80000, "wiki": "Marsala, Sicily" },
   { "name": "Cefalù", "country_code": "IT", "lat": 38.035, "lng": 14.0245, "population": 14000, "wiki": "Cefalù", "region": "Sicily", "timezone": "Europe/Rome" },
