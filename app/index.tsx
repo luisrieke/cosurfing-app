@@ -31,7 +31,8 @@ const CATEGORIES: PlaceCategory[] = ['coworking', 'cafe', 'library', 'coliving']
 
 /** Below this zoom an area holds too many places to load at once. */
 const MIN_ZOOM = 9;
-const LIMIT = 300;
+// 300 filled up in central Paris before the neighbourhood cafés (no reviews yet) could appear.
+const LIMIT = 500;
 const NEAR_ME_ZOOM = 14;
 const PLACE_ZOOM = 16;
 /** A picked place lands this many pixels below the center: the search and filters on top cover more than the sheet below. */
