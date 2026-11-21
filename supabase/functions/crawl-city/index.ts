@@ -30,6 +30,8 @@ interface Job {
   radius_km: number;
   is_hotspot: boolean;
   population: number | null;
+  // Cities such as Paris: import every named café, not only those tagged with Wi-Fi.
+  crawl_all_cafes?: boolean;
 }
 
 interface OsmElement {
@@ -57,6 +59,9 @@ async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Pro
 
 const KEY_PREFIX = 'https://www.openstreetmap.org/wiki/Key:';
 const WIFI_VALUES = '"wlan","yes","wifi","public","customers","wired"';
+// Same set mapElement keeps. A full-café crawl (Paris) would otherwise download every tag.
+const KEPT_KEY =
+  '^(amenity|office|name(:en)?|brand|operator|internet_access(:.*)?|opening_hours|website|contact:(website|phone|mobile|email|instagram|facebook|whatsapp|tiktok)|phone|mobile|email|instagram|facebook|whatsapp|tiktok|addr:.*|outdoor_seating|indoor_seating|wheelchair|cuisine|fee|capacity|socket(:.*)?|description(:en)?|check_date(:.*)?|survey:date|level|access|diet:.*)$';
 
 // In Italy the neighbourhood café is an amenity=bar, so bars count as cafés there.
 const BAR_COUNTRIES = new Set(['IT']);
@@ -79,7 +84,9 @@ SELECT ?osm ?wkt ?key ?val WHERE {
     FILTER(geof:distance(?wkt, "POINT(${lng} ${lat})"^^geo:wktLiteral) < ${radiusKm})
   }
   ?osm ?key ?val .
-  FILTER(STRSTARTS(STR(?key), "${KEY_PREFIX}"))
+  FILTER(STRSTARTS(STR(?key), "${KEY_PREFIX}"))${
+    allCafes ? `\n  FILTER(REGEX(STRAFTER(STR(?key), "${KEY_PREFIX}"), "${KEPT_KEY}"))` : ''
+  }
 }`;
 }
 
@@ -172,7 +179,7 @@ async function fetchOverpass(job: Job, allCafes: boolean): Promise<OsmElement[]>
           headers: { 'User-Agent': USER_AGENT, 'Content-Type': 'application/x-www-form-urlencoded' },
           body: `data=${encodeURIComponent(query)}`,
         },
-        20_000,
+        allCafes ? 55_000 : 20_000,
       );
       if (!res.ok) {
         lastError = `${endpoint}: ${res.status}`;
@@ -211,7 +218,8 @@ async function fetchFromSources(job: Job, allCafes: boolean): Promise<{ elements
 }
 
 async function fetchElements(job: Job): Promise<{ elements: OsmElement[]; source: string; all_cafes: boolean }> {
-  if (job.is_hotspot && (job.population ?? 0) < SMALL_HOTSPOT_POPULATION) {
+  // A wifi-only crawl of Paris kept about one café in ten. Flagged cities take every named café.
+  if (job.crawl_all_cafes || (job.is_hotspot && (job.population ?? 0) < SMALL_HOTSPOT_POPULATION)) {
     return { ...(await fetchFromSources(job, true)), all_cafes: true };
   }
   const first = await fetchFromSources(job, false);
@@ -319,6 +327,15 @@ async function crawlOne(sb: SupabaseClient, job: Job) {
       if (seen.has(key)) continue;
       seen.add(key);
       items.push(item);
+    }
+    // Lets this crawl archive cafés that really left OSM. A wifi-only crawl does not call it,
+    // so it cannot archive the untagged cafés a full crawl added.
+    if (job.crawl_all_cafes) {
+      const { error: markError } = await sb.rpc('mark_all_cafes_crawl', {
+        p_city_id: job.city_id,
+        p_started_at: startedAt,
+      });
+      if (markError) throw new Error(markError.message);
     }
     const { data, error } = await sb.rpc('upsert_osm_places', {
       p_city_id: job.city_id,
