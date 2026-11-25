@@ -1373,6 +1373,181 @@ export async function adminUpdatePhotoOrder(ids: string[]): Promise<void> {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Venue owners
+// ---------------------------------------------------------------------------
+
+export interface OwnedPlace {
+  id: string;
+  slug: string;
+  name: string;
+  category: PlaceCategory;
+  status: PlaceStatus;
+  city_name: string | null;
+}
+
+export type OwnerInviteState = 'valid' | 'accepted' | 'used' | 'expired';
+
+export interface OwnerInviteInfo {
+  place_id: string;
+  place_name: string;
+  place_slug: string;
+  city_name: string | null;
+  state: OwnerInviteState;
+}
+
+/** Fields owners may change; the database rejects anything else. */
+export const OWNER_FIELDS = [
+  'description',
+  'website',
+  'phone',
+  'access',
+  'access_note',
+  'day_pass_price_cents',
+  'wifi',
+  'power_outlets',
+  'calls',
+  'laptop_rules',
+  'hours',
+  'laptop_hours',
+  'non_guest_work',
+  'non_guest_note',
+  'season',
+  'season_note',
+  'min_stay',
+] as const satisfies readonly (keyof Place)[];
+
+export type OwnerPatch = Partial<Pick<Place, (typeof OWNER_FIELDS)[number]>>;
+
+export interface OwnerPhoto {
+  id: string;
+  sort_order: number;
+  preview_path: string;
+  full_path: string;
+  own: boolean;
+}
+
+export async function getMyOwnedPlaces(): Promise<OwnedPlace[]> {
+  const { data, error } = await requireSupabase().rpc('get_my_owned_places');
+  throwIf(error);
+  return (data ?? []) as OwnedPlace[];
+}
+
+export async function getOwnerInvite(token: string): Promise<OwnerInviteInfo | null> {
+  const { data, error } = await requireSupabase().rpc('get_place_owner_invite', { p_token: token });
+  throwIf(error);
+  return ((data ?? []) as OwnerInviteInfo[])[0] ?? null;
+}
+
+export async function acceptOwnerInvite(token: string): Promise<string> {
+  const { data, error } = await requireSupabase().rpc('accept_place_owner_invite', { p_token: token });
+  throwIf(error);
+  return data as string;
+}
+
+export async function ownerGetPlace(id: string): Promise<(Place & { city: City | null }) | null> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc('owner_get_place', { p_place_id: id });
+  throwIf(error);
+  const place = ((data ?? []) as Place[])[0];
+  if (!place) return null;
+  const { data: city } = await sb.from('cities').select('*').eq('id', place.city_id).maybeSingle();
+  return { ...place, city: (city as City | null) ?? null };
+}
+
+export async function ownerUpdatePlace(id: string, patch: OwnerPatch): Promise<void> {
+  const { error } = await requireSupabase().rpc('owner_update_place', { p_place_id: id, p_patch: patch });
+  throwIf(error);
+}
+
+export async function ownerGetPhotos(placeId: string): Promise<OwnerPhoto[]> {
+  const { data, error } = await requireSupabase().rpc('owner_get_place_photos', { p_place_id: placeId });
+  throwIf(error);
+  return (data ?? []) as OwnerPhoto[];
+}
+
+export async function ownerHidePhoto(photoId: string): Promise<void> {
+  const { error } = await requireSupabase().rpc('owner_hide_place_photo', { p_photo_id: photoId });
+  throwIf(error);
+}
+
+export async function ownerReorderPhotos(placeId: string, ids: string[]): Promise<void> {
+  const { error } = await requireSupabase().rpc('owner_reorder_place_photos', { p_place_id: placeId, p_ids: ids });
+  throwIf(error);
+}
+
+export interface AdminPlaceOwner {
+  place_id: string;
+  place_name: string;
+  place_slug: string;
+  user_id: string;
+  email: string | null;
+  display_name: string | null;
+  created_at: string;
+}
+
+export interface AdminOwnerInvite {
+  id: string;
+  place_id: string;
+  token: string;
+  sent_to: string | null;
+  created_at: string;
+  expires_at: string;
+  accepted_at: string | null;
+}
+
+export interface AdminOwnerChange {
+  id: string;
+  place_id: string;
+  place_name: string;
+  place_slug: string;
+  email: string | null;
+  changes: Record<string, { from: unknown; to: unknown }>;
+  created_at: string;
+}
+
+export async function adminGetPlaceOwners(placeId?: string): Promise<AdminPlaceOwner[]> {
+  const { data, error } = await requireSupabase().rpc('admin_get_place_owners', { p_place_id: placeId ?? null });
+  throwIf(error);
+  return (data ?? []) as AdminPlaceOwner[];
+}
+
+export async function adminRemovePlaceOwner(placeId: string, userId: string): Promise<void> {
+  const { error } = await requireSupabase().from('place_owners').delete().eq('place_id', placeId).eq('user_id', userId);
+  throwIf(error);
+}
+
+export async function adminGetOwnerInvites(placeId: string): Promise<AdminOwnerInvite[]> {
+  const { data, error } = await requireSupabase()
+    .from('place_owner_invites')
+    .select('id, place_id, token, sent_to, created_at, expires_at, accepted_at')
+    .eq('place_id', placeId)
+    .order('created_at', { ascending: false });
+  throwIf(error);
+  return (data ?? []) as AdminOwnerInvite[];
+}
+
+export async function adminCreateOwnerInvite(placeId: string, sentTo: string | null): Promise<AdminOwnerInvite> {
+  const { data, error } = await requireSupabase()
+    .from('place_owner_invites')
+    .insert({ place_id: placeId, sent_to: sentTo?.trim() || null })
+    .select('id, place_id, token, sent_to, created_at, expires_at, accepted_at')
+    .single();
+  throwIf(error);
+  return data as AdminOwnerInvite;
+}
+
+export async function adminDeleteOwnerInvite(id: string): Promise<void> {
+  const { error } = await requireSupabase().from('place_owner_invites').delete().eq('id', id);
+  throwIf(error);
+}
+
+export async function adminGetOwnerChanges(limit = 50): Promise<AdminOwnerChange[]> {
+  const { data, error } = await requireSupabase().rpc('admin_get_owner_changes', { p_limit: limit });
+  throwIf(error);
+  return (data ?? []) as AdminOwnerChange[];
+}
+
 export interface WaitlistCitySummary {
   city: City;
   verified: number;

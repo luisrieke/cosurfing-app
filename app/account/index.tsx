@@ -28,7 +28,7 @@ export default function AccountRoute() {
 
 function AccountScreen() {
   const router = useRouter();
-  const { user, profile, isPlus, isAdmin, entitlement, favoriteIds, refresh, signOut } = useAuth();
+  const { user, profile, isPlus, isAdmin, ownedPlaceIds, entitlement, favoriteIds, refresh, signOut } = useAuth();
   const [name, setName] = useState(profile?.display_name ?? '');
   const [syncedName, setSyncedName] = useState(profile?.display_name ?? null);
   const [saving, setSaving] = useState(false);
@@ -152,6 +152,14 @@ function AccountScreen() {
           />
         ) : null}
       </Card>
+
+      {ownedPlaceIds.size > 0 ? (
+        <Section title={strings.owner.areaTitle}>
+          <AdminList>
+            <AdminRow icon="key" title={strings.owner.edit} subtitle={strings.owner.managedBody} onPress={() => router.push('/owner')} />
+          </AdminList>
+        </Section>
+      ) : null}
 
       {isAdmin ? (
         <Section title={strings.account.admin}>

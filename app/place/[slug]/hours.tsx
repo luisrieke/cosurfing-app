@@ -160,6 +160,7 @@ function HoursScreen({ slug }: { slug: string }) {
       <View style={styles.card}>
         <Text variant="bodyStrong">{h.title}</Text>
         {place.hours_source === 'team' ? <Notice tone="info" body={h.editTeamChecked} /> : null}
+        {place.hours_source === 'venue' ? <Notice tone="info" body={h.editVenueChecked} /> : null}
         {hours ? (
           <>
             <WeeklyHoursEditor value={hours} onChange={change(setHours)} category={place.category} />

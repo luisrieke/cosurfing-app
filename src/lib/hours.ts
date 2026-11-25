@@ -17,7 +17,7 @@ export const WEEKEND: DayKey[] = ['sa', 'su'];
 export type Interval = [number, number];
 export type WeeklyHours = Record<DayKey, Interval[]>;
 
-export type HoursSource = 'team' | 'community' | 'osm' | 'website' | 'listing';
+export type HoursSource = 'team' | 'venue' | 'community' | 'osm' | 'website' | 'listing';
 export type HoursStatus = 'structured' | 'needs_review' | 'text_only';
 export type HoursFlag = 'holidays' | 'date_exceptions';
 

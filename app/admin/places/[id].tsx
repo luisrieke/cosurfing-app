@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { AdminHoursSection } from '@/components/admin/AdminHoursSection';
+import { AdminPlaceOwners } from '@/components/admin/AdminPlaceOwners';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { VenueReviewKit } from '@/components/admin/VenueReviewKit';
 import type { LaptopWeek } from '@/components/hours';
@@ -418,7 +419,7 @@ function Editor({ placeId }: { placeId: string | null }) {
       ) : null}
 
       <Section title={strings.place.facts}>
-        <EnumField label={f.access} value={form.access} options={['open', 'registration', 'application', 'members', 'unknown'] as PlaceAccess[]} onChange={(v) => update('access', v)} />
+        <EnumField label={f.access} value={form.access} options={['open', 'registration', 'on_request', 'application', 'members', 'unknown'] as PlaceAccess[]} onChange={(v) => update('access', v)} />
         <Input label={f.accessNote} optional value={form.access_note ?? ''} onChangeText={(v) => update('access_note', v)} />
         <EnumField label={f.wifi} value={form.wifi} options={['yes', 'no', 'unknown'] as WifiValue[]} onChange={(v) => update('wifi', v)} />
         <EnumField label={f.internetFee} value={form.internet_fee} options={['no', 'customers', 'yes', 'unknown'] as InternetFeeValue[]} onChange={(v) => update('internet_fee', v)} />
@@ -478,6 +479,8 @@ function Editor({ placeId }: { placeId: string | null }) {
           )}
         </Section>
       ) : null}
+
+      {placeId && placeQuery.data ? <AdminPlaceOwners placeId={placeId} published={placeQuery.data.status === 'published'} /> : null}
 
       {placeId && placeQuery.data ? <CrawlerInfo place={placeQuery.data} /> : null}
 

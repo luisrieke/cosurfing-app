@@ -31,7 +31,9 @@ app/                     Expo Router routes
   plus/                  Paywall + success page
   suggest.tsx            Suggest a place (signed in)
   admin/                 Admin area (guarded by is_admin()): cities + crawl status, places, reviews,
-                         speed tests, suggestions, reports, waiting lists
+                         speed tests, suggestions, reports, waiting lists, venue owners
+  owner/                 Venue owners: accept an invite link, edit their own listing and photos
+                         (owner_update_place only allows venue fields; every change is logged)
 src/
   components/            UI primitives, city ranking, place sections, speed test, sign-up gates, map
   lib/                   theme, strings (all copy), supabase client, queries, auth, billing, funnel, speedtest

@@ -230,6 +230,7 @@ export function hardFacts(place: Place, facts: FactSummary[] = []): FactLine[] {
   const [access, accessTone] = pick(accessValue, {
     open: [s.access_open, 'good'],
     registration: [s.access_registration, 'okay'],
+    on_request: [s.access_on_request, 'okay'],
     application: [s.access_application, 'bad'],
     members: [s.access_members, 'bad'],
   });

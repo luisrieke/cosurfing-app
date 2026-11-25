@@ -107,7 +107,7 @@ export function meetingRoomCurrency(web: WebFacts): string {
 }
 
 /** How easy it is to get in: the order members choose from, easiest first. */
-export const ACCESS_VALUES: Exclude<PlaceAccess, 'unknown'>[] = ['open', 'registration', 'application', 'members'];
+export const ACCESS_VALUES: Exclude<PlaceAccess, 'unknown'>[] = ['open', 'registration', 'on_request', 'application', 'members'];
 
 export function accessLabel(access: PlaceAccess): string {
   const s = strings.place;
@@ -116,6 +116,8 @@ export function accessLabel(access: PlaceAccess): string {
       return s.access_open;
     case 'registration':
       return s.access_registration;
+    case 'on_request':
+      return s.access_on_request;
     case 'application':
       return s.access_application;
     case 'members':

@@ -136,7 +136,7 @@ export function OpeningHoursCard({
       ) : null}
       {!structured && status === 'needs_review' ? <Notice tone="info" body={h.needsReview} /> : null}
       {!structured && status === 'text_only' ? <Note icon="info" text={h.textOnly} /> : null}
-      {structured && source ? <Note icon={source === 'team' ? 'check-circle' : source === 'community' ? 'users' : 'info'} text={h.source[source]} /> : null}
+      {structured && source ? <Note icon={source === 'team' || source === 'venue' ? 'check-circle' : source === 'community' ? 'users' : 'info'} text={h.source[source]} /> : null}
     </View>
   );
 }

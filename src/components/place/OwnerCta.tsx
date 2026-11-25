@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { Linking, StyleSheet, View } from 'react-native';
 
 import { Button, Icon, type IconName, Text } from '@/components/ui';
@@ -9,8 +10,22 @@ import { colors, radius, spacing } from '@/lib/theme';
 import type { City, Place } from '@/lib/types';
 
 export function OwnerCta({ place }: { place: Place & { city: City } }) {
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, ownedPlaceIds } = useAuth();
   const o = strings.owner;
+  if (ownedPlaceIds.has(place.id)) {
+    return (
+      <View style={styles.wrap}>
+        <View style={styles.text}>
+          <Text variant="bodyStrong">{o.managedTitle}</Text>
+          <Text variant="small" tone="muted">
+            {o.managedBody}
+          </Text>
+        </View>
+        <Button title={o.edit} icon="edit-3" size="sm" onPress={() => router.push(`/owner/${place.id}`)} style={styles.selfStart} />
+      </View>
+    );
+  }
   const perks: { icon: IconName; text: string }[] = [
     { icon: 'calendar', text: o.perkPasses },
     { icon: 'gift', text: o.perkOffers },

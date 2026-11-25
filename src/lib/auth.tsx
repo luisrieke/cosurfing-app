@@ -10,7 +10,7 @@ import {
   useState,
 } from 'react';
 
-import { getEntitlement, getFavoriteIds, getProfile, setFavorite as persistFavorite } from './queries';
+import { getEntitlement, getFavoriteIds, getMyOwnedPlaces, getProfile, setFavorite as persistFavorite } from './queries';
 import { supabase } from './supabase';
 import type { Entitlement, Profile } from './types';
 
@@ -24,6 +24,8 @@ interface AuthState {
   isAdmin: boolean;
   /** Trusted contributor: new changes go live without admin review. */
   isLocalGuide: boolean;
+  /** Places this user may edit as the venue (place_owners). */
+  ownedPlaceIds: Set<string>;
   favoriteIds: Set<string>;
   refresh: () => Promise<void>;
   toggleFavorite: (placeId: string) => Promise<void>;
@@ -41,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isPlus, setIsPlus] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLocalGuide, setIsLocalGuide] = useState(false);
+  const [ownedPlaceIds, setOwnedPlaceIds] = useState<Set<string>>(new Set());
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const loadId = useRef(0);
 
@@ -52,16 +55,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsPlus(false);
       setIsAdmin(false);
       setIsLocalGuide(false);
+      setOwnedPlaceIds(new Set());
       setFavoriteIds(new Set());
       return;
     }
-    const [profileRes, entitlementRes, plusRes, adminRes, guideRes, favRes] = await Promise.allSettled([
+    const [profileRes, entitlementRes, plusRes, adminRes, guideRes, favRes, ownedRes] = await Promise.allSettled([
       getProfile(user.id),
       getEntitlement(user.id),
       supabase.rpc('is_plus'),
       supabase.rpc('is_admin'),
       supabase.rpc('is_local_guide'),
       getFavoriteIds(user.id),
+      getMyOwnedPlaces(),
     ]);
     if (id !== loadId.current) return;
     setProfile(profileRes.status === 'fulfilled' ? profileRes.value : null);
@@ -70,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAdmin(adminRes.status === 'fulfilled' ? Boolean(adminRes.value.data) : false);
     setIsLocalGuide(guideRes.status === 'fulfilled' ? Boolean(guideRes.value.data) : false);
     setFavoriteIds(favRes.status === 'fulfilled' ? favRes.value : new Set());
+    setOwnedPlaceIds(ownedRes.status === 'fulfilled' ? new Set(ownedRes.value.map((p) => p.id)) : new Set());
   }, []);
 
   useEffect(() => {
@@ -141,12 +147,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isPlus,
       isAdmin,
       isLocalGuide,
+      ownedPlaceIds,
       favoriteIds,
       refresh,
       toggleFavorite,
       signOut,
     }),
-    [ready, session, profile, entitlement, isPlus, isAdmin, isLocalGuide, favoriteIds, refresh, toggleFavorite, signOut],
+    [ready, session, profile, entitlement, isPlus, isAdmin, isLocalGuide, ownedPlaceIds, favoriteIds, refresh, toggleFavorite, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

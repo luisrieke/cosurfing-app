@@ -55,6 +55,7 @@ export default function AdminHome() {
           meta={counts.data && counts.data.outreachOpen > 0 ? <Badge label={strings.admin.outreachOpen(counts.data.outreachOpen)} tone="accent" /> : null}
           onPress={() => router.push('/admin/outreach')}
         />
+        <AdminRow icon="key" title={strings.owner.admin.title} subtitle={strings.owner.admin.row} onPress={() => router.push('/admin/owners')} />
         <AdminRow
           icon="check-square"
           title={strings.admin.tasks}
