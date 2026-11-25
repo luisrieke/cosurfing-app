@@ -1,12 +1,13 @@
-import { type Href, useRouter } from 'expo-router';
+import { type Href, Link, useRouter } from 'expo-router';
 import { Linking, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
 import { getCoffeeCampaign, isCampaignOpen } from '@/lib/coffee';
 import { isSupabaseConfigured, isWebPaymentsConfigured } from '@/lib/env';
+import { categoryFromSlug, RANKING_COPY, RANKING_SLUGS } from '@/lib/rankingCategories';
 import { strings } from '@/lib/strings';
-import { colors, layout, spacing } from '@/lib/theme';
+import { colors, fontFamily, layout, spacing, typography } from '@/lib/theme';
 
 export const LEGAL_LINKS: { label: string; href: Href }[] = [
   { label: strings.legal.imprint, href: '/imprint' },
@@ -29,6 +30,13 @@ export function SiteFooter({ extra }: { extra?: string | null }) {
             {strings.coffee.footerLink}
           </Text>
         ) : null}
+        <View style={styles.links}>
+          {RANKING_SLUGS.map((slug) => (
+            <Link key={slug} href={`/rankings/${slug}`} style={styles.rankingLink}>
+              {RANKING_COPY[categoryFromSlug(slug)!].best}
+            </Link>
+          ))}
+        </View>
         <Text
           variant="caption"
           tone="faint"
@@ -89,5 +97,10 @@ const styles = StyleSheet.create({
     columnGap: spacing.md,
     rowGap: 4,
     paddingVertical: 4,
+  },
+  rankingLink: {
+    ...typography.caption,
+    fontFamily,
+    color: colors.text,
   },
 });

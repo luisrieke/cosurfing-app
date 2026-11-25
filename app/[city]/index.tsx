@@ -10,10 +10,16 @@ import { useQuery } from '@/hooks/useQuery';
 import { isSupabaseConfigured } from '@/lib/env';
 import { titleFromSlug } from '@/lib/format';
 import { getCityBySlug } from '@/lib/queries';
+import type { RankedCategory } from '@/lib/rankingCategories';
 import { strings } from '@/lib/strings';
 import { spacing } from '@/lib/theme';
 
 export default function CityRoute() {
+  return <CityPage category={null} />;
+}
+
+/** The city ranking, opened on one category for /lisbon/cafes and friends. */
+export function CityPage({ category }: { category: RankedCategory | null }) {
   const { city: slug } = useLocalSearchParams<{ city: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -54,7 +60,7 @@ export default function CityRoute() {
 
   const city = cityQuery.data ?? null;
   if (city && city.status === 'active') {
-    return <CityRankingScreen city={city} onRefreshCity={refreshCity} />;
+    return <CityRankingScreen city={city} onRefreshCity={refreshCity} initialCategory={category} />;
   }
   // Unknown slug or a city that is still on the waiting list.
   return <WaitlistScreen city={city} cityName={city?.name ?? titleFromSlug(slug ?? '')} />;

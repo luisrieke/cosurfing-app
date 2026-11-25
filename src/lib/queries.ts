@@ -14,6 +14,7 @@ import type {
   Continent,
   Entitlement,
   FactInput,
+  GlobalRankedPlace,
   MapCity,
   MapPlace,
   MyPlaceContribution,
@@ -111,6 +112,35 @@ export async function getCityRanking(
   });
   throwIf(error);
   const rows = (data ?? []) as RankedRow[];
+  const signed = await signedPhotoUrls(rows.map((r) => r.cover_full_path).filter((p): p is string => Boolean(p)));
+  const items = rows.map(({ cover_preview_path, cover_full_path, ...r }) => ({
+    ...r,
+    score_rank: Number(r.score_rank),
+    total_count: Number(r.total_count),
+    cover_preview_url: cover_preview_path ? previewUrl(cover_preview_path) : null,
+    cover_full_url: cover_full_path ? (signed.get(cover_full_path) ?? null) : null,
+  }));
+  return { items, total: items.length ? items[0]!.total_count : 0 };
+}
+
+/** Top places of one category across all cities; the list stops at the top 100. */
+export async function getGlobalRanking(
+  category: PlaceCategory,
+  continent: Continent | null,
+  limit = 30,
+  offset = 0,
+): Promise<Page<GlobalRankedPlace>> {
+  const { data, error } = await requireSupabase().rpc('get_global_ranking', {
+    p_category: category,
+    p_continent: continent,
+    p_limit: limit,
+    p_offset: offset,
+  });
+  throwIf(error);
+  const rows = (data ?? []) as (Omit<GlobalRankedPlace, 'cover_preview_url' | 'cover_full_url'> & {
+    cover_preview_path: string | null;
+    cover_full_path: string | null;
+  })[];
   const signed = await signedPhotoUrls(rows.map((r) => r.cover_full_path).filter((p): p is string => Boolean(p)));
   const items = rows.map(({ cover_preview_path, cover_full_path, ...r }) => ({
     ...r,

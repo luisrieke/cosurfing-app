@@ -1,11 +1,12 @@
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import Head from 'expo-router/head';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -33,14 +34,25 @@ import { useSlowConnection } from '@/hooks/useSlowConnection';
 import { useStickySidebar } from '@/hooks/useStickySidebar';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { useAuth } from '@/lib/auth';
+import { env } from '@/lib/env';
 import { formatMbps } from '@/lib/format';
 import { localWeekMinute, matchesTimeFilter } from '@/lib/hours';
 import { canShowInterstitial, dismissInterstitial, markInterstitialShown, signUpHref } from '@/lib/funnel';
 import { LevelMark, UserAvatar } from '@/components/UserBadge';
 import { getCityContributors, getCityRanking, requestCityCrawl } from '@/lib/queries';
+import {
+  categoryFromSlug,
+  RANKING_COPY,
+  RANKING_SLUGS,
+  type RankedCategory,
+  rankingDescription,
+  rankingTitle,
+  rankingWhere,
+  slugForCategory,
+} from '@/lib/rankingCategories';
 import { coverUrl } from '@/lib/storage';
 import { strings } from '@/lib/strings';
-import { colors, layout, radius, spacing } from '@/lib/theme';
+import { colors, fontFamily, layout, radius, spacing, typography } from '@/lib/theme';
 import type { City, PlaceCategory, RankedPlace, RankingFilters, RankingSort } from '@/lib/types';
 
 import { CityCoverUpload } from './CityCoverUpload';
@@ -53,7 +65,15 @@ const POLL_MS = 15_000;
 const SORTS: RankingSort[] = ['score', 'rating', 'wifi', 'reviews', 'name'];
 const TABS: (PlaceCategory | 'all')[] = ['all', 'coworking', 'cafe', 'library', 'coliving'];
 
-export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefreshCity: () => Promise<void> }) {
+export function CityRankingScreen({
+  city,
+  onRefreshCity,
+  initialCategory = null,
+}: {
+  city: City;
+  onRefreshCity: () => Promise<void>;
+  initialCategory?: RankedCategory | null;
+}) {
   const router = useRouter();
   const { isDesktop, width } = useBreakpoint();
   const sticky = useStickySidebar();
@@ -62,7 +82,7 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
   const heroCover = heroSource ? coverUrl(heroSource, slow ? 640 : 1600) : null;
   const heroPlaceholder = city.cover_thumb_url ? coverUrl(city.cover_thumb_url, 480) : null;
   const { user } = useAuth();
-  const [category, setCategory] = useState<PlaceCategory | 'all'>('all');
+  const [category, setCategory] = useState<PlaceCategory | 'all'>(initialCategory ?? 'all');
   const [sort, setSort] = useState<RankingSort>('score');
   const [wifi, setWifi] = useState(false);
   const [power, setPower] = useState(false);
@@ -166,6 +186,18 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
   };
   const tabs = TABS.filter((t) => t !== 'coliving' || counts.coliving > 0 || category === 'coliving');
   const coliving = category === 'coliving';
+  const categorySlug = slugForCategory(category);
+  const rankedCategory = categorySlug ? categoryFromSlug(categorySlug) : null;
+  const heading = rankedCategory ? `${RANKING_COPY[rankedCategory].best} in ${city.name}` : strings.city.rankingTitle(city.name);
+
+  // Cafés, coworkings and colivings have their own URL (/lisbon/cafes). On web the address bar follows
+  // the tab without a navigation, so filters and the loaded list stay.
+  const selectCategory = (t: PlaceCategory | 'all') => {
+    setCategory(t);
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const s = slugForCategory(t);
+    window.history.replaceState(window.history.state, '', s ? `/${city.slug}/${s}` : `/${city.slug}`);
+  };
 
   const facts: { label: string; value: string; accent?: boolean }[] = [
     { label: strings.city.factPlaces, value: city.place_count.toLocaleString('en-US') },
@@ -262,8 +294,18 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
   return (
     <View style={styles.root}>
       <Head>
-        <title>{`${strings.city.rankingTitle(city.name)} · Cosurfing`}</title>
-        <meta name="description" content={strings.city.metaDescription(city.name, city.place_count)} />
+        {rankedCategory ? (
+          <>
+            <title>{`${rankingTitle(rankedCategory, city.name, new Date().getFullYear())} · Cosurfing`}</title>
+            <meta name="description" content={rankingDescription(rankedCategory, city.name)} />
+          </>
+        ) : (
+          <>
+            <title>{`${strings.city.rankingTitle(city.name)} · Cosurfing`}</title>
+            <meta name="description" content={strings.city.metaDescription(city.name, city.place_count)} />
+          </>
+        )}
+        <link rel="canonical" href={`${env.siteUrl}/${city.slug}${categorySlug ? `/${categorySlug}` : ''}`} />
       </Head>
       <SiteHeader />
       <ScrollView onScroll={onScroll} scrollEventThrottle={200} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -288,8 +330,8 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
                 {strings.city.allCities}
               </Text>
             </Pressable>
-            <Text variant={isDesktop ? 'display' : 'title'} style={styles.light}>
-              {strings.city.rankingTitle(city.name)}
+            <Text variant={isDesktop ? 'display' : 'title'} style={styles.light} role="heading" aria-level={1}>
+              {heading}
             </Text>
             <Text style={styles.lightMuted}>
               {city.country_name}
@@ -333,7 +375,7 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
                     key={t}
                     label={`${strings.city.tabs[t]} ${counts[t] > 0 ? counts[t].toLocaleString('en-US') : ''}`.trim()}
                     selected={category === t}
-                    onPress={() => setCategory(t)}
+                    onPress={() => selectCategory(t)}
                     color={colors.text}
                   />
                 ))}
@@ -509,6 +551,21 @@ export function CityRankingScreen({ city, onRefreshCity }: { city: City; onRefre
             </View>
             {sidebar}
           </View>
+          <View style={styles.rankingLinks}>
+            {RANKING_SLUGS.map((s) => {
+              const c = categoryFromSlug(s)!;
+              return (
+                <Link key={s} href={`/${city.slug}/${s}`} style={styles.rankingLink}>
+                  {`${RANKING_COPY[c].best} in ${city.name}`}
+                </Link>
+              );
+            })}
+            {RANKING_SLUGS.map((s) => (
+              <Link key={`global-${s}`} href={`/rankings/${s}`} style={styles.rankingLink}>
+                {`${RANKING_COPY[categoryFromSlug(s)!].best} ${rankingWhere(null)}`}
+              </Link>
+            ))}
+          </View>
           <CityCoverUpload city={city} onCoverChanged={onRefreshCity} style={styles.coverUpload} />
         </View>
         <SiteFooter extra={city.cover_attribution ? strings.city.coverCredit(city.cover_attribution) : null} />
@@ -664,6 +721,19 @@ const styles = StyleSheet.create({
   },
   coverUpload: {
     marginTop: spacing.xl,
+  },
+  rankingLinks: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: spacing.lg,
+    rowGap: spacing.xs,
+    marginTop: spacing.xl,
+  },
+  rankingLink: {
+    ...typography.small,
+    fontFamily,
+    color: colors.textMuted,
+    textDecorationLine: 'underline',
   },
   sidebar: {
     gap: spacing.lg,

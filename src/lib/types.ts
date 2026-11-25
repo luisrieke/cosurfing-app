@@ -349,6 +349,14 @@ export interface RankedPlace {
   laptop_source: LaptopSource | null;
 }
 
+/** Row of `get_global_ranking`: a ranked place with the city it is in. */
+export interface GlobalRankedPlace extends RankedPlace {
+  city_name: string;
+  city_slug: string;
+  country_name: string;
+  city_timezone: string | null;
+}
+
 export interface RankingFilters {
   category: PlaceCategory | 'all';
   sort: RankingSort;

@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /account
+Disallow: /auth
+Disallow: /plus/success
+Disallow: /*/rate
+Disallow: /place/*/review
+Disallow: /place/*/report
+Disallow: /place/*/poster
+
+Sitemap: https://cosurfing.app/sitemap.xml

@@ -13,6 +13,7 @@ import {
 import { AdSlot } from '@/components/AdSlot';
 import { CityCard } from '@/components/CityCard';
 import { CitySearch } from '@/components/CitySearch';
+import { DirectoryTabs } from '@/components/DirectoryTabs';
 import { GlobalSearch } from '@/components/GlobalSearch';
 import { SignupBanner } from '@/components/SignupBanner';
 import { SignupGate } from '@/components/SignupGate';
@@ -24,7 +25,7 @@ import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useDebounced } from '@/hooks/useDebounced';
 import { usePaged } from '@/hooks/usePaged';
 import { useAuth } from '@/lib/auth';
-import { isSupabaseConfigured } from '@/lib/env';
+import { env, isSupabaseConfigured } from '@/lib/env';
 import { boundsView } from '@/lib/geo';
 import { findCityByNameAndCountry, listCities } from '@/lib/queries';
 import { strings } from '@/lib/strings';
@@ -95,11 +96,13 @@ export default function CitiesScreen() {
           name="description"
           content="Coworking spaces, laptop-friendly cafés and libraries in 1,000+ cities, ranked by measured Wi‑Fi speed, power outlets and reviews from remote workers."
         />
+        <link rel="canonical" href={`${env.siteUrl}/cities`} />
       </Head>
       <SiteHeader />
       <ScrollView onScroll={onScroll} scrollEventThrottle={200} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <SiteHeaderSpacer />
         <View style={styles.page}>
+          <DirectoryTabs active="cities" style={styles.tabs} />
           <View style={[styles.hero, isDesktop && styles.heroDesktop]}>
             <Text variant={isDesktop ? 'display' : 'title'} align={isDesktop ? 'center' : 'left'} style={isDesktop ? styles.heroTitle : undefined}>
               {strings.home.title}
@@ -272,16 +275,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     gap: spacing.lg,
   },
+  tabs: {
+    marginTop: spacing.lg,
+  },
   hero: {
     // Above the filters below it, so the search results drop over them.
     zIndex: 10,
     gap: spacing.md,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
   },
   heroDesktop: {
     alignItems: 'center',
-    paddingTop: spacing.xxxl,
+    paddingTop: spacing.xl,
     paddingBottom: spacing.lg,
   },
   heroTitle: {

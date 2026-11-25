@@ -167,6 +167,36 @@ export const strings = {
     freeWifi: 'Free Wi‑Fi',
     lockedReviews: (n: number) => (n === 1 ? '1 review to read' : `${n} reviews to read`),
   },
+  rankings: {
+    tabCities: 'Cities',
+    tabRankings: 'Rankings',
+    hubHeading: 'The best places to work from',
+    hubSubtitle: 'Cafés, coworking spaces and colivings across every city on Cosurfing, ranked for remote work.',
+    seeFull: 'See full ranking',
+    worldwide: 'Worldwide',
+    topCount: (n: number) => (n === 1 ? 'Top 1' : `Top ${n}`),
+    inCity: (city: string, country: string) => `${city}, ${country}`,
+    moreInCity: (noun: string, city: string) => `All ${noun} in ${city}`,
+    loadMore: 'Show more',
+    empty: 'Nothing ranked here yet. Know a great place? Suggest it.',
+    faqTitle: 'How this ranking works',
+    faq: [
+      {
+        q: 'How are places ranked?',
+        a: 'Every place gets a Cosurfing work score from reviews by remote workers, measured Wi‑Fi speed tests, power outlets and whether calls are OK. Places without reviews yet start from the facts on their own website and OpenStreetMap.',
+      },
+      {
+        q: 'Can places pay to rank higher?',
+        a: 'No. Venues cannot pay for a better position or for removing reviews, and Cosurfing Plus does not change the order.',
+      },
+      {
+        q: 'How can I improve the ranking?',
+        a: 'Review the places you work from and run a speed test on site. Every review counts and earns you points.',
+      },
+    ],
+    faqMore: 'Read the full ranking method',
+    cityLinksTitle: 'Rankings by city',
+  },
   explore: {
     map: 'Map',
     list: 'List',

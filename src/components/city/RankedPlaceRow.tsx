@@ -22,8 +22,11 @@ export function RankedPlaceRow({
   timezone = null,
   now,
   showWork = false,
+  location = null,
 }: {
   place: RankedPlace;
+  /** Shown instead of the address, e.g. "Lisbon, Portugal" in rankings across cities. */
+  location?: string | null;
   rank: number;
   signedIn: boolean;
   compact: boolean;
@@ -93,9 +96,9 @@ export function RankedPlaceRow({
         </Text>
         <View style={styles.meta}>
           <CategoryBadge category={place.category} />
-          {place.address ? (
+          {location || place.address ? (
             <Text variant="small" tone="muted" numberOfLines={1} style={styles.address}>
-              {place.address}
+              {location ?? place.address}
             </Text>
           ) : null}
         </View>

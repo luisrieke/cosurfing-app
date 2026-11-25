@@ -73,7 +73,7 @@ export function SiteHeader({ back }: { back?: boolean }) {
           {isDesktop ? (
             <View style={styles.nav}>
               <NavLink label={strings.nav.map} active={pathname === '/'} onPress={() => router.push('/')} />
-              <NavLink label={strings.nav.cities} active={pathname === '/cities'} onPress={() => router.push('/cities')} />
+              <NavLink label={strings.nav.cities} active={pathname === '/cities' || pathname.startsWith('/rankings')} onPress={() => router.push('/cities')} />
               <NavLink label={strings.nav.suggest} active={pathname === '/suggest'} onPress={() => router.push('/suggest')} />
               {!isPlus ? (
                 <NavLink label={strings.nav.plus} active={pathname.startsWith('/plus')} onPress={() => router.push('/plus')} />
