@@ -5,22 +5,25 @@ import { Icon } from '@/components/ui/Icon';
 import { colors, shadow } from '@/lib/theme';
 import type { MyPlaceContribution, PlaceCategory } from '@/lib/types';
 
-import { pinColor, pinRingColor } from './pinSvg';
+import { FORBIDDEN_PIN_OPACITY, pinColor, pinRingColor } from './pinSvg';
 
 export function Pin({
   category,
   selected,
   mine,
+  forbidden,
 }: {
   category: PlaceCategory;
   selected?: boolean;
   mine?: MyPlaceContribution;
+  forbidden?: boolean;
 }) {
-  const color = pinColor(category);
+  const color = pinColor(category, forbidden);
   const ring = pinRingColor(mine);
   const scale = selected ? 1.2 : 1;
+  const opacity = forbidden && !selected ? FORBIDDEN_PIN_OPACITY : 1;
   return (
-    <View style={[styles.wrap, { transform: [{ scale }] }]}>
+    <View style={[styles.wrap, { opacity, transform: [{ scale }] }]}>
       <View style={[styles.tail, { backgroundColor: color }]} />
       {ring ? <View style={[styles.ring, { backgroundColor: ring }]} /> : null}
       <View style={[styles.body, { backgroundColor: color, borderColor: selected ? colors.text : '#fff' }]}>

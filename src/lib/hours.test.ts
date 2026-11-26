@@ -21,6 +21,7 @@ import {
   presetHours,
   toOsm,
   weekRanges,
+  workForbidden,
   workStatus,
   type LaptopHours,
   type WeeklyHours,
@@ -225,5 +226,17 @@ describe('editing', () => {
     assert.equal(full.tu.mode, 'unknown');
     assert.deepEqual(compactLaptopWeek(full), { mo: { mode: 'none' } });
     assert.equal(compactLaptopWeek(fullLaptopWeek(null)), null);
+  });
+});
+
+describe('workForbidden', () => {
+  const none = fullLaptopWeek(Object.fromEntries(['mo', 'tu', 'we', 'th', 'fr', 'sa', 'su'].map((d) => [d, { mode: 'none' }])));
+  it('is true only when the venue says no laptops on every day', () => {
+    assert.equal(workForbidden(none, 'venue'), true);
+    assert.equal(workForbidden(none, 'team'), false);
+    assert.equal(workForbidden(none, 'community'), false);
+    assert.equal(workForbidden({ ...none, sa: { mode: 'all' } }, 'venue'), false);
+    assert.equal(workForbidden({ mo: { mode: 'none' } }, 'venue'), false);
+    assert.equal(workForbidden(null, 'venue'), false);
   });
 });

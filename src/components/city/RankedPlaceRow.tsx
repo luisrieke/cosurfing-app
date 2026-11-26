@@ -6,11 +6,12 @@ import { HoursStatusLine } from '@/components/hours';
 import { ScoreBadge } from '@/components/ScoreBadge';
 import { CategoryBadge, Icon, type IconName, Text, categoryIcon } from '@/components/ui';
 import { dayPassLabel, formatMbps, formatRating } from '@/lib/format';
+import { workForbidden } from '@/lib/hours';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
 import type { RankedPlace } from '@/lib/types';
 
-import { pinColor } from '@/components/map/pinSvg';
+import { FORBIDDEN_PIN_OPACITY, pinColor } from '@/components/map/pinSvg';
 import { useSlowConnection } from '@/hooks/useSlowConnection';
 
 export function RankedPlaceRow({
@@ -53,6 +54,7 @@ export function RankedPlaceRow({
     facts.push({ icon: 'tag', label: dayPass === strings.place.dayPassFree ? dayPass : strings.ranking.dayPass(dayPass) });
   }
 
+  const forbidden = workForbidden(place.laptop_hours, place.laptop_source);
   const slow = useSlowConnection();
   const full = slow ? null : place.cover_full_url;
 
@@ -60,14 +62,14 @@ export function RankedPlaceRow({
     <Pressable
       onPress={onPress}
       accessibilityRole="link"
-      accessibilityLabel={`${rank}. ${place.name}`}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+      accessibilityLabel={`${rank}. ${forbidden ? strings.map.pinWorkForbidden(place.name) : place.name}`}
+      style={({ pressed }) => [styles.row, forbidden && styles.forbidden, pressed && styles.pressed]}
     >
       <Text variant={compact ? 'smallStrong' : 'heading'} tone={rank <= 3 ? 'accent' : 'faint'} style={[styles.rank, compact && styles.rankCompact]}>
         {rank}
       </Text>
 
-      <View style={[styles.thumb, compact && styles.thumbCompact, { backgroundColor: `${pinColor(place.category)}18` }]}>
+      <View style={[styles.thumb, compact && styles.thumbCompact, { backgroundColor: `${pinColor(place.category, forbidden)}18` }]}>
         {place.cover_preview_url || full ? (
           <>
             {place.cover_preview_url ? (
@@ -86,7 +88,7 @@ export function RankedPlaceRow({
             ) : null}
           </>
         ) : (
-          <Icon name={categoryIcon(place.category)} size={compact ? 20 : 24} color={pinColor(place.category)} />
+          <Icon name={categoryIcon(place.category)} size={compact ? 20 : 24} color={pinColor(place.category, forbidden)} />
         )}
       </View>
 
@@ -102,6 +104,14 @@ export function RankedPlaceRow({
             </Text>
           ) : null}
         </View>
+        {forbidden ? (
+          <View style={styles.forbiddenLine}>
+            <Icon name="slash" size={13} color={colors.danger} />
+            <Text variant="caption" style={{ color: colors.danger }}>
+              {strings.map.workForbiddenTitle}
+            </Text>
+          </View>
+        ) : null}
         {now ? (
           <HoursStatusLine
             hours={place.hours}
@@ -168,6 +178,14 @@ const styles = StyleSheet.create({
   },
   pressed: {
     backgroundColor: colors.glass,
+  },
+  forbidden: {
+    opacity: FORBIDDEN_PIN_OPACITY + 0.15,
+  },
+  forbiddenLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   rank: {
     width: 36,

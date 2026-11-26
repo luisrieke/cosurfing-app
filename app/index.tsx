@@ -21,7 +21,7 @@ import { useUserLocation } from '@/hooks/useUserLocation';
 import { useAuth } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/env';
 import { distanceKm, formatDistance } from '@/lib/geo';
-import { localWeekMinute, matchesTimeFilter } from '@/lib/hours';
+import { localWeekMinute, matchesTimeFilter, workForbidden } from '@/lib/hours';
 import { getCityBySlug, getMapCities, getMyReviewedPlaces, getPlaceCover, getPlacesInBounds } from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
@@ -179,7 +179,15 @@ export default function HomeScreen() {
   const mine = mineQuery.data;
   const markers = useMemo(
     () =>
-      visible.map((p) => ({ id: p.id, lat: p.lat, lng: p.lng, category: p.category, name: p.name, mine: mine?.get(p.id) })),
+      visible.map((p) => ({
+        id: p.id,
+        lat: p.lat,
+        lng: p.lng,
+        category: p.category,
+        name: p.name,
+        mine: mine?.get(p.id),
+        forbidden: workForbidden(p.laptop_hours, p.laptop_source),
+      })),
     [visible, mine],
   );
   const selected = visible.find((p) => p.id === selectedId) ?? null;
@@ -188,6 +196,7 @@ export default function HomeScreen() {
   const coverData = cover.loading ? null : (cover.data ?? null);
   const coverFull = slow ? null : (coverData?.full_url ?? null);
   const reviewedByMe = selected !== null && (mine?.has(selected.id) ?? false);
+  const selectedForbidden = selected !== null && workForbidden(selected.laptop_hours, selected.laptop_source);
   const areaCity = selected?.city ?? mostCommonCity(visible);
   const suggestTarget: SuggestTarget = { city: areaCity?.slug };
 
@@ -334,7 +343,7 @@ export default function HomeScreen() {
               style={styles.placeRow}
             >
               <View style={styles.thumbWrap}>
-                <View style={[styles.thumb, { backgroundColor: `${pinColor(selected.category)}18` }]}>
+                <View style={[styles.thumb, { backgroundColor: `${pinColor(selected.category, selectedForbidden)}18` }]}>
                   {coverData ? (
                     <>
                       <Image source={{ uri: coverData.preview_url }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={6} />
@@ -349,7 +358,7 @@ export default function HomeScreen() {
                       ) : null}
                     </>
                   ) : (
-                    <Icon name={categoryIcon(selected.category)} size={24} color={pinColor(selected.category)} />
+                    <Icon name={categoryIcon(selected.category)} size={24} color={pinColor(selected.category, selectedForbidden)} />
                   )}
                 </View>
                 <ScoreBadge score={selected.work_score} size="sm" style={styles.thumbScore} />
@@ -400,6 +409,14 @@ export default function HomeScreen() {
               size={32}
               style={styles.close}
             />
+            {selectedForbidden ? (
+              <Notice
+                tone="danger"
+                title={strings.map.workForbiddenTitle}
+                body={strings.map.workForbiddenBody}
+                style={styles.sheetNotice}
+              />
+            ) : null}
           </Glass>
         ) : (
           <Glass variant="strong" style={styles.sheet}>
@@ -554,6 +571,9 @@ const styles = StyleSheet.create({
   },
   close: {
     alignSelf: 'flex-start',
+  },
+  sheetNotice: {
+    width: '100%',
   },
   suggestText: {
     flex: 1,

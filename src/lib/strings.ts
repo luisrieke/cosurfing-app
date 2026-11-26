@@ -1073,6 +1073,9 @@ export const strings = {
     pinMineWithPhotos: (name: string) => `${name}, you reviewed this place and added photos`,
     pinMinePhotoOnly: (name: string) => `${name}, you added photos but have not reviewed this place yet`,
     colivingsHint: 'Colivings are places to stay: most only let residents work there, and some are closed part of the year.',
+    pinWorkForbidden: (name: string) => `${name}, working from here is not allowed`,
+    workForbiddenTitle: 'Working here is not allowed',
+    workForbiddenBody: 'This place told us it is forbidden to work from there. Please do not come here with a laptop.',
   },
   suggest: {
     title: 'Suggest a place',

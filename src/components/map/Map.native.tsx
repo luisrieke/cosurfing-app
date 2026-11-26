@@ -101,7 +101,7 @@ export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
         {markers.map((m) => (
           <Marker
             // The ring is part of the key: with tracksViewChanges off, the marker only redraws on remount.
-            key={`${m.id}:${m.mine ?? ''}`}
+            key={`${m.id}:${m.mine ?? ''}:${m.forbidden ? 'x' : ''}`}
             coordinate={{ latitude: m.lat, longitude: m.lng }}
             anchor={{ x: 0.5, y: 1 }}
             onPress={(e) => {
@@ -109,9 +109,9 @@ export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
               onSelect(m.id);
             }}
             tracksViewChanges={m.id === selectedId}
-            accessibilityLabel={pinLabel(m.name, m.mine)}
+            accessibilityLabel={pinLabel(m.name, m.mine, m.forbidden)}
           >
-            <Pin category={m.category} selected={m.id === selectedId} mine={m.mine} />
+            <Pin category={m.category} selected={m.id === selectedId} mine={m.mine} forbidden={m.forbidden} />
           </Marker>
         ))}
         {(clusters ?? []).map((c) => (

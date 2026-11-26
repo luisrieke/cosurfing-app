@@ -10,6 +10,8 @@ export interface MapMarker {
   name: string;
   /** Drawn as a green ring: light for a review or photos without a review, dark for a review with photos. */
   mine?: MyPlaceContribution;
+  /** The venue told us laptop work is not allowed: drawn grey and faded. */
+  forbidden?: boolean;
 }
 
 /** Several places drawn as one bubble, used when the map is zoomed out too far for single pins. */

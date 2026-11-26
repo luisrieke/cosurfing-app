@@ -57,6 +57,7 @@ import {
   signUpHref,
 } from '@/lib/funnel';
 import { openDirections } from '@/lib/geo';
+import { workForbidden } from '@/lib/hours';
 import { deletePlaceMenu, deleteWifiNote } from '@/lib/photoUpload';
 import {
   deleteOffer,
@@ -532,6 +533,12 @@ export default function PlaceScreen() {
               </Text>
             </View>
           </View>
+
+          {workForbidden(place.laptop_hours, place.laptop_source) ? (
+            <View style={styles.notices}>
+              <Notice tone="danger" title={strings.map.workForbiddenTitle} body={strings.map.workForbiddenBody} />
+            </View>
+          ) : null}
 
           {place.address_unconfirmed ? (
             <View style={styles.notices}>
