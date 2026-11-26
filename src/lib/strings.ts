@@ -446,6 +446,9 @@ export const strings = {
   },
   review: {
     title: 'Your review',
+    workForbiddenTitle: 'This place cannot be rated',
+    workForbiddenNext: 'Next place',
+    workForbiddenBack: 'Back to the place',
     rating: 'Overall',
     ratingHint: 'How good is it for working?',
     details: 'Rate the details',
@@ -1076,6 +1079,7 @@ export const strings = {
     colivingsHint: 'Colivings are places to stay: most only let residents work there, and some are closed part of the year.',
     pinWorkForbidden: (name: string) => `${name}, working from here is not allowed`,
     workForbiddenTitle: 'Working here is not allowed',
+    notLaptopFriendly: 'Not laptop friendly',
     workForbiddenBody: 'This place told us it is forbidden to work from there. Please do not come here with a laptop.',
   },
   suggest: {

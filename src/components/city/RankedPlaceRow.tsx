@@ -108,7 +108,7 @@ export function RankedPlaceRow({
           <View style={styles.forbiddenLine}>
             <Icon name="slash" size={13} color={colors.danger} />
             <Text variant="caption" style={{ color: colors.danger }}>
-              {strings.map.workForbiddenTitle}
+              {strings.map.notLaptopFriendly}
             </Text>
           </View>
         ) : null}
@@ -132,7 +132,7 @@ export function RankedPlaceRow({
             </View>
           ))}
         </View>
-        {place.review_count === 0 && place.category !== 'coliving' ? (
+        {forbidden ? null : place.review_count === 0 && place.category !== 'coliving' ? (
           <Text variant="caption" style={styles.beFirst}>
             {strings.ranking.beFirst}
           </Text>

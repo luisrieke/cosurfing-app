@@ -40,7 +40,6 @@ const css = `
 .cs-marker--photos .cs-pin__body { box-shadow: 0 0 0 3px ${colors.mineWithPhotos}, 0 2px 6px rgba(42,33,26,0.3); }
 .cs-marker--forbidden .cs-pin { opacity: ${FORBIDDEN_PIN_OPACITY}; }
 .cs-marker--forbidden .cs-pin__body, .cs-marker--forbidden .cs-pin__tail { background: ${colors.workForbidden} !important; }
-.cs-marker--forbidden.cs-marker--selected .cs-pin, .cs-marker--forbidden .cs-pin:hover { opacity: 1; }
 .cs-cluster { display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; padding: 0; background: transparent; cursor: pointer; font-family: inherit; }
 .cs-cluster__bubble { display: flex; align-items: center; justify-content: center; border-radius: 999px; background: ${colors.accent}; color: #fff; font-weight: 700; font-size: 13px; border: 2px solid #fff; box-shadow: 0 0 0 4px ${colors.accent}33, 0 2px 6px rgba(42,33,26,0.3); }
 .cs-cluster__label { max-width: 140px; padding: 1px 6px; border-radius: 6px; background: rgba(255,255,255,0.85); color: ${colors.text}; font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
