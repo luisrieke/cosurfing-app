@@ -34,6 +34,7 @@ import type {
   PlaceSuggestion,
   PlaceToRate,
   PlaceWifiNote,
+  VenueOffer,
   Profile,
   ProfilePhotoRow,
   ProfilePlace,
@@ -1474,6 +1475,39 @@ export async function ownerHidePhoto(photoId: string): Promise<void> {
 export async function ownerReorderPhotos(placeId: string, ids: string[]): Promise<void> {
   const { error } = await requireSupabase().rpc('owner_reorder_place_photos', { p_place_id: placeId, p_ids: ids });
   throwIf(error);
+}
+
+export type VenueOfferInput = Pick<VenueOffer, 'title' | 'description' | 'price_cents' | 'currency' | 'price_unit' | 'booking_url'>;
+
+export async function getVenueOffers(placeId: string): Promise<VenueOffer[]> {
+  const { data, error } = await requireSupabase()
+    .from('place_venue_offers')
+    .select('id, place_id, title, description, price_cents, currency, price_unit, booking_url, sort_order')
+    .eq('place_id', placeId)
+    .order('sort_order')
+    .order('created_at');
+  throwIf(error);
+  return (data ?? []) as VenueOffer[];
+}
+
+export async function saveVenueOffer(placeId: string, id: string | null, input: VenueOfferInput, sortOrder: number): Promise<void> {
+  const sb = requireSupabase();
+  const { error } = id
+    ? await sb.from('place_venue_offers').update(input).eq('id', id)
+    : await sb.from('place_venue_offers').insert({ ...input, place_id: placeId, sort_order: sortOrder });
+  throwIf(error);
+}
+
+export async function deleteVenueOffer(id: string): Promise<void> {
+  const { error } = await requireSupabase().from('place_venue_offers').delete().eq('id', id);
+  throwIf(error);
+}
+
+export async function reorderVenueOffers(ids: string[]): Promise<void> {
+  const sb = requireSupabase();
+  await Promise.all(
+    ids.map((id, index) => sb.from('place_venue_offers').update({ sort_order: index }).eq('id', id).then(({ error }) => throwIf(error))),
+  );
 }
 
 export interface AdminPlaceOwner {

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { LaptopHoursEditor, type LaptopWeek, WeeklyHoursEditor } from '@/components/hours';
+import { VenueOffersEditor } from '@/components/place/VenueOffersEditor';
 import { RequireAuth } from '@/components/RequireAuth';
 import { Badge, Button, CategoryBadge, Chip, Icon, Input, Notice, Screen, Section, Skeleton, Text, TopBar } from '@/components/ui';
 import { useQuery } from '@/hooks/useQuery';
@@ -367,6 +368,8 @@ function Editor({ place, saved, onSaved, onEdit }: { place: OwnerPlace; saved: b
       {info ? <Notice tone="info" body={info} /> : null}
       {saved ? <Notice tone="success" body={o.saved} /> : null}
       <Button title={busy ? o.saving : o.save} icon="check" fullWidth loading={busy} disabled={busy} onPress={() => void save()} />
+
+      <VenueOffersEditor placeId={place.id} />
 
       <OwnerPhotos place={place} />
     </View>

@@ -178,6 +178,21 @@ export interface PlaceOffer {
   status: 'pending' | 'approved' | 'rejected';
 }
 
+export type VenueOfferUnit = 'hour' | 'day' | 'week' | 'month' | 'night';
+
+/** An offer from the venue itself (day pass, membership, stay …), managed by its owners. */
+export interface VenueOffer {
+  id: string;
+  place_id: string;
+  title: string;
+  description: string | null;
+  price_cents: number | null;
+  currency: string;
+  price_unit: VenueOfferUnit | null;
+  booking_url: string | null;
+  sort_order: number;
+}
+
 /** Each part is on a 0–10 scale; `score` is the weighted total (see compute_place_score). */
 export interface ScoreBreakdown {
   score: number;

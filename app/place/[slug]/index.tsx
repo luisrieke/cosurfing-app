@@ -8,6 +8,7 @@ import { LaptopHoursCard, OpeningHoursCard } from '@/components/hours';
 import { PhotoGallery } from '@/components/PhotoGallery';
 import { AddPhotos } from '@/components/place/AddPhotos';
 import { OwnerCta } from '@/components/place/OwnerCta';
+import { VenueOffersSection } from '@/components/place/VenueOffers';
 import { PlaceContact } from '@/components/place/PlaceContact';
 import { PlaceMapPreview } from '@/components/place/PlaceMapPreview';
 import {
@@ -603,6 +604,8 @@ export default function PlaceScreen() {
               <Section title={strings.place.hardFacts}>
                 <FactTable lines={hardFacts(place, venueFacts)} onHelp={canReview ? goReview : undefined} />
               </Section>
+
+              <VenueOffersSection key={place.id} placeId={place.id} />
 
               {showHours ? (
                 <Section

@@ -6,6 +6,7 @@ import { Alert, Linking, Platform, Pressable, StyleSheet, View } from 'react-nat
 
 import { AdminHoursSection } from '@/components/admin/AdminHoursSection';
 import { AdminPlaceOwners } from '@/components/admin/AdminPlaceOwners';
+import { VenueOffersEditor } from '@/components/place/VenueOffersEditor';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { VenueReviewKit } from '@/components/admin/VenueReviewKit';
 import type { LaptopWeek } from '@/components/hours';
@@ -479,6 +480,8 @@ function Editor({ placeId }: { placeId: string | null }) {
           )}
         </Section>
       ) : null}
+
+      {placeId ? <VenueOffersEditor placeId={placeId} /> : null}
 
       {placeId && placeQuery.data ? <AdminPlaceOwners placeId={placeId} published={placeQuery.data.status === 'published'} /> : null}
 
