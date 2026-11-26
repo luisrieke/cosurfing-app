@@ -1330,6 +1330,8 @@ export const strings = {
     outreachKinds: {
       email_out: 'Email sent',
       email_in: 'Email received',
+      message_out: 'Message sent',
+      message_in: 'Message received',
       call: 'Call',
       visit: 'Visit',
       note: 'Note',

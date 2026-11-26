@@ -225,7 +225,7 @@ function OutreachCrm({ place }: { place: OutreachPlace }) {
         {message ? <Text variant="small" tone="muted">{message}</Text> : null}
       </View>
       <View style={styles.stages}>
-        {(['note', 'email_in', 'call', 'visit'] as const).map((k) => (
+        {(['note', 'email_in', 'message_in', 'call', 'visit'] as const).map((k) => (
           <Chip key={k} label={strings.admin.outreachKinds[k] ?? k} selected={kind === k} onPress={() => setKind(k)} />
         ))}
       </View>
@@ -250,7 +250,8 @@ function ActivityRow({ activity: a }: { activity: OutreachActivity }) {
   return (
     <View style={styles.activity}>
       <Text variant="smallStrong">
-        {strings.admin.outreachKinds[a.kind] ?? a.kind} · {formatDateTime(a.occurred_at)}
+        {strings.admin.outreachKinds[a.kind] ?? a.kind}
+        {a.provider ? ` (${a.provider})` : ''} · {formatDateTime(a.occurred_at)}
       </Text>
       {a.from_address || a.to_address ? (
         <Text variant="small" tone="muted">{strings.admin.outreachFromTo(a.from_address ?? '–', a.to_address ?? '–')}</Text>

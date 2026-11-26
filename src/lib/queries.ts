@@ -1128,7 +1128,7 @@ export interface OutreachPlace {
   activity_count: number;
 }
 
-export type OutreachActivityKind = 'email_out' | 'email_in' | 'call' | 'visit' | 'note';
+export type OutreachActivityKind = 'email_out' | 'email_in' | 'message_out' | 'message_in' | 'call' | 'visit' | 'note';
 
 export interface OutreachActivity {
   id: string;
@@ -1139,6 +1139,8 @@ export interface OutreachActivity {
   subject: string | null;
   body: string | null;
   gmail_thread_id: string | null;
+  /** gmail, resend, slack, … */
+  provider: string | null;
   occurred_at: string;
 }
 
@@ -1174,7 +1176,7 @@ export async function adminSetOutreachStage(placeId: string, stage: OutreachStag
 export async function adminGetOutreachActivities(placeId: string): Promise<OutreachActivity[]> {
   const { data, error } = await requireSupabase()
     .from('place_outreach_activities')
-    .select('id, place_id, kind, from_address, to_address, subject, body, gmail_thread_id, occurred_at')
+    .select('id, place_id, kind, from_address, to_address, subject, body, gmail_thread_id, provider, occurred_at')
     .eq('place_id', placeId)
     .order('occurred_at', { ascending: false });
   throwIf(error);
@@ -1189,7 +1191,7 @@ export async function adminAddOutreachActivity(
   const { data, error } = await requireSupabase()
     .from('place_outreach_activities')
     .insert({ place_id: placeId, kind, body: body.trim() })
-    .select('id, place_id, kind, from_address, to_address, subject, body, gmail_thread_id, occurred_at')
+    .select('id, place_id, kind, from_address, to_address, subject, body, gmail_thread_id, provider, occurred_at')
     .single();
   throwIf(error);
   return data as OutreachActivity;
