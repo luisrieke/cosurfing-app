@@ -1322,6 +1322,7 @@ export const strings = {
       replied: 'Replied',
       confirmed: 'Confirmed',
       no_response: 'No response',
+      bounced: 'Bounced',
     } as Record<string, string>,
     outreachSearch: 'Search places or cities…',
     outreachPrev: 'Previous',
@@ -1335,6 +1336,13 @@ export const strings = {
     outreachNoHistory: 'Nothing logged yet.',
     outreachOpenGmail: 'Open in Gmail',
     outreachFromTo: (from: string, to: string) => `${from} → ${to}`,
+    outreachDelivery: {
+      delivered: 'Delivered',
+      delivery_delayed: 'Delivery delayed',
+      bounced: 'Bounced – find another contact',
+      complained: 'Marked as spam',
+      failed: 'Failed to send',
+    } as Record<string, string>,
     outreachKinds: {
       email_out: 'Email sent',
       email_in: 'Email received',

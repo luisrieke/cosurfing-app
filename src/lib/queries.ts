@@ -1107,9 +1107,9 @@ export async function adminGetPlacesToVerify(): Promise<PlaceToVerify[]> {
   return (data ?? []) as PlaceToVerify[];
 }
 
-export type OutreachStage = 'to_contact' | 'emailed' | 'replied' | 'confirmed' | 'no_response';
+export type OutreachStage = 'to_contact' | 'emailed' | 'replied' | 'confirmed' | 'no_response' | 'bounced';
 
-export const OUTREACH_STAGES: OutreachStage[] = ['to_contact', 'emailed', 'replied', 'confirmed', 'no_response'];
+export const OUTREACH_STAGES: OutreachStage[] = ['to_contact', 'emailed', 'replied', 'confirmed', 'no_response', 'bounced'];
 
 export interface OutreachPlace {
   id: string;
@@ -1141,6 +1141,9 @@ export interface OutreachActivity {
   gmail_thread_id: string | null;
   /** gmail, resend, slack, … */
   provider: string | null;
+  /** Reported by the Resend webhook for emails sent through Resend. */
+  delivery_status: 'delivered' | 'delivery_delayed' | 'bounced' | 'complained' | 'failed' | null;
+  delivery_detail: string | null;
   occurred_at: string;
 }
 
@@ -1176,7 +1179,7 @@ export async function adminSetOutreachStage(placeId: string, stage: OutreachStag
 export async function adminGetOutreachActivities(placeId: string): Promise<OutreachActivity[]> {
   const { data, error } = await requireSupabase()
     .from('place_outreach_activities')
-    .select('id, place_id, kind, from_address, to_address, subject, body, gmail_thread_id, provider, occurred_at')
+    .select('id, place_id, kind, from_address, to_address, subject, body, gmail_thread_id, provider, delivery_status, delivery_detail, occurred_at')
     .eq('place_id', placeId)
     .order('occurred_at', { ascending: false });
   throwIf(error);
@@ -1191,7 +1194,7 @@ export async function adminAddOutreachActivity(
   const { data, error } = await requireSupabase()
     .from('place_outreach_activities')
     .insert({ place_id: placeId, kind, body: body.trim() })
-    .select('id, place_id, kind, from_address, to_address, subject, body, gmail_thread_id, provider, occurred_at')
+    .select('id, place_id, kind, from_address, to_address, subject, body, gmail_thread_id, provider, delivery_status, delivery_detail, occurred_at')
     .single();
   throwIf(error);
   return data as OutreachActivity;

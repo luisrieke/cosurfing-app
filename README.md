@@ -45,7 +45,7 @@ scripts/
   replace-collage-covers.mjs   Finds collage covers of imported cities and writes SQL that swaps in single photos
 supabase/
   migrations/            Schema, RLS, RPCs, crawler schedule (applied to the project)
-  functions/             crawl-city, enrich-places, import-cities, waitlist, billing, stripe-webhook, revenuecat-webhook
+  functions/             crawl-city, enrich-places, import-cities, waitlist, billing, stripe-webhook, revenuecat-webhook, resend-webhook
 ```
 
 ## Local development
@@ -130,6 +130,7 @@ Set in Dashboard → Edge Functions → Secrets (or `supabase secrets set`). `SU
 | `EMAIL_SANDBOX_TO` | waitlist, cancel, moderation-notices | **Testing safety net**: when set, every email is redirected to this address with the original recipient in the subject. Set it before any test, unset for production. |
 | `RATE_LIMIT_SALT` | waitlist | Random string; IPs are only stored as salted hashes |
 | `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID_WEEKLY`, `STRIPE_PRICE_ID_YEARLY`, `STRIPE_WEBHOOK_SECRET` | billing, stripe-webhook, account, cancel | See Stripe below |
+| `RESEND_WEBHOOK_SECRET` | resend-webhook | Signing secret (`whsec_…`) of the Resend webhook to `https://<ref>.supabase.co/functions/v1/resend-webhook` (events `email.delivered`, `email.delivery_delayed`, `email.bounced`, `email.complained`, `email.failed`). Records delivery status of outreach emails; a hard bounce moves the place to the `bounced` outreach stage. Deploy with `verify_jwt = false`. |
 | `REVENUECAT_WEBHOOK_AUTH` | revenuecat-webhook | Shared secret RevenueCat sends in the `Authorization` header |
 | `ALLOW_DEV_ENTITLEMENTS` | billing | `true` only on a development project. Enables the clearly labelled "simulate Plus" toggle. Never set in production. |
 

@@ -256,6 +256,12 @@ function ActivityRow({ activity: a }: { activity: OutreachActivity }) {
       {a.from_address || a.to_address ? (
         <Text variant="small" tone="muted">{strings.admin.outreachFromTo(a.from_address ?? '–', a.to_address ?? '–')}</Text>
       ) : null}
+      {a.delivery_status ? (
+        <Text variant="small" tone={a.delivery_status === 'delivered' ? 'muted' : 'danger'}>
+          {strings.admin.outreachDelivery[a.delivery_status] ?? a.delivery_status}
+          {a.delivery_detail && a.delivery_status !== 'delivered' ? ` · ${a.delivery_detail}` : ''}
+        </Text>
+      ) : null}
       {a.subject ? <Text variant="small">{a.subject}</Text> : null}
       {a.body ? (
         <Text variant="small" tone="muted" numberOfLines={expanded ? undefined : 3} onPress={() => setExpanded((e) => !e)}>
