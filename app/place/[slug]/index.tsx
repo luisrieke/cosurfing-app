@@ -299,6 +299,7 @@ export default function PlaceScreen() {
   const listingHours = hoursText(place, venueFacts);
   const showHours = !coliving || Boolean(place.hours || listingHours || hoursPhotos.length > 0);
   const description = place.description ?? webFacts.description?.value ?? null;
+  const forbidden = workForbidden(place.laptop_hours, place.laptop_source);
   const contentWidth = Math.min(width, layout.maxWideWidth) - spacing.lg * 2 - (wide ? 340 + spacing.xl : 0);
   const galleryHeight = Math.min(Math.round(contentWidth * 0.56), 420);
 
@@ -383,7 +384,7 @@ export default function PlaceScreen() {
             <Text variant="bodyStrong">
               {strings.place.scoreTitle} {strings.place.scoreOutOf}
             </Text>
-            {place.score_breakdown ? (
+            {place.score_breakdown && !forbidden ? (
               <Pressable
                 onPress={() => setScoreInfo(true)}
                 hitSlop={10}
@@ -394,12 +395,16 @@ export default function PlaceScreen() {
               </Pressable>
             ) : null}
           </View>
-          {place.review_count === 0 ? (
+          {forbidden ? (
+            <Text variant="caption" tone="muted">
+              {strings.place.scoreWorkForbidden}
+            </Text>
+          ) : place.review_count === 0 ? (
             <Text variant="caption" tone="muted">
               {strings.place.scoreProvisional}
             </Text>
           ) : null}
-          {rank !== null ? (
+          {rank !== null && !forbidden ? (
             <Pressable onPress={() => router.push(cityHref)} accessibilityRole="link">
               <Text variant="small" tone="accent">
                 {(coliving ? strings.place.rankInColiving : strings.place.rankIn)(rank, place.city.name)}
@@ -408,7 +413,9 @@ export default function PlaceScreen() {
           ) : null}
         </View>
       </View>
-      <Button title={ownReview ? strings.place.editReview : strings.place.rateThis} icon="star" onPress={goReview} disabled={!canReview} />
+      {!forbidden ? (
+        <Button title={ownReview ? strings.place.editReview : strings.place.rateThis} icon="star" onPress={goReview} disabled={!canReview} />
+      ) : null}
       <View style={styles.cardActions}>
         <Button
           title={strings.common.directions}
@@ -515,7 +522,7 @@ export default function PlaceScreen() {
               <Text tone="muted">{place.name_local}</Text>
             ) : null}
             <View style={styles.metaRow}>
-              {place.review_count > 0 && place.rating_avg !== null ? (
+              {forbidden ? null : place.review_count > 0 && place.rating_avg !== null ? (
                 <View style={styles.ratingRow}>
                   <Stars value={Math.round(Number(place.rating_avg))} size={14} />
                   <Text variant="smallStrong">{formatRating(place.rating_avg)}</Text>
@@ -529,12 +536,13 @@ export default function PlaceScreen() {
                 </Text>
               )}
               <Text variant="small" tone="muted">
-                · {place.address ?? `${strings.place.address}: ${strings.common.unknown}`}
+                {forbidden ? '' : '· '}
+                {place.address ?? `${strings.place.address}: ${strings.common.unknown}`}
               </Text>
             </View>
           </View>
 
-          {workForbidden(place.laptop_hours, place.laptop_source) ? (
+          {forbidden ? (
             <View style={styles.notices}>
               <Notice tone="danger" title={strings.map.workForbiddenTitle} body={strings.map.workForbiddenBody} />
             </View>
@@ -591,268 +599,276 @@ export default function PlaceScreen() {
 
           <View style={[styles.columns, wide && styles.columnsWide]}>
             <View style={styles.main}>
-              {photos.length > 0 ? (
-                <View style={styles.gallery}>
-                  <PhotoGallery photos={photos} category={place.category} width={contentWidth} height={galleryHeight} loading={false} />
-                </View>
-              ) : null}
-              {canReview ? (
-                <AddPhotos
-                  placeId={place.id}
-                  userId={user?.id ?? null}
-                  onSignIn={() => requireUser(`/place/${slug}`)}
-                  onUploaded={() => void photosQuery.refetch(true)}
-                />
+              {!forbidden ? (
+                <>
+                  {photos.length > 0 ? (
+                    <View style={styles.gallery}>
+                      <PhotoGallery photos={photos} category={place.category} width={contentWidth} height={galleryHeight} loading={false} />
+                    </View>
+                  ) : null}
+                  {canReview ? (
+                    <AddPhotos
+                      placeId={place.id}
+                      userId={user?.id ?? null}
+                      onSignIn={() => requireUser(`/place/${slug}`)}
+                      onUploaded={() => void photosQuery.refetch(true)}
+                    />
+                  ) : null}
+                </>
               ) : null}
 
               {!wide ? scoreCard : null}
               {!wide ? <Section title={strings.placeMap.title}>{mapPreview}</Section> : null}
 
-              <Section title={strings.place.hardFacts}>
-                <FactTable lines={hardFacts(place, venueFacts)} onHelp={canReview ? goReview : undefined} />
-              </Section>
+              {!forbidden ? (
+                <>
+                  <Section title={strings.place.hardFacts}>
+                    <FactTable lines={hardFacts(place, venueFacts)} onHelp={canReview ? goReview : undefined} />
+                  </Section>
 
-              <VenueOffersSection key={place.id} placeId={place.id} />
+                  <VenueOffersSection key={place.id} placeId={place.id} />
 
-              {showHours ? (
-                <Section
-                  title={strings.place.openingHours}
-                  right={
-                    canReview ? (
-                      <Button title={strings.hours.edit} size="sm" variant="secondary" icon="edit-3" onPress={goHours} />
-                    ) : undefined
-                  }
-                >
-                  <OpeningHoursCard
-                    hours={place.hours}
-                    status={place.hours_status}
-                    source={place.hours_source}
-                    flags={place.hours_flags ?? []}
-                    text={listingHours}
-                    timezone={place.city.timezone}
-                    now={now}
-                    onAdd={canReview && hoursPhotos.length === 0 ? goHours : undefined}
-                  />
-                  {!coliving ? (
-                    <LaptopHoursCard
-                      laptop={place.laptop_hours}
-                      source={place.laptop_source}
-                      hours={place.hours}
-                      category={place.category}
-                      timezone={place.city.timezone}
-                      now={now}
-                      rules={place.laptop_rules}
-                      onAdd={canReview ? goHours : undefined}
-                    />
-                  ) : null}
-                  {hoursPhotos.length > 0 ? (
-                    <View style={styles.hoursPhotos}>
-                      <Text variant="smallStrong">{strings.hours.photos}</Text>
-                      <MenuGallery kind="hours" menus={hoursPhotos} onDelete={removeMenu} canDelete={(m) => m.is_own || isAdmin} />
-                    </View>
-                  ) : null}
-                </Section>
-              ) : null}
-
-              <Section
-                title={strings.wifi.title}
-                right={
-                  canReview ? (
-                    <Button title={strings.wifi.addNote} size="sm" variant="secondary" icon="camera" onPress={goWifi} />
-                  ) : undefined
-                }
-              >
-                <FactTable lines={wifiFacts(place, venueFacts)} onHelp={canReview ? goReview : undefined} />
-                <View style={styles.wifiBlock}>
-                  <Text variant="smallStrong">{strings.wifi.notes}</Text>
-                  {!user && lockedWifiNotes > 0 ? (
-                    <SignupGate compact title={strings.wifi.lockedTitle(lockedWifiNotes)} body={strings.funnel.gateBody} />
-                  ) : wifiNotes.length > 0 ? (
-                    <>
-                      {wifiError ? <Notice tone="danger" body={wifiError} /> : null}
-                      <WifiNoteList notes={wifiNotes} onDelete={removeWifiNote} canDelete={(n) => n.is_own || isAdmin} />
-                    </>
-                  ) : (
-                    <Text tone="muted">{strings.wifi.noNotes}</Text>
-                  )}
-                </View>
-                {!wide ? speedTest : null}
-                <View style={styles.wifiBlock}>
-                  <Text variant="smallStrong">{strings.wifi.speedTests}</Text>
-                  {testHistory('wifi', place.speed_test_count, strings.place.speedTestsEmpty)}
-                </View>
-
-                <View style={[styles.wifiBlock, styles.mobileBlock]}>
-                  <View style={styles.mobileHeader}>
-                    <Text variant="bodyStrong">{strings.mobile.title}</Text>
-                    <Text variant="small" tone="muted">
-                      {strings.mobile.hint}
-                    </Text>
-                  </View>
-                  <FactTable lines={mobileFacts(place)} />
-                  {!wide ? mobileSpeedTest : null}
-                  <Text variant="smallStrong">{strings.wifi.speedTests}</Text>
-                  {testHistory('mobile', place.mobile_speed_test_count, strings.mobile.empty)}
-                </View>
-              </Section>
-
-              {showMeetingRooms(place, venueFacts) ? (
-                <Section
-                  title={strings.place.meetingRooms.title}
-                  right={
-                    canReview ? (
-                      <Button title={strings.place.meetingRooms.add} size="sm" variant="secondary" icon="edit-3" onPress={goReview} />
-                    ) : undefined
-                  }
-                >
-                  <MeetingRoomsCard facts={venueFacts} onHelp={canReview ? goReview : undefined} />
-                </Section>
-              ) : null}
-
-              {venueFacts.length > 0 || canReview ? (
-                <Section
-                  title={strings.place.venueFacts}
-                  right={
-                    canReview ? (
-                      <Button title={strings.place.editFacts} size="sm" variant="secondary" icon="edit-3" onPress={goReview} />
-                    ) : undefined
-                  }
-                >
-                  {venueFacts.length > 0 ? (
-                    <VenueFactsList
-                      facts={venueFacts}
-                      web={webFacts}
-                      pendingNote={
-                        (factsQuery.data ?? []).some(
-                          (f) => f.is_own && (f.status === 'pending' || f.status === 'rejected' || f.pending_value != null || f.pending_delete),
-                        )
-                          ? strings.place.factsPending
-                          : null
+                  {showHours ? (
+                    <Section
+                      title={strings.place.openingHours}
+                      right={
+                        canReview ? (
+                          <Button title={strings.hours.edit} size="sm" variant="secondary" icon="edit-3" onPress={goHours} />
+                        ) : undefined
                       }
-                    />
-                  ) : (
-                    <Text tone="muted">{strings.place.noVenueFacts}</Text>
-                  )}
-                </Section>
-              ) : null}
-
-              {menus.length > 0 || canReview ? (
-                <Section
-                  title={strings.costs.menu}
-                  right={
-                    canReview ? (
-                      <Button title={strings.costs.addMenu} size="sm" variant="secondary" icon="camera" onPress={goCosts} />
-                    ) : undefined
-                  }
-                >
-                  {menus.length > 0 ? (
-                    <MenuGallery menus={menus} onDelete={removeMenu} canDelete={(m) => m.is_own || isAdmin} />
-                  ) : (
-                    <Text tone="muted">{strings.costs.noMenu}</Text>
-                  )}
-                </Section>
-              ) : null}
-
-              {offers.length > 0 ? (
-                <Section title={strings.costs.offers}>
-                  {!user && lockedOffers > 0 ? (
-                    <SignupGate compact title={strings.costs.lockedOffersTitle(lockedOffers)} body={strings.funnel.gateBody} />
-                  ) : null}
-                  {offerError ? <Notice tone="danger" body={offerError} /> : null}
-                  <OfferList offers={offers} onDelete={removeOffer} canDelete={(o) => o.is_own || isAdmin} />
-                </Section>
-              ) : null}
-
-              {canReview ? <OwnerCta place={place} /> : null}
-
-              {description ? (
-                <Section title={strings.place.about}>
-                  <Text>{description}</Text>
-                  {!place.description && webFacts.description ? (
-                    <Text variant="caption" tone="faint">
-                      {strings.place.sourceLabel}: {hostFromUrl(webFacts.description.url)}
-                    </Text>
-                  ) : null}
-                </Section>
-              ) : null}
-
-              <Section title={strings.place.scoreTitle}>
-                <ScoreBreakdownCard place={place} />
-              </Section>
-
-              <Section
-                title={strings.place.reviews}
-                right={
-                  canReview ? (
-                    <Button
-                      title={ownReview ? strings.place.editReview : strings.place.writeReview}
-                      size="sm"
-                      variant="secondary"
-                      icon="edit-3"
-                      onPress={goReview}
-                    />
-                  ) : undefined
-                }
-              >
-                {reviewsQuery.loading && !reviewsQuery.data ? (
-                  <View style={styles.skeletons}>
-                    <Skeleton height={64} />
-                    <Skeleton height={64} />
-                  </View>
-                ) : reviewsQuery.error ? (
-                  <Notice tone="danger" body={reviewsQuery.error.message} />
-                ) : reviews.length === 0 ? (
-                  <View style={styles.firstReview}>
-                    <Text variant="bodyStrong">{strings.funnel.rateTitle}</Text>
-                    <Text variant="small" tone="muted">
-                      {strings.place.noReviews}
-                    </Text>
-                    <Button title={strings.place.firstReviewCta} icon="star" onPress={goReview} style={styles.selfStart} />
-                  </View>
-                ) : (
-                  <View style={styles.reviews}>
-                    <RatingDistribution reviews={reviews.filter((r) => r.status === 'visible')} avg={place.rating_avg} />
-                    {!user && lockedTexts > 0 ? (
-                      <SignupGate
-                        title={strings.funnel.lockedReviewsTitle(lockedTexts)}
-                        body={strings.funnel.lockedReviewsBody}
+                    >
+                      <OpeningHoursCard
+                        hours={place.hours}
+                        status={place.hours_status}
+                        source={place.hours_source}
+                        flags={place.hours_flags ?? []}
+                        text={listingHours}
+                        timezone={place.city.timezone}
+                        now={now}
+                        onAdd={canReview && hoursPhotos.length === 0 ? goHours : undefined}
                       />
-                    ) : null}
-                    {user && quota && !quota.unlimited && bodyLockedCount > 0 ? (
-                      <PlusUpsell
-                        compact
-                        title={strings.place.unlocksLeft(quota.remaining)}
-                        message={`${strings.place.unlocksReset} ${strings.place.unlockPlusHint}`}
-                      />
-                    ) : null}
-                    {unlockError ? <Notice tone="warning" body={unlockError} /> : null}
-                    <View>
-                      {reviews.map((r) => (
-                        <ReviewItem
-                          key={r.id}
-                          review={r}
-                          onUnlock={canUnlock && r.body_locked ? () => void unlock(r.id) : undefined}
-                          unlocking={unlocking === r.id}
+                      {!coliving ? (
+                        <LaptopHoursCard
+                          laptop={place.laptop_hours}
+                          source={place.laptop_source}
+                          hours={place.hours}
+                          category={place.category}
+                          timezone={place.city.timezone}
+                          now={now}
+                          rules={place.laptop_rules}
+                          onAdd={canReview ? goHours : undefined}
                         />
-                      ))}
-                    </View>
-                    <TransparencyLink label={strings.legal.reviewChecks} />
-                  </View>
-                )}
-              </Section>
+                      ) : null}
+                      {hoursPhotos.length > 0 ? (
+                        <View style={styles.hoursPhotos}>
+                          <Text variant="smallStrong">{strings.hours.photos}</Text>
+                          <MenuGallery kind="hours" menus={hoursPhotos} onDelete={removeMenu} canDelete={(m) => m.is_own || isAdmin} />
+                        </View>
+                      ) : null}
+                    </Section>
+                  ) : null}
 
-              {reviews.length > 0 ? (
-                <Section title={strings.place.detailRatings}>
-                  {!user ? (
-                    <SignupGate compact title={strings.funnel.lockedDetailsTitle} body={strings.funnel.gateBody} />
-                  ) : statsQuery.data ? (
-                    <DetailRatings stats={statsQuery.data} />
-                  ) : statsQuery.loading ? (
-                    <Skeleton height={120} />
-                  ) : (
-                    <Text tone="muted">{strings.common.unknown}</Text>
-                  )}
-                </Section>
+                  <Section
+                    title={strings.wifi.title}
+                    right={
+                      canReview ? (
+                        <Button title={strings.wifi.addNote} size="sm" variant="secondary" icon="camera" onPress={goWifi} />
+                      ) : undefined
+                    }
+                  >
+                    <FactTable lines={wifiFacts(place, venueFacts)} onHelp={canReview ? goReview : undefined} />
+                    <View style={styles.wifiBlock}>
+                      <Text variant="smallStrong">{strings.wifi.notes}</Text>
+                      {!user && lockedWifiNotes > 0 ? (
+                        <SignupGate compact title={strings.wifi.lockedTitle(lockedWifiNotes)} body={strings.funnel.gateBody} />
+                      ) : wifiNotes.length > 0 ? (
+                        <>
+                          {wifiError ? <Notice tone="danger" body={wifiError} /> : null}
+                          <WifiNoteList notes={wifiNotes} onDelete={removeWifiNote} canDelete={(n) => n.is_own || isAdmin} />
+                        </>
+                      ) : (
+                        <Text tone="muted">{strings.wifi.noNotes}</Text>
+                      )}
+                    </View>
+                    {!wide ? speedTest : null}
+                    <View style={styles.wifiBlock}>
+                      <Text variant="smallStrong">{strings.wifi.speedTests}</Text>
+                      {testHistory('wifi', place.speed_test_count, strings.place.speedTestsEmpty)}
+                    </View>
+
+                    <View style={[styles.wifiBlock, styles.mobileBlock]}>
+                      <View style={styles.mobileHeader}>
+                        <Text variant="bodyStrong">{strings.mobile.title}</Text>
+                        <Text variant="small" tone="muted">
+                          {strings.mobile.hint}
+                        </Text>
+                      </View>
+                      <FactTable lines={mobileFacts(place)} />
+                      {!wide ? mobileSpeedTest : null}
+                      <Text variant="smallStrong">{strings.wifi.speedTests}</Text>
+                      {testHistory('mobile', place.mobile_speed_test_count, strings.mobile.empty)}
+                    </View>
+                  </Section>
+
+                  {showMeetingRooms(place, venueFacts) ? (
+                    <Section
+                      title={strings.place.meetingRooms.title}
+                      right={
+                        canReview ? (
+                          <Button title={strings.place.meetingRooms.add} size="sm" variant="secondary" icon="edit-3" onPress={goReview} />
+                        ) : undefined
+                      }
+                    >
+                      <MeetingRoomsCard facts={venueFacts} onHelp={canReview ? goReview : undefined} />
+                    </Section>
+                  ) : null}
+
+                  {venueFacts.length > 0 || canReview ? (
+                    <Section
+                      title={strings.place.venueFacts}
+                      right={
+                        canReview ? (
+                          <Button title={strings.place.editFacts} size="sm" variant="secondary" icon="edit-3" onPress={goReview} />
+                        ) : undefined
+                      }
+                    >
+                      {venueFacts.length > 0 ? (
+                        <VenueFactsList
+                          facts={venueFacts}
+                          web={webFacts}
+                          pendingNote={
+                            (factsQuery.data ?? []).some(
+                              (f) => f.is_own && (f.status === 'pending' || f.status === 'rejected' || f.pending_value != null || f.pending_delete),
+                            )
+                              ? strings.place.factsPending
+                              : null
+                          }
+                        />
+                      ) : (
+                        <Text tone="muted">{strings.place.noVenueFacts}</Text>
+                      )}
+                    </Section>
+                  ) : null}
+
+                  {menus.length > 0 || canReview ? (
+                    <Section
+                      title={strings.costs.menu}
+                      right={
+                        canReview ? (
+                          <Button title={strings.costs.addMenu} size="sm" variant="secondary" icon="camera" onPress={goCosts} />
+                        ) : undefined
+                      }
+                    >
+                      {menus.length > 0 ? (
+                        <MenuGallery menus={menus} onDelete={removeMenu} canDelete={(m) => m.is_own || isAdmin} />
+                      ) : (
+                        <Text tone="muted">{strings.costs.noMenu}</Text>
+                      )}
+                    </Section>
+                  ) : null}
+
+                  {offers.length > 0 ? (
+                    <Section title={strings.costs.offers}>
+                      {!user && lockedOffers > 0 ? (
+                        <SignupGate compact title={strings.costs.lockedOffersTitle(lockedOffers)} body={strings.funnel.gateBody} />
+                      ) : null}
+                      {offerError ? <Notice tone="danger" body={offerError} /> : null}
+                      <OfferList offers={offers} onDelete={removeOffer} canDelete={(o) => o.is_own || isAdmin} />
+                    </Section>
+                  ) : null}
+
+                  {canReview ? <OwnerCta place={place} /> : null}
+
+                  {description ? (
+                    <Section title={strings.place.about}>
+                      <Text>{description}</Text>
+                      {!place.description && webFacts.description ? (
+                        <Text variant="caption" tone="faint">
+                          {strings.place.sourceLabel}: {hostFromUrl(webFacts.description.url)}
+                        </Text>
+                      ) : null}
+                    </Section>
+                  ) : null}
+
+                  <Section title={strings.place.scoreTitle}>
+                    <ScoreBreakdownCard place={place} />
+                  </Section>
+
+                  <Section
+                    title={strings.place.reviews}
+                    right={
+                      canReview ? (
+                        <Button
+                          title={ownReview ? strings.place.editReview : strings.place.writeReview}
+                          size="sm"
+                          variant="secondary"
+                          icon="edit-3"
+                          onPress={goReview}
+                        />
+                      ) : undefined
+                    }
+                  >
+                    {reviewsQuery.loading && !reviewsQuery.data ? (
+                      <View style={styles.skeletons}>
+                        <Skeleton height={64} />
+                        <Skeleton height={64} />
+                      </View>
+                    ) : reviewsQuery.error ? (
+                      <Notice tone="danger" body={reviewsQuery.error.message} />
+                    ) : reviews.length === 0 ? (
+                      <View style={styles.firstReview}>
+                        <Text variant="bodyStrong">{strings.funnel.rateTitle}</Text>
+                        <Text variant="small" tone="muted">
+                          {strings.place.noReviews}
+                        </Text>
+                        <Button title={strings.place.firstReviewCta} icon="star" onPress={goReview} style={styles.selfStart} />
+                      </View>
+                    ) : (
+                      <View style={styles.reviews}>
+                        <RatingDistribution reviews={reviews.filter((r) => r.status === 'visible')} avg={place.rating_avg} />
+                        {!user && lockedTexts > 0 ? (
+                          <SignupGate
+                            title={strings.funnel.lockedReviewsTitle(lockedTexts)}
+                            body={strings.funnel.lockedReviewsBody}
+                          />
+                        ) : null}
+                        {user && quota && !quota.unlimited && bodyLockedCount > 0 ? (
+                          <PlusUpsell
+                            compact
+                            title={strings.place.unlocksLeft(quota.remaining)}
+                            message={`${strings.place.unlocksReset} ${strings.place.unlockPlusHint}`}
+                          />
+                        ) : null}
+                        {unlockError ? <Notice tone="warning" body={unlockError} /> : null}
+                        <View>
+                          {reviews.map((r) => (
+                            <ReviewItem
+                              key={r.id}
+                              review={r}
+                              onUnlock={canUnlock && r.body_locked ? () => void unlock(r.id) : undefined}
+                              unlocking={unlocking === r.id}
+                            />
+                          ))}
+                        </View>
+                        <TransparencyLink label={strings.legal.reviewChecks} />
+                      </View>
+                    )}
+                  </Section>
+
+                  {reviews.length > 0 ? (
+                    <Section title={strings.place.detailRatings}>
+                      {!user ? (
+                        <SignupGate compact title={strings.funnel.lockedDetailsTitle} body={strings.funnel.gateBody} />
+                      ) : statsQuery.data ? (
+                        <DetailRatings stats={statsQuery.data} />
+                      ) : statsQuery.loading ? (
+                        <Skeleton height={120} />
+                      ) : (
+                        <Text tone="muted">{strings.common.unknown}</Text>
+                      )}
+                    </Section>
+                  ) : null}
+                </>
               ) : null}
 
               {more.length > 0 ? (
@@ -919,15 +935,15 @@ export default function PlaceScreen() {
                 </View>
               ) : null}
 
-              <PlaceContact place={place} onSuggest={() => goReport('contact')} />
+              {!forbidden ? <PlaceContact place={place} onSuggest={() => goReport('contact')} /> : null}
             </View>
 
             {wide ? (
               <View style={[styles.side, sticky.style]} onLayout={sticky.onLayout}>
                 {scoreCard}
                 {mapPreview}
-                {speedTest}
-                {mobileSpeedTest}
+                {!forbidden ? speedTest : null}
+                {!forbidden ? mobileSpeedTest : null}
               </View>
             ) : null}
           </View>

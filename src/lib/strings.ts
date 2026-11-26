@@ -312,6 +312,7 @@ export const strings = {
     minStay: 'Minimum stay',
     scoreTitle: 'Work score',
     scoreOutOf: '/ 10',
+    scoreWorkForbidden: 'Set to 0: this place does not allow laptop work.',
     scoreProvisional: 'Preliminary score, no reviews yet',
     scoreParts: {
       reviews: 'Reviews',
