@@ -1119,6 +1119,29 @@ export interface OutreachPlace {
   website: string | null;
   city: { name: string } | null;
   stage: OutreachStage;
+  /** Contact email from place_contacts, if we have one. */
+  email: string | null;
+  contact_name: string | null;
+  notes: string | null;
+  last_contacted_at: string | null;
+  next_follow_up_at: string | null;
+  activity_count: number;
+}
+
+export type OutreachActivityKind = 'email_out' | 'email_in' | 'message_out' | 'message_in' | 'call' | 'visit' | 'note';
+
+export interface OutreachActivity {
+  id: string;
+  place_id: string;
+  kind: OutreachActivityKind;
+  from_address: string | null;
+  to_address: string | null;
+  subject: string | null;
+  body: string | null;
+  gmail_thread_id: string | null;
+  /** gmail, resend, slack, … */
+  provider: string | null;
+  occurred_at: string;
 }
 
 export interface OutreachPage {
@@ -1146,6 +1169,40 @@ export async function adminGetOutreach(opts: {
 
 export async function adminSetOutreachStage(placeId: string, stage: OutreachStage): Promise<void> {
   const { error } = await requireSupabase().from('place_outreach').upsert({ place_id: placeId, stage }, { onConflict: 'place_id' });
+  throwIf(error);
+}
+
+/** Contact history of one place, newest first. */
+export async function adminGetOutreachActivities(placeId: string): Promise<OutreachActivity[]> {
+  const { data, error } = await requireSupabase()
+    .from('place_outreach_activities')
+    .select('id, place_id, kind, from_address, to_address, subject, body, gmail_thread_id, provider, occurred_at')
+    .eq('place_id', placeId)
+    .order('occurred_at', { ascending: false });
+  throwIf(error);
+  return (data ?? []) as OutreachActivity[];
+}
+
+export async function adminAddOutreachActivity(
+  placeId: string,
+  kind: OutreachActivityKind,
+  body: string,
+): Promise<OutreachActivity> {
+  const { data, error } = await requireSupabase()
+    .from('place_outreach_activities')
+    .insert({ place_id: placeId, kind, body: body.trim() })
+    .select('id, place_id, kind, from_address, to_address, subject, body, gmail_thread_id, provider, occurred_at')
+    .single();
+  throwIf(error);
+  return data as OutreachActivity;
+}
+
+/** Contact person, notes and follow-up date on the place's outreach row. */
+export async function adminUpdateOutreachDetails(
+  placeId: string,
+  details: { contact_name?: string | null; notes?: string | null; next_follow_up_at?: string | null },
+): Promise<void> {
+  const { error } = await requireSupabase().from('place_outreach').upsert({ place_id: placeId, ...details }, { onConflict: 'place_id' });
   throwIf(error);
 }
 
