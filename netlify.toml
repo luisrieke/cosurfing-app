@@ -13,6 +13,13 @@
     "https://[a-z0-9]+\\.supabase\\.co/storage/v1/object/public/.*",
   ]
 
+# The map is the home page. Old /map links get a real 301 (query string kept) instead of the
+# client-side <Redirect> in app/map.tsx, so crawlers see a permanent redirect and index / instead.
+[[redirects]]
+  from = "/map"
+  to = "/"
+  status = 301
+
 # Single-page app: every route is handled by Expo Router on the client.
 [[redirects]]
   from = "/*"
