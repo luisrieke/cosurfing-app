@@ -286,6 +286,15 @@ export function laptopWeekRanges(
   return mergeRanges(out);
 }
 
+/**
+ * The venue itself told us laptops are never welcome: its stated policy is "none" on every day.
+ * Team or community observations do not count, because the warning quotes the venue.
+ */
+export function workForbidden(laptop: LaptopHours | null | undefined, source: LaptopSource | null | undefined): boolean {
+  if (source !== 'venue' || !laptop) return false;
+  return DAY_KEYS.every((d) => laptop[d]?.mode === 'none');
+}
+
 /** The schedule seen from minute `m`: ranges on a two-week timeline so wrap-around is seamless. */
 function doubled(ranges: Range[]): Range[] {
   return mergeRanges([...ranges, ...ranges.map(([s, e]): Range => [s + WEEK_MINUTES, e + WEEK_MINUTES])]);

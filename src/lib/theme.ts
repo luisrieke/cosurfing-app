@@ -40,6 +40,8 @@ export const colors = {
   /** Map pin rings for places the signed-in user reviewed (light) or reviewed with photos (dark). */
   mineReviewed: '#8ED16B',
   mineWithPhotos: '#1E7A3A',
+  /** Pins and rows of places whose venue told us laptop work is not allowed. */
+  workForbidden: '#9A948C',
   overlay: 'rgba(42, 33, 26, 0.45)',
   star: '#D99A2B',
   glass: 'rgba(255, 253, 249, 0.42)',

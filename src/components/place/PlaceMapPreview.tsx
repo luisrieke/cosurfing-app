@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { PlacesMap, type MapMarker } from '@/components/map';
 import { Button, Icon, Text } from '@/components/ui';
+import { workForbidden } from '@/lib/hours';
 import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
 import type { Place } from '@/lib/types';
@@ -11,7 +12,8 @@ import type { Place } from '@/lib/types';
 const PREVIEW_ZOOM = 15;
 
 interface PlaceMapPreviewProps {
-  place: Pick<Place, 'id' | 'name' | 'category' | 'lat' | 'lng' | 'address'>;
+  place: Pick<Place, 'id' | 'name' | 'category' | 'lat' | 'lng' | 'address'> &
+    Partial<Pick<Place, 'laptop_hours' | 'laptop_source'>>;
   height?: number;
   /** Opens the correction form for the pin position; hidden when not given. */
   onWrongPin?: () => void;
@@ -19,9 +21,10 @@ interface PlaceMapPreviewProps {
 
 export function PlaceMapPreview({ place, height = 200, onWrongPin }: PlaceMapPreviewProps) {
   const router = useRouter();
+  const forbidden = workForbidden(place.laptop_hours, place.laptop_source);
   const markers = useMemo<MapMarker[]>(
-    () => [{ id: place.id, lat: place.lat, lng: place.lng, category: place.category, name: place.name }],
-    [place.id, place.lat, place.lng, place.category, place.name],
+    () => [{ id: place.id, lat: place.lat, lng: place.lng, category: place.category, name: place.name, forbidden }],
+    [place.id, place.lat, place.lng, place.category, place.name, forbidden],
   );
   const openMap = () => router.push(`/?lat=${place.lat}&lng=${place.lng}&zoom=16`);
 

@@ -12,9 +12,11 @@ export const pinIconPaths: Record<PlaceCategory, string> = {
   coliving: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline>',
 };
 
-export function pinColor(category: PlaceCategory): string {
-  return colors[category];
+export function pinColor(category: PlaceCategory, forbidden = false): string {
+  return forbidden ? colors.workForbidden : colors[category];
 }
+
+export const FORBIDDEN_PIN_OPACITY = 0.45;
 
 export function pinRingColor(mine: MyPlaceContribution | undefined): string | null {
   if (mine === 'photos') return colors.mineWithPhotos;
@@ -22,7 +24,8 @@ export function pinRingColor(mine: MyPlaceContribution | undefined): string | nu
   return null;
 }
 
-export function pinLabel(name: string, mine: MyPlaceContribution | undefined): string {
+export function pinLabel(name: string, mine: MyPlaceContribution | undefined, forbidden = false): string {
+  if (forbidden) return strings.map.pinWorkForbidden(name);
   if (mine === 'photos') return strings.map.pinMineWithPhotos(name);
   if (mine === 'reviewed') return strings.map.pinMineReviewed(name);
   if (mine === 'photoOnly') return strings.map.pinMinePhotoOnly(name);
