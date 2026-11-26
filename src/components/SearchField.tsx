@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     height: '100%',
-    fontSize: 15,
+    fontSize: 16,
     color: colors.text,
     fontFamily,
     outlineWidth: 0,

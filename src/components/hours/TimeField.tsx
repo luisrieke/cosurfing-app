@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderStrong,
     backgroundColor: colors.surface,
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     fontFamily,
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
