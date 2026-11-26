@@ -1071,6 +1071,7 @@ export const strings = {
     allHidden: 'All place types are hidden. Tap one above to show it again.',
     pinMineReviewed: (name: string) => `${name}, you reviewed this place`,
     pinMineWithPhotos: (name: string) => `${name}, you reviewed this place and added photos`,
+    pinMinePhotoOnly: (name: string) => `${name}, you added photos but have not reviewed this place yet`,
     colivingsHint: 'Colivings are places to stay: most only let residents work there, and some are closed part of the year.',
   },
   suggest: {

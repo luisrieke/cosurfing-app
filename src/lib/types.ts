@@ -3,8 +3,8 @@ import type { HoursFlag, HoursSource, HoursStatus, LaptopHours, LaptopSource, We
 export type CityStatus = 'active' | 'waitlist';
 export type PlaceCategory = 'coworking' | 'cafe' | 'library' | 'coliving';
 
-/** What the signed-in user left at a place: a review, or a review plus photos. */
-export type MyPlaceContribution = 'reviewed' | 'photos';
+/** What the signed-in user left at a place: photos only, a review, or a review plus photos. */
+export type MyPlaceContribution = 'photoOnly' | 'reviewed' | 'photos';
 export type SeasonValue = 'year_round' | 'seasonal' | 'unknown';
 export type PlaceStatus = 'draft' | 'published' | 'needs_review' | 'archived';
 export type PlaceReviewReason = 'website_parked' | 'website_dead' | 'reported_closed';

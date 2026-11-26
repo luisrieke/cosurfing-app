@@ -36,7 +36,7 @@ const css = `
 .cs-pin svg { width: 16px; height: 16px; stroke: #fff; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .cs-marker--selected .cs-pin { transform: scale(1.25); }
 .cs-marker--selected .cs-pin__body { border-color: ${colors.text}; }
-.cs-marker--reviewed .cs-pin__body { box-shadow: 0 0 0 3px ${colors.mineReviewed}, 0 2px 6px rgba(42,33,26,0.3); }
+.cs-marker--reviewed .cs-pin__body, .cs-marker--photo-only .cs-pin__body { box-shadow: 0 0 0 3px ${colors.mineReviewed}, 0 2px 6px rgba(42,33,26,0.3); }
 .cs-marker--photos .cs-pin__body { box-shadow: 0 0 0 3px ${colors.mineWithPhotos}, 0 2px 6px rgba(42,33,26,0.3); }
 .cs-cluster { display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; padding: 0; background: transparent; cursor: pointer; font-family: inherit; }
 .cs-cluster__bubble { display: flex; align-items: center; justify-content: center; border-radius: 999px; background: ${colors.accent}; color: #fff; font-weight: 700; font-size: 13px; border: 2px solid #fff; box-shadow: 0 0 0 4px ${colors.accent}33, 0 2px 6px rgba(42,33,26,0.3); }
@@ -221,6 +221,7 @@ export const PlacesMap = forwardRef<MapHandle, MapProps>(function PlacesMap(
       if (!entry) continue;
       entry.el.classList.toggle('cs-marker--selected', m.id === selectedId);
       entry.el.classList.toggle('cs-marker--reviewed', m.mine === 'reviewed');
+      entry.el.classList.toggle('cs-marker--photo-only', m.mine === 'photoOnly');
       entry.el.classList.toggle('cs-marker--photos', m.mine === 'photos');
       entry.button.setAttribute('aria-label', pinLabel(m.name, m.mine));
     }

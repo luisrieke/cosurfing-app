@@ -786,7 +786,10 @@ export async function getMyReviews(userId: string): Promise<(PlaceReview & { pla
   return (data ?? []) as unknown as (PlaceReview & { place: Place })[];
 }
 
-/** Places the user reviewed, marked `'photos'` when they also uploaded photos there that were not rejected. */
+/**
+ * Places the user contributed to: `'reviewed'` for a review, `'photos'` for a review plus photos
+ * (not rejected), `'photoOnly'` for photos without a review yet.
+ */
 export async function getMyReviewedPlaces(userId: string): Promise<Map<string, MyPlaceContribution>> {
   const sb = requireSupabase();
   const [reviews, photos] = await Promise.all([
@@ -800,6 +803,9 @@ export async function getMyReviewedPlaces(userId: string): Promise<Map<string, M
   for (const r of reviews.data ?? []) {
     const placeId = r.place_id as string;
     result.set(placeId, withPhotos.has(placeId) ? 'photos' : 'reviewed');
+  }
+  for (const placeId of withPhotos) {
+    if (!result.has(placeId)) result.set(placeId, 'photoOnly');
   }
   return result;
 }

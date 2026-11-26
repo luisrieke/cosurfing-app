@@ -18,12 +18,13 @@ export function pinColor(category: PlaceCategory): string {
 
 export function pinRingColor(mine: MyPlaceContribution | undefined): string | null {
   if (mine === 'photos') return colors.mineWithPhotos;
-  if (mine === 'reviewed') return colors.mineReviewed;
+  if (mine === 'reviewed' || mine === 'photoOnly') return colors.mineReviewed;
   return null;
 }
 
 export function pinLabel(name: string, mine: MyPlaceContribution | undefined): string {
   if (mine === 'photos') return strings.map.pinMineWithPhotos(name);
   if (mine === 'reviewed') return strings.map.pinMineReviewed(name);
+  if (mine === 'photoOnly') return strings.map.pinMinePhotoOnly(name);
   return name;
 }

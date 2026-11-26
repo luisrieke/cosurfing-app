@@ -8,7 +8,7 @@ export interface MapMarker {
   lng: number;
   category: PlaceCategory;
   name: string;
-  /** Drawn as a green ring: light for a review, dark for a review with photos. */
+  /** Drawn as a green ring: light for a review or photos without a review, dark for a review with photos. */
   mine?: MyPlaceContribution;
 }
 
