@@ -29,7 +29,7 @@ function confirm(message: string, onYes: () => void) {
 }
 
 /** Invite links and current owners of a place, in the admin place editor. */
-export function AdminPlaceOwners({ placeId, published }: { placeId: string; published: boolean }) {
+export function AdminPlaceOwners({ placeId, published, onChanged }: { placeId: string; published: boolean; onChanged?: () => void }) {
   const a = strings.owner.admin;
   const owners = useQuery(`admin-place-owners:${placeId}`, () => adminGetPlaceOwners(placeId));
   const invites = useQuery(`admin-owner-invites:${placeId}`, () => adminGetOwnerInvites(placeId));
@@ -44,6 +44,7 @@ export function AdminPlaceOwners({ placeId, published }: { placeId: string; publ
     setError(null);
     try {
       await fn();
+      onChanged?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : strings.common.somethingWentWrong);
     } finally {

@@ -1527,6 +1527,16 @@ export async function adminGetOwnerInvites(placeId: string): Promise<AdminOwnerI
   return (data ?? []) as AdminOwnerInvite[];
 }
 
+export async function adminGetAllOwnerInvites(): Promise<(AdminOwnerInvite & { place: { name: string; slug: string } | null })[]> {
+  const { data, error } = await requireSupabase()
+    .from('place_owner_invites')
+    .select('id, place_id, token, sent_to, created_at, expires_at, accepted_at, place:places(name, slug)')
+    .order('created_at', { ascending: false })
+    .limit(200);
+  throwIf(error);
+  return (data ?? []) as unknown as (AdminOwnerInvite & { place: { name: string; slug: string } | null })[];
+}
+
 export async function adminCreateOwnerInvite(placeId: string, sentTo: string | null): Promise<AdminOwnerInvite> {
   const { data, error } = await requireSupabase()
     .from('place_owner_invites')
