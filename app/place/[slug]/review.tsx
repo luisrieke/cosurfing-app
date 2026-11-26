@@ -26,6 +26,7 @@ import {
   sameWeek,
   sortIntervals,
   weekError,
+  workForbidden,
   type WeeklyHours,
 } from '@/lib/hours';
 import {
@@ -617,6 +618,20 @@ function ReviewScreen({
       <Screen>
         <TopBar title={strings.review.title} onBack={back} />
         <EmptyState icon="map-pin" title={strings.place.notFound} actionLabel={strings.notFound.home} onAction={() => router.replace('/')} />
+      </Screen>
+    );
+  }
+  if (workForbidden(place.laptop_hours, place.laptop_source)) {
+    return (
+      <Screen>
+        <TopBar title={strings.review.title} onBack={back} />
+        <EmptyState
+          icon="slash"
+          title={strings.review.workForbiddenTitle}
+          body={strings.map.workForbiddenBody}
+          actionLabel={nextSlug ? strings.review.workForbiddenNext : strings.review.workForbiddenBack}
+          onAction={nextSlug ? goNext : () => router.replace(`/place/${slug}`)}
+        />
       </Screen>
     );
   }
