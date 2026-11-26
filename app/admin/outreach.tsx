@@ -9,8 +9,18 @@ import { Button, Card, Chip, Input, Notice, Skeleton, Text } from '@/components/
 import { useQuery } from '@/hooks/useQuery';
 import { useDebounced } from '@/hooks/useDebounced';
 import { useAuth } from '@/lib/auth';
-import { normalizeWebsite } from '@/lib/format';
-import { adminGetOutreach, adminSetOutreachStage, OUTREACH_STAGES, type OutreachPlace, type OutreachStage } from '@/lib/queries';
+import { formatDate, formatDateTime, normalizeWebsite } from '@/lib/format';
+import {
+  adminAddOutreachActivity,
+  adminGetOutreach,
+  adminGetOutreachActivities,
+  adminSetOutreachStage,
+  adminUpdateOutreachDetails,
+  OUTREACH_STAGES,
+  type OutreachActivity,
+  type OutreachPlace,
+  type OutreachStage,
+} from '@/lib/queries';
 import { strings } from '@/lib/strings';
 import { spacing } from '@/lib/theme';
 
@@ -117,12 +127,21 @@ export default function AdminOutreach() {
 
 function OutreachItem({ place, onStage }: { place: OutreachPlace; onStage: (stage: OutreachStage) => void }) {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const meta = [
+    place.email ?? strings.admin.outreachNoEmail,
+    place.last_contacted_at ? strings.admin.outreachLastContact(formatDate(place.last_contacted_at)) : null,
+    place.next_follow_up_at ? strings.admin.outreachFollowUp(formatDate(place.next_follow_up_at)) : null,
+  ].filter(Boolean);
   return (
     <Card style={styles.card}>
       <View style={styles.head}>
         <Text variant="bodyStrong">{place.name}</Text>
         <Text variant="small" tone="muted">
           {[place.address, place.city?.name].filter(Boolean).join(' · ')}
+        </Text>
+        <Text variant="small" tone="muted">
+          {meta.join(' · ')}
         </Text>
       </View>
       <View style={styles.links}>
@@ -134,6 +153,12 @@ function OutreachItem({ place, onStage }: { place: OutreachPlace; onStage: (stag
           />
         ) : null}
         <Button title={strings.admin.editPlace} size="sm" variant="ghost" onPress={() => router.push(`/admin/places/${place.id}`)} />
+        <Button
+          title={open ? strings.admin.outreachHideHistory : strings.admin.outreachHistory(place.activity_count)}
+          size="sm"
+          variant="ghost"
+          onPress={() => setOpen((o) => !o)}
+        />
         <VenueReviewKit slug={place.slug} compact />
       </View>
       <View style={styles.stages}>
@@ -141,7 +166,110 @@ function OutreachItem({ place, onStage }: { place: OutreachPlace; onStage: (stag
           <Chip key={s} label={strings.admin.outreachStages[s] ?? s} selected={place.stage === s} onPress={() => onStage(s)} />
         ))}
       </View>
+      {open ? <OutreachCrm place={place} /> : null}
     </Card>
+  );
+}
+
+// Contact person, notes, follow-up date and the full contact history of one place.
+function OutreachCrm({ place }: { place: OutreachPlace }) {
+  const history = useQuery(`admin-outreach-activities|${place.id}`, () => adminGetOutreachActivities(place.id), true);
+  const [contactName, setContactName] = useState(place.contact_name ?? '');
+  const [notes, setNotes] = useState(place.notes ?? '');
+  const [followUp, setFollowUp] = useState(place.next_follow_up_at ?? '');
+  const [entry, setEntry] = useState('');
+  const [kind, setKind] = useState<OutreachActivity['kind']>('note');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const run = async (fn: () => Promise<void>) => {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await fn();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : strings.common.somethingWentWrong);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveDetails = () =>
+    run(async () => {
+      const date = followUp.trim();
+      if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error(strings.admin.outreachFollowUpDate);
+      await adminUpdateOutreachDetails(place.id, {
+        contact_name: contactName.trim() || null,
+        notes: notes.trim() || null,
+        next_follow_up_at: date || null,
+      });
+      setMessage(strings.admin.outreachSaved);
+    });
+
+  const log = () =>
+    run(async () => {
+      const added = await adminAddOutreachActivity(place.id, kind, entry);
+      history.setData((prev) => [added, ...(prev ?? [])]);
+      setEntry('');
+    });
+
+  return (
+    <View style={styles.crm}>
+      <Input label={strings.admin.outreachContactName} value={contactName} onChangeText={setContactName} />
+      <Input label={strings.admin.outreachNotes} value={notes} onChangeText={setNotes} multiline />
+      <Input label={strings.admin.outreachFollowUpDate} value={followUp} onChangeText={setFollowUp} autoCapitalize="none" />
+      <View style={styles.links}>
+        <Button title={strings.admin.outreachSaveDetails} size="sm" variant="secondary" disabled={busy} onPress={saveDetails} />
+        {message ? <Text variant="small" tone="muted">{message}</Text> : null}
+      </View>
+      <View style={styles.stages}>
+        {(['note', 'email_in', 'call', 'visit'] as const).map((k) => (
+          <Chip key={k} label={strings.admin.outreachKinds[k] ?? k} selected={kind === k} onPress={() => setKind(k)} />
+        ))}
+      </View>
+      <Input value={entry} onChangeText={setEntry} placeholder={strings.admin.outreachLogPlaceholder} multiline />
+      <Button title={strings.admin.outreachLog} size="sm" disabled={busy || !entry.trim()} onPress={log} />
+      {error ? <Notice tone="danger" body={error} /> : null}
+      {history.loading && !history.data ? (
+        <Skeleton height={60} />
+      ) : history.error ? (
+        <Notice tone="danger" body={history.error.message} />
+      ) : (history.data ?? []).length === 0 ? (
+        <Text variant="small" tone="muted">{strings.admin.outreachNoHistory}</Text>
+      ) : (
+        (history.data ?? []).map((a) => <ActivityRow key={a.id} activity={a} />)
+      )}
+    </View>
+  );
+}
+
+function ActivityRow({ activity: a }: { activity: OutreachActivity }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <View style={styles.activity}>
+      <Text variant="smallStrong">
+        {strings.admin.outreachKinds[a.kind] ?? a.kind} · {formatDateTime(a.occurred_at)}
+      </Text>
+      {a.from_address || a.to_address ? (
+        <Text variant="small" tone="muted">{strings.admin.outreachFromTo(a.from_address ?? '–', a.to_address ?? '–')}</Text>
+      ) : null}
+      {a.subject ? <Text variant="small">{a.subject}</Text> : null}
+      {a.body ? (
+        <Text variant="small" tone="muted" numberOfLines={expanded ? undefined : 3} onPress={() => setExpanded((e) => !e)}>
+          {a.body}
+        </Text>
+      ) : null}
+      {a.gmail_thread_id ? (
+        <Button
+          title={strings.admin.outreachOpenGmail}
+          size="sm"
+          variant="ghost"
+          onPress={() => void Linking.openURL(`https://mail.google.com/mail/#all/${a.gmail_thread_id}`)}
+        />
+      ) : null}
+    </View>
   );
 }
 
@@ -164,6 +292,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs,
+  },
+  crm: {
+    gap: spacing.sm,
+    paddingTop: spacing.sm,
+  },
+  activity: {
+    gap: 2,
+    paddingVertical: spacing.xs,
   },
   pager: {
     flexDirection: 'row',
