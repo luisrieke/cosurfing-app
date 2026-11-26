@@ -16,7 +16,7 @@ export function pinColor(category: PlaceCategory, forbidden = false): string {
   return forbidden ? colors.workForbidden : colors[category];
 }
 
-export const FORBIDDEN_PIN_OPACITY = 0.45;
+export const FORBIDDEN_PIN_OPACITY = 0.35;
 
 export function pinRingColor(mine: MyPlaceContribution | undefined): string | null {
   if (mine === 'photos') return colors.mineWithPhotos;

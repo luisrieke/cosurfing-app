@@ -372,7 +372,11 @@ export default function HomeScreen() {
                   <Text variant="caption" tone="muted" numberOfLines={1} style={styles.placeMetaText}>
                     {[
                       location.location ? formatDistance(distanceKm(location.location, selected)) : null,
-                      selected.review_count > 0 ? strings.ranking.reviews(selected.review_count) : strings.map.provisional,
+                      selectedForbidden
+                        ? strings.map.notLaptopFriendly
+                        : selected.review_count > 0
+                          ? strings.ranking.reviews(selected.review_count)
+                          : strings.map.provisional,
                     ]
                       .filter(Boolean)
                       .join(' · ')}

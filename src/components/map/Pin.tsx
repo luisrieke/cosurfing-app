@@ -21,7 +21,7 @@ export function Pin({
   const color = pinColor(category, forbidden);
   const ring = pinRingColor(mine);
   const scale = selected ? 1.2 : 1;
-  const opacity = forbidden && !selected ? FORBIDDEN_PIN_OPACITY : 1;
+  const opacity = forbidden ? FORBIDDEN_PIN_OPACITY : 1;
   return (
     <View style={[styles.wrap, { opacity, transform: [{ scale }] }]}>
       <View style={[styles.tail, { backgroundColor: color }]} />
