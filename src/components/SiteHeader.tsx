@@ -235,9 +235,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   navLinkActive: {
-    backgroundColor: colors.glassStrong,
+    backgroundColor: colors.accentSoft,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: colors.sunny,
     paddingHorizontal: spacing.md - 1,
     paddingVertical: spacing.sm - 1,
   },
