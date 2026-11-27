@@ -13,7 +13,7 @@ export function ownerInviteUrl(token: string): string {
 }
 
 export function qrSvg(url: string): Promise<string> {
-  return QRCode.toString(url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#2B2238', light: '#FFFFFF' } });
+  return QRCode.toString(url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0F2A4A', light: '#FFFFFF' } });
 }
 
 export function svgDataUri(svg: string): string {

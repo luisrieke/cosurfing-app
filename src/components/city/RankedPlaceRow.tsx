@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(43,34,56, 0.08)',
+    borderBottomColor: 'rgba(15,42,74, 0.08)',
   },
   pressed: {
     backgroundColor: colors.glass,

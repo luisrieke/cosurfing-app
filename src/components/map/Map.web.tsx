@@ -31,32 +31,32 @@ const css = `
 .cs-marker--selected { z-index: 5; }
 .cs-pin { position: relative; display: block; width: 36px; height: 44px; border: 0; padding: 0; background: transparent; cursor: pointer; transform-origin: 50% 100%; transition: transform 160ms ease; }
 .cs-pin:focus-visible { outline: 2px solid ${colors.accent}; outline-offset: 2px; border-radius: 18px; }
-.cs-pin__body { position: absolute; left: 2px; top: 2px; width: 32px; height: 32px; border-radius: 16px; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(43,34,56,0.3); }
-.cs-pin__tail { position: absolute; left: 50%; bottom: 4px; width: 10px; height: 10px; margin-left: -5px; transform: rotate(45deg); border-radius: 1px; box-shadow: 2px 2px 3px rgba(43,34,56,0.15); }
+.cs-pin__body { position: absolute; left: 2px; top: 2px; width: 32px; height: 32px; border-radius: 16px; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(15,42,74,0.3); }
+.cs-pin__tail { position: absolute; left: 50%; bottom: 4px; width: 10px; height: 10px; margin-left: -5px; transform: rotate(45deg); border-radius: 1px; box-shadow: 2px 2px 3px rgba(15,42,74,0.15); }
 .cs-pin svg { width: 16px; height: 16px; stroke: #fff; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .cs-marker--selected .cs-pin { transform: scale(1.25); }
 .cs-marker--selected .cs-pin__body { border-color: ${colors.text}; }
-.cs-marker--reviewed .cs-pin__body, .cs-marker--photo-only .cs-pin__body { box-shadow: 0 0 0 3px ${colors.mineReviewed}, 0 2px 6px rgba(43,34,56,0.3); }
-.cs-marker--photos .cs-pin__body { box-shadow: 0 0 0 3px ${colors.mineWithPhotos}, 0 2px 6px rgba(43,34,56,0.3); }
+.cs-marker--reviewed .cs-pin__body, .cs-marker--photo-only .cs-pin__body { box-shadow: 0 0 0 3px ${colors.mineReviewed}, 0 2px 6px rgba(15,42,74,0.3); }
+.cs-marker--photos .cs-pin__body { box-shadow: 0 0 0 3px ${colors.mineWithPhotos}, 0 2px 6px rgba(15,42,74,0.3); }
 .cs-marker--forbidden .cs-pin { opacity: ${FORBIDDEN_PIN_OPACITY}; }
 .cs-marker--forbidden .cs-pin__body, .cs-marker--forbidden .cs-pin__tail { background: ${colors.workForbidden} !important; }
 .cs-cluster { display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; padding: 0; background: transparent; cursor: pointer; font-family: inherit; }
-.cs-cluster__bubble { display: flex; align-items: center; justify-content: center; border-radius: 999px; background: ${colors.accent}; color: #fff; font-weight: 700; font-size: 13px; border: 2px solid #fff; box-shadow: 0 0 0 4px ${colors.accent}33, 0 2px 6px rgba(43,34,56,0.3); }
+.cs-cluster__bubble { display: flex; align-items: center; justify-content: center; border-radius: 999px; background: ${colors.accent}; color: #fff; font-weight: 700; font-size: 13px; border: 2px solid #fff; box-shadow: 0 0 0 4px ${colors.accent}33, 0 2px 6px rgba(15,42,74,0.3); }
 .cs-cluster__label { max-width: 140px; padding: 1px 6px; border-radius: 6px; background: rgba(255,255,255,0.85); color: ${colors.text}; font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cs-cluster:hover .cs-cluster__bubble, .cs-cluster:focus-visible .cs-cluster__bubble { filter: brightness(1.08); }
 .cs-user { width: 18px; height: 18px; border-radius: 9px; background: #1D6FE8; border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(29,111,232,0.2); }
 .maplibregl-ctrl-attrib { font-size: 10px; }
-.maplibregl-ctrl-group { border-radius: 999px !important; overflow: hidden; background: ${colors.glassStrong} !important; backdrop-filter: blur(18px) saturate(1.6); -webkit-backdrop-filter: blur(18px) saturate(1.6); border: 1px solid ${colors.glassBorder} !important; box-shadow: 0 1px 2px rgba(43,34,56,0.08), 0 8px 24px rgba(43,34,56,0.08) !important; }
+.maplibregl-ctrl-group { border-radius: 999px !important; overflow: hidden; background: ${colors.glassStrong} !important; backdrop-filter: blur(18px) saturate(1.6); -webkit-backdrop-filter: blur(18px) saturate(1.6); border: 1px solid ${colors.glassBorder} !important; box-shadow: 0 1px 2px rgba(15,42,74,0.08), 0 8px 24px rgba(15,42,74,0.08) !important; }
 .maplibregl-ctrl-group button { width: 36px !important; height: 36px !important; }
 `;
 
-/** Repaint the grey Positron base map in the app's warm, cheerful palette. */
+/** Repaint the grey Positron base map in the app's sunny Aegean palette. */
 const MAP_TINT = {
-  land: '#FFF8EF',
-  water: '#A8D8F5',
-  park: '#CDEFC9',
-  wood: '#D8F0CF',
-  building: '#F6E7D8',
+  land: '#FBFDFF',
+  water: '#7CC7EC',
+  park: '#D7EBC4',
+  wood: '#CFE5B8',
+  building: '#EEF3F8',
 } as const;
 
 function brightenBaseMap(map: maplibregl.Map) {

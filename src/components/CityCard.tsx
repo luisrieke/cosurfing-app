@@ -10,7 +10,7 @@ import { strings } from '@/lib/strings';
 import { colors, radius, spacing } from '@/lib/theme';
 import type { CityListItem } from '@/lib/types';
 
-const PLACEHOLDER_COLORS = ['#E9683A', '#2F6FD6', '#228A4E', '#7C4DDB', '#0B8A85', '#D9452F'];
+const PLACEHOLDER_COLORS = ['#1560BD', '#0B8FA0', '#D6336C', '#5E7D2A', '#D9822B', '#7048E8'];
 const darkGlass = glassSurface('dark');
 const lightGlass = glassSurface('strong');
 
