@@ -6,9 +6,10 @@ import { colors } from '@/lib/theme';
 const GLOWS: { color: string; style: ViewStyle }[] = [
   { color: colors.ambientPeach, style: { top: '-22%', right: '-12%', width: '58%', aspectRatio: 1 } },
   { color: colors.ambientSage, style: { top: '18%', left: '-24%', width: '52%', aspectRatio: 1 } },
+  { color: colors.ambientSky, style: { bottom: '-26%', right: '6%', width: '50%', aspectRatio: 1 } },
 ];
 
-/** Bright paper base with two faint glows, so glass surfaces have something to frost without looking muddy. */
+/** Bright paper base with three soft, sunny glows, so glass surfaces have something to frost without looking muddy. */
 export function AmbientBackground() {
   return (
     <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.root]}>
