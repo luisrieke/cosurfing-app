@@ -20,7 +20,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     package: 'app.cosurfing.mobile',
     adaptiveIcon: {
-      backgroundColor: '#F3F8FC',
+      backgroundColor: '#F7F2EA',
       foregroundImage: './assets/android-icon-foreground.png',
       backgroundImage: './assets/android-icon-background.png',
       monochromeImage: './assets/android-icon-monochrome.png',
@@ -48,7 +48,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         image: './assets/splash-icon.png',
         imageWidth: 180,
         resizeMode: 'contain',
-        backgroundColor: '#F3F8FC',
+        backgroundColor: '#F7F2EA',
       },
     ],
     [

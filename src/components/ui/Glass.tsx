@@ -26,8 +26,8 @@ export function glassSurface(variant: GlassVariant = 'light', { flat = false }: 
     borderColor: f.border,
     ...(Platform.OS === 'web'
       ? ({
-          backdropFilter: `blur(${f.blur}px) saturate(1.8)`,
-          WebkitBackdropFilter: `blur(${f.blur}px) saturate(1.8)`,
+          backdropFilter: `blur(${f.blur}px) saturate(1.1)`,
+          WebkitBackdropFilter: `blur(${f.blur}px) saturate(1.1)`,
         } as ViewStyle)
       : null),
     ...(variant === 'ink' ? (shadow.card as ViewStyle) : isDark(variant) || flat ? null : (shadow.glass as ViewStyle)),
