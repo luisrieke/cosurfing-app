@@ -41,7 +41,7 @@ const css = `
 .cs-marker--forbidden .cs-pin { opacity: ${FORBIDDEN_PIN_OPACITY}; }
 .cs-marker--forbidden .cs-pin__body, .cs-marker--forbidden .cs-pin__tail { background: ${colors.workForbidden} !important; }
 .cs-cluster { display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; padding: 0; background: transparent; cursor: pointer; font-family: inherit; }
-.cs-cluster__bubble { display: flex; align-items: center; justify-content: center; border-radius: 999px; background: ${colors.accent}; color: #fff; font-weight: 700; font-size: 13px; border: 2px solid #fff; box-shadow: 0 0 0 4px ${colors.accent}33, 0 2px 6px rgba(58,46,36,0.3); }
+.cs-cluster__bubble { display: flex; align-items: center; justify-content: center; border-radius: 999px; background: ${colors.accent}; color: #fff; font-weight: 700; font-size: 13px; border: 2px solid #fff; box-shadow: 0 0 0 4px ${colors.sunny}99, 0 2px 6px rgba(58,46,36,0.3); }
 .cs-cluster__label { max-width: 140px; padding: 1px 6px; border-radius: 6px; background: rgba(255,255,255,0.85); color: ${colors.text}; font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cs-cluster:hover .cs-cluster__bubble, .cs-cluster:focus-visible .cs-cluster__bubble { filter: brightness(1.08); }
 .cs-user { width: 18px; height: 18px; border-radius: 9px; background: #1D6FE8; border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(29,111,232,0.2); }
@@ -50,13 +50,13 @@ const css = `
 .maplibregl-ctrl-group button { width: 36px !important; height: 36px !important; }
 `;
 
-/** Repaint the grey Positron base map in the app's soft, cosy palette. */
+/** Repaint the grey Positron base map in the app's bright, fresh palette. */
 const MAP_TINT = {
-  land: '#FAF6EF',
-  water: '#C3DDE3',
-  park: '#DDE7CF',
-  wood: '#D6E2C6',
-  building: '#EFE8DD',
+  land: '#FCFAF2',
+  water: '#B4DCEB',
+  park: '#D3EDC6',
+  wood: '#CBE6BC',
+  building: '#F2ECDD',
 } as const;
 
 function brightenBaseMap(map: maplibregl.Map) {
